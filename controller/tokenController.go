@@ -22,6 +22,8 @@ type SigninController struct{}
 
 type Claims struct {
 	Username    string   `json:"username"`
+	FirstName   string   `json:"firstName"`
+	LastName    string   `json:"lastName"`
 	Authorities []string `json:"authorities,omitempty"`
 	jwt.StandardClaims
 }
@@ -55,21 +57,35 @@ func init() {
 func (s SigninController) Token(w http.ResponseWriter, r *http.Request) {
 	userRespository := repository.UserRepository{}
 
-	err := r.ParseForm()
-	util.LogFatal(err)
+	var username string
+	var password string
 
-	username := r.FormValue("username")
-	password := r.FormValue("password")
+	if r.Header.Get("Content-Type") == "application/x-www-form-urlencoded" {
+		err := r.ParseForm()
+		util.LogError(err)
+
+		username = r.FormValue("username")
+		password = r.FormValue("password")
+	} else if r.Header.Get("Content-Type") == "application/json" {
+		var userLogin model.UserLogin
+		_ = json.NewDecoder(r.Body).Decode(&userLogin)
+		username = userLogin.Username
+		password = userLogin.Password
+	} else {
+		util.SendBadRequest(w, errors.New("Content-Type not supported"))
+	}
 
 	data, err := userRespository.FindByUsername(username)
-
 	if (model.User{}) == data {
-		util.SendNotFound(w, errors.New("username not found"))
+		var e model.Error
+		e.Message = "username not found"
+		e.StatusCode = http.StatusUnauthorized
+		w.WriteHeader(http.StatusUnauthorized)
+		_ = json.NewEncoder(w).Encode(e)
 		return
 	}
 
 	user := data.(model.User)
-
 	if !comparePassword(password, user.Password) {
 		var e model.Error
 		e.Message = "password doesn't match"
@@ -79,12 +95,19 @@ func (s SigninController) Token(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token, err := generateJwtToken(user)
+	authorities, _ := loadAuthorities(user.ID)
+
+	token, err := generateJwtToken(user, authorities)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 	util.SendSuccess(w, token)
+}
+
+func loadAuthorities(userId int) ([]string, error) {
+	userAuthorityRepository := repository.UserAuthorityRepository{}
+	return userAuthorityRepository.FindAuthoritiesByUserID(userId)
 }
 
 func comparePassword(pwPlain string, dbPw string) bool {
@@ -96,10 +119,13 @@ func comparePassword(pwPlain string, dbPw string) bool {
 	return true
 }
 
-func generateJwtToken(user model.User) (interface{}, error) {
+func generateJwtToken(user model.User, authorities []string) (interface{}, error) {
 	expirationTime := time.Now().Add(5 * time.Minute)
 	claims := &Claims{
-		Username: user.Username,
+		Username:    user.Username,
+		FirstName:   user.FirstName,
+		LastName:    user.LastName,
+		Authorities: authorities,
 		StandardClaims: jwt.StandardClaims{
 			ExpiresAt: expirationTime.Unix(),
 		},

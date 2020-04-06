@@ -58,8 +58,22 @@ func ResultData(data interface{}, z interface{}, err error) (interface{}, error)
 	return data, nil
 }
 
+func ResultSliceString(data []string, z []string, err error) ([]string, error) {
+	if err != nil {
+		return z, err
+	}
+
+	return data, nil
+}
+
 func LogFatal(err error) {
 	if err != nil {
 		log.Fatal(err)
+	}
+}
+
+func LogError(err error) {
+	if err != nil {
+		log.Println("ERROR: ", err)
 	}
 }

@@ -42,15 +42,15 @@ create unique index ui_golauth_authority_name
 
 create table golauth_role_authority
 (
-    role_id      varchar(255) not null,
-    authority_id varchar(255) not null,
+    role_id      integer not null,
+    authority_id integer not null,
     constraint pk_golauth_role_authority primary key (role_id, authority_id)
 );
 
 create table golauth_user_role
 (
-    user_id      varchar(255) not null,
-    role_id     varchar(255) not null,
-    creation_date timestamp    not null default current_timestamp,
+    user_id       integer   not null,
+    role_id       integer   not null,
+    creation_date timestamp not null default current_timestamp,
     constraint pk_golauth_user_role primary key (user_id, role_id)
 );
