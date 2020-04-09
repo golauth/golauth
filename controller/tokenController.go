@@ -8,7 +8,6 @@ import (
 	"golauth/repository"
 	"golauth/util"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"os"
 	"time"
@@ -86,9 +85,10 @@ func (s SigninController) Token(w http.ResponseWriter, r *http.Request) {
 	}
 
 	user := data.(model.User)
-	if !comparePassword(password, user.Password) {
+	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password))
+	if err != nil {
 		var e model.Error
-		e.Message = "password doesn't match"
+		e.Message = err.Error()
 		e.StatusCode = http.StatusUnauthorized
 		w.WriteHeader(http.StatusUnauthorized)
 		_ = json.NewEncoder(w).Encode(e)
@@ -97,26 +97,18 @@ func (s SigninController) Token(w http.ResponseWriter, r *http.Request) {
 
 	authorities, _ := loadAuthorities(user.ID)
 
-	token, err := generateJwtToken(user, authorities)
+	jwtToken, err := generateJwtToken(user, authorities)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	util.SendSuccess(w, token)
+	tokenResponse := model.TokenResponse{AccessToken: jwtToken}
+	util.SendSuccess(w, tokenResponse)
 }
 
 func loadAuthorities(userId int) ([]string, error) {
 	userAuthorityRepository := repository.UserAuthorityRepository{}
 	return userAuthorityRepository.FindAuthoritiesByUserID(userId)
-}
-
-func comparePassword(pwPlain string, dbPw string) bool {
-	err := bcrypt.CompareHashAndPassword([]byte(dbPw), []byte(pwPlain))
-	if err != nil {
-		log.Println(err)
-		return false
-	}
-	return true
 }
 
 func generateJwtToken(user model.User, authorities []string) (interface{}, error) {
