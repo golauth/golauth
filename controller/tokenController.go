@@ -1,57 +1,19 @@
 package controller
 
 import (
-	"crypto/rsa"
 	"encoding/json"
 	"errors"
 	"golauth/model"
 	"golauth/repository"
 	"golauth/util"
-	"io/ioutil"
 	"net/http"
-	"os"
 	"time"
 
 	"github.com/dgrijalva/jwt-go"
-	"github.com/subosito/gotenv"
 	"golang.org/x/crypto/bcrypt"
 )
 
 type SigninController struct{}
-
-type Claims struct {
-	Username    string   `json:"username"`
-	FirstName   string   `json:"firstName"`
-	LastName    string   `json:"lastName"`
-	Authorities []string `json:"authorities,omitempty"`
-	jwt.StandardClaims
-}
-
-var (
-	privateKeyPath string
-	publicKeyPath  string
-	verifyKey      *rsa.PublicKey
-	signKey        *rsa.PrivateKey
-)
-
-func init() {
-	_ = gotenv.Load()
-
-	privateKeyPath = os.Getenv("PRIVATE_KEY_PATH")
-	publicKeyPath = os.Getenv("PUBLIC_KEY_PATH")
-
-	signBytes, err := ioutil.ReadFile(privateKeyPath)
-	util.LogFatal(err)
-
-	signKey, err = jwt.ParseRSAPrivateKeyFromPEM(signBytes)
-	util.LogFatal(err)
-
-	verifyBytes, err := ioutil.ReadFile(publicKeyPath)
-	util.LogFatal(err)
-
-	verifyKey, err = jwt.ParseRSAPublicKeyFromPEM(verifyBytes)
-	util.LogFatal(err)
-}
 
 func (s SigninController) Token(w http.ResponseWriter, r *http.Request) {
 	userRespository := repository.UserRepository{}
@@ -113,7 +75,7 @@ func loadAuthorities(userId int) ([]string, error) {
 
 func generateJwtToken(user model.User, authorities []string) (interface{}, error) {
 	expirationTime := time.Now().Add(5 * time.Minute)
-	claims := &Claims{
+	claims := &model.Claims{
 		Username:    user.Username,
 		FirstName:   user.FirstName,
 		LastName:    user.LastName,
@@ -124,5 +86,5 @@ func generateJwtToken(user model.User, authorities []string) (interface{}, error
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
-	return token.SignedString(signKey)
+	return token.SignedString(util.SignKey)
 }

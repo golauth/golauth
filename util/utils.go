@@ -37,6 +37,11 @@ func SendSuccess(w http.ResponseWriter, data interface{}) {
 	_ = json.NewEncoder(w).Encode(data)
 }
 
+func SendError(w http.ResponseWriter, err model.Error) {
+	w.WriteHeader(err.StatusCode)
+	_ = json.NewEncoder(w).Encode(err)
+}
+
 func SendResult(w http.ResponseWriter, data interface{}, err error) {
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -76,4 +81,12 @@ func LogError(err error) {
 	if err != nil {
 		log.Println("ERROR: ", err)
 	}
+}
+
+func sendError(w http.ResponseWriter, statusCode int, message string) {
+	var e model.Error
+	e.Message = message
+	e.StatusCode = statusCode
+	w.WriteHeader(http.StatusUnauthorized)
+	_ = json.NewEncoder(w).Encode(e)
 }

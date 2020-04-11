@@ -2,6 +2,8 @@ package routes
 
 import (
 	"golauth/controller"
+	"golauth/model"
+	"golauth/util"
 	"net/http"
 
 	"github.com/gorilla/mux"
@@ -11,22 +13,29 @@ var (
 	signupController     controller.SignupController
 	siginController      controller.SigninController
 	checkTokenController controller.CheckTokenController
+	userController       controller.UserController
+	publicPath           map[string]bool
 )
 
 func init() {
 	signupController = controller.SignupController{}
 	siginController = controller.SigninController{}
 	checkTokenController = controller.CheckTokenController{}
+	userController = controller.UserController{}
+	publicPath = map[string]bool{"/golauth/token": true, "/golauth/check_token": true}
 }
 
 func RegisterRoutes(router *mux.Router) {
 	router.HandleFunc("/signup", signupController.CreateUser).Methods(http.MethodPost, http.MethodOptions)
 	router.HandleFunc("/token", siginController.Token).Methods(http.MethodPost, http.MethodOptions)
-	router.HandleFunc("/check_token", checkTokenController.CheckToken).Methods(http.MethodGet)
-	router.Use(configMiddleware)
+	router.HandleFunc("/check_token", checkTokenController.CheckToken).Methods(http.MethodGet, http.MethodOptions)
+
+	router.HandleFunc("/users/{username}", userController.FindByUsername).Methods(http.MethodGet, http.MethodOptions)
+	router.Use(applyCors)
+	router.Use(applySecurity)
 }
 
-func configMiddleware(next http.Handler) http.Handler {
+func applyCors(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Add("Access-Control-Allow-Origin", "*")
 		w.Header().Add("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
@@ -36,4 +45,28 @@ func configMiddleware(next http.Handler) http.Handler {
 		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+func applySecurity(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requestURI := r.RequestURI
+		if isPublicPath(requestURI) {
+			token, err := util.ExtractToken(r)
+			if err != (model.Error{}) {
+				util.SendError(w, err)
+				return
+			}
+			err = util.ValidateToken(token)
+			if err != (model.Error{}) {
+				util.SendError(w, err)
+				return
+			}
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+func isPublicPath(requestURI string) bool {
+	_, ok := publicPath[requestURI]
+	return !ok
 }
