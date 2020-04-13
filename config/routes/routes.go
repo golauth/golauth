@@ -14,7 +14,7 @@ var (
 	siginController      controller.SigninController
 	checkTokenController controller.CheckTokenController
 	userController       controller.UserController
-	publicPath           map[string]bool
+	publicURI            map[string]bool
 )
 
 func init() {
@@ -22,7 +22,11 @@ func init() {
 	siginController = controller.SigninController{}
 	checkTokenController = controller.CheckTokenController{}
 	userController = controller.UserController{}
-	publicPath = map[string]bool{"/golauth/token": true, "/golauth/check_token": true}
+	publicURI = map[string]bool{
+		"/golauth/token":       true,
+		"/golauth/check_token": true,
+		"/golauth/signup":      true,
+	}
 }
 
 func RegisterRoutes(router *mux.Router) {
@@ -50,7 +54,7 @@ func applyCors(next http.Handler) http.Handler {
 func applySecurity(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		requestURI := r.RequestURI
-		if isPublicPath(requestURI) {
+		if isPrivateURI(requestURI) {
 			token, err := util.ExtractToken(r)
 			if err != (model.Error{}) {
 				util.SendError(w, err)
@@ -66,7 +70,7 @@ func applySecurity(next http.Handler) http.Handler {
 	})
 }
 
-func isPublicPath(requestURI string) bool {
-	_, ok := publicPath[requestURI]
-	return !ok
+func isPrivateURI(requestURI string) bool {
+	_, contains := publicURI[requestURI]
+	return !contains
 }
