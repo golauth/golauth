@@ -36,7 +36,7 @@ func (s SigninController) Token(w http.ResponseWriter, r *http.Request) {
 		util.SendBadRequest(w, errors.New("Content-Type not supported"))
 	}
 
-	data, err := userRespository.FindByUsername(username)
+	data, err := userRespository.FindByUsernameWithPassword(username)
 	if (model.User{}) == data {
 		var e model.Error
 		e.Message = "username not found"
