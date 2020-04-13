@@ -4,6 +4,6 @@ import "time"
 
 type UserRole struct {
 	UserID       int       `json:"userId"`
-	RoleID       string    `json:"roleId"`
+	RoleID       int       `json:"roleId"`
 	CreationDate time.Time `json:"creationDate"`
 }

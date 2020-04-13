@@ -15,6 +15,8 @@ import (
 
 type SigninController struct{}
 
+const tokenExpirationTime = 30
+
 func (s SigninController) Token(w http.ResponseWriter, r *http.Request) {
 	userRespository := repository.UserRepository{}
 
@@ -36,8 +38,8 @@ func (s SigninController) Token(w http.ResponseWriter, r *http.Request) {
 		util.SendBadRequest(w, errors.New("Content-Type not supported"))
 	}
 
-	data, err := userRespository.FindByUsernameWithPassword(username)
-	if (model.User{}) == data {
+	user, err := userRespository.FindByUsernameWithPassword(username)
+	if (model.User{}) == user {
 		var e model.Error
 		e.Message = "username not found"
 		e.StatusCode = http.StatusUnauthorized
@@ -46,7 +48,6 @@ func (s SigninController) Token(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user := data.(model.User)
 	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password))
 	if err != nil {
 		var e model.Error
@@ -61,7 +62,11 @@ func (s SigninController) Token(w http.ResponseWriter, r *http.Request) {
 
 	jwtToken, err := generateJwtToken(user, authorities)
 	if err != nil {
+		var e model.Error
+		e.Message = err.Error()
+		e.StatusCode = http.StatusInternalServerError
 		w.WriteHeader(http.StatusInternalServerError)
+		_ = json.NewEncoder(w).Encode(e)
 		return
 	}
 	tokenResponse := model.TokenResponse{AccessToken: jwtToken}
@@ -74,7 +79,7 @@ func loadAuthorities(userId int) ([]string, error) {
 }
 
 func generateJwtToken(user model.User, authorities []string) (interface{}, error) {
-	expirationTime := time.Now().Add(5 * time.Minute)
+	expirationTime := time.Now().Add(tokenExpirationTime * time.Minute)
 	claims := &model.Claims{
 		Username:    user.Username,
 		FirstName:   user.FirstName,

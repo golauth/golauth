@@ -5,7 +5,6 @@ import (
 	"golauth/model"
 	"golauth/repository"
 	"golauth/util"
-	"log"
 	"net/http"
 
 	"golang.org/x/crypto/bcrypt"
@@ -13,17 +12,41 @@ import (
 
 type SignupController struct{}
 
+var defaultRoleName string
+
+func init() {
+	defaultRoleName = "USER"
+}
+
 func (s SignupController) CreateUser(w http.ResponseWriter, r *http.Request) {
 	userRespository := repository.UserRepository{}
-	var user model.User
-	_ = json.NewDecoder(r.Body).Decode(&user)
+	roleRepository := repository.RoleRepository{}
+	userRoleRepository := repository.UserRoleRepository{}
+	var decodedUser model.User
+	_ = json.NewDecoder(r.Body).Decode(&decodedUser)
 
-	hash, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
+	hash, err := bcrypt.GenerateFromPassword([]byte(decodedUser.Password), bcrypt.DefaultCost)
 	if err != nil {
-		log.Println(err)
+		util.SendServerError(w, err)
+		return
 	}
 
-	user.Password = string(hash)
-	data, err := userRespository.Create(user)
-	util.SendResult(w, data, err)
+	decodedUser.Password = string(hash)
+	user, err := userRespository.Create(decodedUser)
+	if err != nil {
+		util.SendServerError(w, err)
+		return
+	}
+	role, err := roleRepository.FindByName(defaultRoleName)
+	if err != nil {
+		util.SendServerError(w, err)
+		return
+	}
+	_, err = userRoleRepository.AddUserRole(user.ID, role.ID)
+	if err != nil {
+		util.SendServerError(w, err)
+		return
+	}
+
+	util.SendResult(w, user, err)
 }
