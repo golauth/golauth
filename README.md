@@ -67,3 +67,25 @@ networks:
 | DB_USERNAME  | Database username        |golauth|
 | DB_PASSWORD  | Database password        |golauth|
 | PORT         | Default application port |8080|
+
+### Accessing
+
+Default user is `admin` and password `admin123`.
+
+
+```bash
+$ curl --request POST \
+    --url http://localhost:8081/golauth/token \
+    --header 'content-type: application/json' \
+    --data '{"username": "admin","password": "admin123"}'
+```
+
+or 
+
+```bash
+$ curl --request POST \
+    --url http://localhost:8081/golauth/token \
+    --header 'content-type: application/x-www-form-urlencoded' \
+    --data username=admin \
+    --data password=admin123
+```

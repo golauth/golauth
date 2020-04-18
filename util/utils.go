@@ -38,7 +38,12 @@ func SendSuccess(w http.ResponseWriter, data interface{}) {
 }
 
 func SendError(w http.ResponseWriter, err model.Error) {
-	w.WriteHeader(err.StatusCode)
+	if err.StatusCode == 0 {
+		w.WriteHeader(http.StatusInternalServerError)
+	} else {
+		w.WriteHeader(err.StatusCode)
+	}
+	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(err)
 }
 
@@ -81,12 +86,4 @@ func LogError(err error) {
 	if err != nil {
 		log.Println("ERROR: ", err)
 	}
-}
-
-func sendError(w http.ResponseWriter, statusCode int, message string) {
-	var e model.Error
-	e.Message = message
-	e.StatusCode = statusCode
-	w.WriteHeader(http.StatusUnauthorized)
-	_ = json.NewEncoder(w).Encode(e)
 }
