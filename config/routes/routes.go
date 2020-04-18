@@ -14,6 +14,7 @@ var (
 	siginController      controller.SigninController
 	checkTokenController controller.CheckTokenController
 	userController       controller.UserController
+	roleController       controller.RoleController
 	publicURI            map[string]bool
 )
 
@@ -22,6 +23,7 @@ func init() {
 	siginController = controller.SigninController{}
 	checkTokenController = controller.CheckTokenController{}
 	userController = controller.UserController{}
+	roleController = controller.RoleController{}
 	publicURI = map[string]bool{
 		"/golauth/token":       true,
 		"/golauth/check_token": true,
@@ -35,6 +37,10 @@ func RegisterRoutes(router *mux.Router) {
 	router.HandleFunc("/check_token", checkTokenController.CheckToken).Methods(http.MethodGet, http.MethodOptions)
 
 	router.HandleFunc("/users/{username}", userController.FindByUsername).Methods(http.MethodGet, http.MethodOptions)
+	router.HandleFunc("/users/{username}/add-role", userController.AddRole).Methods(http.MethodGet, http.MethodOptions)
+
+	router.HandleFunc("/roles", roleController.CreateRole).Methods(http.MethodPost, http.MethodOptions)
+	router.HandleFunc("/roles/{id}", roleController.EditRole).Methods(http.MethodPut, http.MethodOptions)
 	router.Use(applyCors)
 	router.Use(applySecurity)
 }

@@ -66,5 +66,5 @@ func ExtractToken(r *http.Request) (string, model.Error) {
 	if len(authorization) > len("Bearer ") {
 		return authorization[7:], model.Error{}
 	}
-	return "", model.Error{Message: "bearer token extract error"}
+	return "", model.Error{Message: "bearer token extract error", StatusCode: http.StatusBadGateway}
 }
