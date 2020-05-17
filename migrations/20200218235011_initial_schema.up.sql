@@ -5,6 +5,7 @@ create table golauth_user
     first_name    varchar(255)  not null,
     last_name     varchar(255)  not null,
     email         varchar(1000) not null,
+    document      varchar(100)  not null,
     password      varchar(1000) not null,
     enabled       boolean       not null default true,
     creation_date timestamp     not null default current_timestamp

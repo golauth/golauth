@@ -1,1 +1,1 @@
-drop schema authentication cascade ;
+drop schema golauth cascade ;
