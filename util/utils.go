@@ -37,7 +37,7 @@ func SendSuccess(w http.ResponseWriter, data interface{}) {
 	_ = json.NewEncoder(w).Encode(data)
 }
 
-func SendError(w http.ResponseWriter, err model.Error) {
+func SendError(w http.ResponseWriter, err *model.Error) {
 	if err.StatusCode == 0 {
 		w.WriteHeader(http.StatusInternalServerError)
 	} else {
