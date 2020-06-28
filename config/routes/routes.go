@@ -2,7 +2,6 @@ package routes
 
 import (
 	"golauth/controller"
-	"golauth/model"
 	"golauth/util"
 	"net/http"
 
@@ -62,12 +61,12 @@ func applySecurity(next http.Handler) http.Handler {
 		requestURI := r.RequestURI
 		if isPrivateURI(requestURI) {
 			token, err := util.ExtractToken(r)
-			if err != (model.Error{}) {
+			if err != nil {
 				util.SendError(w, err)
 				return
 			}
 			err = util.ValidateToken(token)
-			if err != (model.Error{}) {
+			if err != nil {
 				util.SendError(w, err)
 				return
 			}
