@@ -34,7 +34,8 @@ func main() {
 	addr := fmt.Sprint(":", port)
 	router := mux.NewRouter().PathPrefix(pathPrefix).Subrouter()
 
-	routes.RegisterRoutes(router)
+	r := routes.NewRoutes(pathPrefix)
+	r.RegisterRouter(router)
 
 	fmt.Println("Server listening on port: ", port)
 	log.Fatal(http.ListenAndServe(addr, router))

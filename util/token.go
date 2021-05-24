@@ -2,10 +2,12 @@ package util
 
 import (
 	"crypto/rsa"
+	"fmt"
 	"github.com/dgrijalva/jwt-go"
 	"github.com/subosito/gotenv"
 	"golauth/model"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"os"
 )
@@ -24,16 +26,24 @@ func init() {
 	publicKeyPath = os.Getenv("PUBLIC_KEY_PATH")
 
 	signBytes, err := ioutil.ReadFile(privateKeyPath)
-	LogFatal(err)
+	if err != nil {
+		log.Fatal(fmt.Errorf("could not read private key path \"PRIVATE_KEY_PATH[%s]\": %w", privateKeyPath, err))
+	}
 
 	SignKey, err = jwt.ParseRSAPrivateKeyFromPEM(signBytes)
-	LogFatal(err)
+	if err != nil {
+		log.Fatal(fmt.Errorf("could not parse RSA private key from pem: %w", err))
+	}
 
 	verifyBytes, err := ioutil.ReadFile(publicKeyPath)
-	LogFatal(err)
+	if err != nil {
+		log.Fatal(fmt.Errorf("could not read public key path \"PUBLIC_KEY_PATH[%s]\": %w", privateKeyPath, err))
+	}
 
 	VerifyKey, err = jwt.ParseRSAPublicKeyFromPEM(verifyBytes)
-	LogFatal(err)
+	if err != nil {
+		log.Fatal(fmt.Errorf("could not parse RSA public key from pem: %w", err))
+	}
 }
 
 func ValidateToken(token string) *model.Error {

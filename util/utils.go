@@ -76,12 +76,6 @@ func ResultSliceString(data []string, z []string, err error) ([]string, error) {
 	return data, nil
 }
 
-func LogFatal(err error) {
-	if err != nil {
-		log.Fatal(err)
-	}
-}
-
 func LogError(err error) {
 	if err != nil {
 		log.Println("ERROR: ", err)

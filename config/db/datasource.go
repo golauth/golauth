@@ -3,7 +3,6 @@ package db
 import (
 	"database/sql"
 	"fmt"
-	"golauth/util"
 	"log"
 	"os"
 
@@ -40,10 +39,14 @@ func init() {
 		dbhost, dbport, dbusername, dbpassword, dbname, dbschema)
 
 	db, err = sql.Open("postgres", stringConn)
-	util.LogFatal(err)
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	err = db.Ping()
-	util.LogFatal(err)
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	sourceUrl := os.Getenv("MIGRATION_SOURCE_URL")
 	migration(sourceUrl)
@@ -54,9 +57,14 @@ func validateAndCreateSchema() {
 		dbhost, dbport, dbusername, dbpassword, dbname)
 
 	dbWithoutSchema, err := sql.Open("postgres", stringConn)
-	util.LogFatal(err)
+	if err != nil {
+		log.Fatal(err)
+	}
 	dbWithoutSchema.QueryRow(fmt.Sprintf("CREATE SCHEMA IF NOT EXISTS %s", dbschema))
-	dbWithoutSchema.Close()
+	err = dbWithoutSchema.Close()
+	if err != nil {
+		log.Fatal(err)
+	}
 }
 
 func GetDatasource() *sql.DB {
@@ -65,7 +73,9 @@ func GetDatasource() *sql.DB {
 
 func migration(sourceUrl string) {
 	driver, err := postgres.WithInstance(db, &postgres.Config{})
-	util.LogFatal(err)
+	if err != nil {
+		log.Fatal(err)
+	}
 	m, err := migrate.NewWithDatabaseInstance(
 		"file://"+sourceUrl,
 		"postgres", driver,
