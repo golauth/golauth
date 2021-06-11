@@ -1,6 +1,7 @@
 package routes
 
 import (
+	"database/sql"
 	"golauth/controller"
 	"golauth/util"
 	"net/http"
@@ -10,33 +11,20 @@ import (
 
 type Routes struct {
 	signUpController     controller.SignupController
-	signInController     controller.SigninController
+	signInController     controller.SignInController
 	checkTokenController controller.CheckTokenController
 	userController       controller.UserController
 	roleController       controller.RoleController
 	publicURI            map[string]bool
 }
 
-//func init() {
-//	signUpController = controller.SignupController{}
-//	signInController = controller.SigninController{}
-//	checkTokenController = controller.CheckTokenController{}
-//	userController = controller.UserController{}
-//	roleController = controller.RoleController{}
-//	publicURI = map[string]bool{
-//		"/golauth/token":       true,
-//		"/golauth/check_token": true,
-//		"/golauth/signup":      true,
-//	}
-//}
-
-func NewRoutes(pathPrefix string) *Routes {
+func NewRoutes(pathPrefix string, db *sql.DB) *Routes {
 	return &Routes{
-		signUpController:     controller.SignupController{},
-		signInController:     controller.SigninController{},
-		checkTokenController: controller.CheckTokenController{},
-		userController:       controller.UserController{},
-		roleController:       controller.RoleController{},
+		signUpController:     controller.NewSignupController(db),
+		signInController:     controller.NewSignInController(db),
+		checkTokenController: controller.NewCheckTokenController(),
+		userController:       controller.NewUserController(db),
+		roleController:       controller.NewRoleController(db),
 		publicURI: map[string]bool{
 			pathPrefix + "/token":       true,
 			pathPrefix + "/check_token": true,

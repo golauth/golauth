@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"database/sql"
 	"encoding/json"
 	"github.com/gorilla/mux"
 	"golauth/model"
@@ -9,20 +10,28 @@ import (
 	"net/http"
 )
 
-type UserController struct{}
+type UserController struct {
+	userRepository     repository.UserRepository
+	userRoleRepository repository.UserRoleRepository
+}
+
+func NewUserController(db *sql.DB) UserController {
+	return UserController{
+		userRepository:     repository.NewUserRepository(db),
+		userRoleRepository: repository.NewUserRoleRepository(db),
+	}
+}
 
 func (u UserController) FindByUsername(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
 	username, _ := params["username"]
-	userRespository := repository.UserRepository{}
-	user, err := userRespository.FindByUsername(username)
+	user, err := u.userRepository.FindByUsername(username)
 	util.SendResult(w, user, err)
 }
 
 func (u UserController) AddRole(w http.ResponseWriter, r *http.Request) {
 	var userRole model.UserRole
 	_ = json.NewDecoder(r.Body).Decode(&userRole)
-	userRoleRepository := repository.UserRoleRepository{}
-	savedUserRole, err := userRoleRepository.AddUserRole(userRole.UserID, userRole.RoleID)
+	savedUserRole, err := u.userRoleRepository.AddUserRole(userRole.UserID, userRole.RoleID)
 	util.SendResult(w, savedUserRole, err)
 }

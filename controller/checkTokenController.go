@@ -7,6 +7,10 @@ import (
 
 type CheckTokenController struct{}
 
+func NewCheckTokenController() CheckTokenController {
+	return CheckTokenController{}
+}
+
 func (c CheckTokenController) CheckToken(w http.ResponseWriter, r *http.Request) {
 	token, err := util.ExtractToken(r)
 	if err != nil {

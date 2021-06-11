@@ -1,4 +1,4 @@
-package db
+package datasource
 
 import (
 	"database/sql"
@@ -14,29 +14,29 @@ import (
 
 var (
 	db         *sql.DB
-	err        error
-	dbhost     string
-	dbport     string
-	dbname     string
-	dbusername string
-	dbpassword string
+	dbHost     string
+	dbPort     string
+	dbName     string
+	dbUsername string
+	dbPassword string
 )
 
 const stringConnBase = "host=%s port=%s user=%s password=%s dbname=%s sslmode=disable"
 const stringConnSchema = " search_path=%s"
 const dbschema = "golauth"
 
-func init() {
+func CreateDBConnection() *sql.DB {
+	var err error
 	_ = gotenv.Load()
-	dbhost = os.Getenv("DB_HOST")
-	dbport = os.Getenv("DB_PORT")
-	dbname = os.Getenv("DB_NAME")
-	dbusername = os.Getenv("DB_USERNAME")
-	dbpassword = os.Getenv("DB_PASSWORD")
+	dbHost = os.Getenv("DB_HOST")
+	dbPort = os.Getenv("DB_PORT")
+	dbName = os.Getenv("DB_NAME")
+	dbUsername = os.Getenv("DB_USERNAME")
+	dbPassword = os.Getenv("DB_PASSWORD")
 
 	validateAndCreateSchema()
 	stringConn := fmt.Sprintf(stringConnBase+stringConnSchema,
-		dbhost, dbport, dbusername, dbpassword, dbname, dbschema)
+		dbHost, dbPort, dbUsername, dbPassword, dbName, dbschema)
 
 	db, err = sql.Open("postgres", stringConn)
 	if err != nil {
@@ -50,11 +50,12 @@ func init() {
 
 	sourceUrl := os.Getenv("MIGRATION_SOURCE_URL")
 	migration(sourceUrl)
+	return db
 }
 
 func validateAndCreateSchema() {
 	stringConn := fmt.Sprintf(stringConnBase,
-		dbhost, dbport, dbusername, dbpassword, dbname)
+		dbHost, dbPort, dbUsername, dbPassword, dbName)
 
 	dbWithoutSchema, err := sql.Open("postgres", stringConn)
 	if err != nil {
@@ -65,10 +66,6 @@ func validateAndCreateSchema() {
 	if err != nil {
 		log.Fatal(err)
 	}
-}
-
-func GetDatasource() *sql.DB {
-	return db
 }
 
 func migration(sourceUrl string) {

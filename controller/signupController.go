@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"database/sql"
 	"encoding/json"
 	"golauth/model"
 	"golauth/repository"
@@ -10,18 +11,24 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-type SignupController struct{}
+const defaultRoleName = "USER"
 
-var defaultRoleName string
+type SignupController struct {
+	userRepository     repository.UserRepository
+	roleRepository     repository.RoleRepository
+	userRoleRepository repository.UserRoleRepository
+}
 
-func init() {
-	defaultRoleName = "USER"
+func NewSignupController(db *sql.DB) SignupController {
+	return SignupController{
+		userRepository:     repository.NewUserRepository(db),
+		roleRepository:     repository.NewRoleRepository(db),
+		userRoleRepository: repository.NewUserRoleRepository(db),
+	}
 }
 
 func (s SignupController) CreateUser(w http.ResponseWriter, r *http.Request) {
-	userRespository := repository.UserRepository{}
-	roleRepository := repository.RoleRepository{}
-	userRoleRepository := repository.UserRoleRepository{}
+
 	var decodedUser model.User
 	_ = json.NewDecoder(r.Body).Decode(&decodedUser)
 
@@ -32,17 +39,17 @@ func (s SignupController) CreateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	decodedUser.Password = string(hash)
-	user, err := userRespository.Create(decodedUser)
+	user, err := s.userRepository.Create(decodedUser)
 	if err != nil {
 		util.SendServerError(w, err)
 		return
 	}
-	role, err := roleRepository.FindByName(defaultRoleName)
+	role, err := s.roleRepository.FindByName(defaultRoleName)
 	if err != nil {
 		util.SendServerError(w, err)
 		return
 	}
-	_, err = userRoleRepository.AddUserRole(user.ID, role.ID)
+	_, err = s.userRoleRepository.AddUserRole(user.ID, role.ID)
 	if err != nil {
 		util.SendServerError(w, err)
 		return

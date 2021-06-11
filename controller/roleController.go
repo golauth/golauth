@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"github.com/gorilla/mux"
@@ -11,18 +12,18 @@ import (
 	"strconv"
 )
 
-type RoleController struct{}
+type RoleController struct {
+	roleRepository repository.RoleRepository
+}
 
-var roleRepository repository.RoleRepository
-
-func init() {
-	roleRepository = repository.RoleRepository{}
+func NewRoleController(db *sql.DB) RoleController {
+	return RoleController{roleRepository: repository.NewRoleRepository(db)}
 }
 
 func (c RoleController) CreateRole(w http.ResponseWriter, r *http.Request) {
 	var role model.Role
 	_ = json.NewDecoder(r.Body).Decode(&role)
-	savedRole, err := roleRepository.Create(role)
+	savedRole, err := c.roleRepository.Create(role)
 	util.SendResult(w, savedRole, err)
 }
 
@@ -35,6 +36,6 @@ func (c RoleController) EditRole(w http.ResponseWriter, r *http.Request) {
 	}
 	var role model.Role
 	_ = json.NewDecoder(r.Body).Decode(&role)
-	err = roleRepository.Edit(role)
+	err = c.roleRepository.Edit(role)
 	util.SendResult(w, role, err)
 }

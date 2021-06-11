@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"golauth/config/datasource"
 	"golauth/config/routes"
 	"log"
 	"net/http"
@@ -26,7 +27,7 @@ func init() {
 
 	pathPrefix = os.Getenv("PATH_PREFIX")
 	if pathPrefix == "" {
-		pathPrefix = "/golauth"
+		pathPrefix = "/auth"
 	}
 }
 
@@ -34,7 +35,9 @@ func main() {
 	addr := fmt.Sprint(":", port)
 	router := mux.NewRouter().PathPrefix(pathPrefix).Subrouter()
 
-	r := routes.NewRoutes(pathPrefix)
+	db := datasource.CreateDBConnection()
+
+	r := routes.NewRoutes(pathPrefix, db)
 	r.RegisterRouter(router)
 
 	fmt.Println("Server listening on port: ", port)

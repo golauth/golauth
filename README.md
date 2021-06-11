@@ -75,7 +75,7 @@ Default user is `admin` and password `admin123`.
 
 ```bash
 $ curl --request POST \
-    --url http://localhost:8081/golauth/token \
+    --url http://localhost:8080/auth/token \
     --header 'content-type: application/json' \
     --data '{"username": "admin","password": "admin123"}'
 ```
@@ -84,7 +84,7 @@ or
 
 ```bash
 $ curl --request POST \
-    --url http://localhost:8081/golauth/token \
+    --url http://localhost:8080/auth/token \
     --header 'content-type: application/x-www-form-urlencoded' \
     --data username=admin \
     --data password=admin123
