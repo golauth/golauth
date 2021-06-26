@@ -31,5 +31,4 @@ jobs:
           name: golauth/golauth
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-          tags: "latest"
           tag_semver: true
