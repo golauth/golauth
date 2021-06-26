@@ -1,7 +1,6 @@
 package datasource
 
 import (
-	"context"
 	"database/sql"
 	"fmt"
 	"os"
@@ -46,7 +45,7 @@ func CreateDBConnection() (*sql.DB, error) {
 		return nil, fmt.Errorf("could not open connection: %w", err)
 	}
 
-	err = db.PingContext(context.Background())
+	err = db.Ping()
 	if err != nil {
 		return nil, fmt.Errorf("could not stabilish connection: %w", err)
 	}

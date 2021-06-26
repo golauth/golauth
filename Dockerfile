@@ -9,7 +9,8 @@ RUN apk add --no-cache git make \
 ###
 FROM alpine as dist
 ENV PRIVATE_KEY_PATH=./key/golauth.rsa \
-    PUBLIC_KEY_PATH=./key/golauth.rsa.pub
+    PUBLIC_KEY_PATH=./key/golauth.rsa.pub \
+    MIGRATION_SOURCE_URL=./migrations
 
 COPY --from=builder /build/golauth /app/
 COPY --from=builder /build/migrations /app/migrations
