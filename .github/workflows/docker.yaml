@@ -15,16 +15,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
 
-      - name: Publish to Registry
+      - name: Publish mainline
         uses: elgohr/Publish-Docker-Github-Action@master
         if: github.ref == 'refs/heads/master'
         with:
           name: golauth/golauth
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-          tags: "mainline"
+          tags: "latest"
 
-      - name: Publish to Registry
+      - name: Publish release
         uses: elgohr/Publish-Docker-Github-Action@master
         if: github.event_name ==  'release'
         with:
