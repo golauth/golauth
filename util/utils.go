@@ -60,22 +60,6 @@ func SendResult(w http.ResponseWriter, data interface{}, err error) {
 	SendSuccess(w, data)
 }
 
-func ResultData(data interface{}, z interface{}, err error) (interface{}, error) {
-	if err != nil {
-		return z, err
-	}
-
-	return data, nil
-}
-
-func ResultSliceString(data []string, z []string, err error) ([]string, error) {
-	if err != nil {
-		return z, err
-	}
-
-	return data, nil
-}
-
 func LogError(err error) {
 	if err != nil {
 		log.Println("ERROR: ", err)

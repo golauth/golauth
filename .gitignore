@@ -2,3 +2,5 @@ vendor/
 .env
 .idea/
 *.iml
+coverage.out
+golauth

@@ -8,5 +8,8 @@ require (
 	github.com/gorilla/mux v1.8.0
 	github.com/lib/pq v1.10.2 // indirect
 	github.com/subosito/gotenv v1.2.0
-	golang.org/x/crypto v0.0.0-20200709230013-948cd5f35899
+	github.com/testcontainers/testcontainers-go v0.11.1
+	golang.org/x/crypto v0.0.0-20201002170205-7f63de1d35b0
+	github.com/stretchr/testify v1.7.0
+	github.com/docker/go-connections v0.4.0
 )

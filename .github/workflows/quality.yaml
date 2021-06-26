@@ -1,0 +1,36 @@
+name: Project quality analysis with tests and sonar
+on: pull_request
+
+jobs:
+  test:
+    name: quality
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Setup Go
+        uses: actions/setup-go@v1
+        with:
+          go-version: '1.16'
+
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
+      - name: test
+        run: |
+          make test
+
+      - name: sonar
+        uses: sonarsource/sonarcloud-github-action@master
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          args: >
+            -Dsonar.organization=golauth
+            -Dsonar.projectKey=golauth_golauth
+            -Dsonar.sources=.
+            -Dsonar.exclusions=**/*_test.go,**/migrations/*.sql,**/cleanup.sql
+            -Dsonar.tests=.
+            -Dsonar.test.inclusions=**/*_test.go
+            -Dsonar.go.coverage.reportPaths=/github/workspace/coverage.out

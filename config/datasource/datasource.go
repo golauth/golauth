@@ -1,9 +1,9 @@
 package datasource
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
-	"log"
 	"os"
 
 	"github.com/golang-migrate/migrate/v4"
@@ -25,7 +25,7 @@ const stringConnBase = "host=%s port=%s user=%s password=%s dbname=%s sslmode=di
 const stringConnSchema = " search_path=%s"
 const dbschema = "golauth"
 
-func CreateDBConnection() *sql.DB {
+func CreateDBConnection() (*sql.DB, error) {
 	var err error
 	_ = gotenv.Load()
 	dbHost = os.Getenv("DB_HOST")
@@ -34,44 +34,51 @@ func CreateDBConnection() *sql.DB {
 	dbUsername = os.Getenv("DB_USERNAME")
 	dbPassword = os.Getenv("DB_PASSWORD")
 
-	validateAndCreateSchema()
+	err = validateAndCreateSchema()
+	if err != nil {
+		return nil, err
+	}
 	stringConn := fmt.Sprintf(stringConnBase+stringConnSchema,
 		dbHost, dbPort, dbUsername, dbPassword, dbName, dbschema)
 
 	db, err = sql.Open("postgres", stringConn)
 	if err != nil {
-		log.Fatal(err)
+		return nil, fmt.Errorf("could not open connection: %w", err)
 	}
 
-	err = db.Ping()
+	err = db.PingContext(context.Background())
 	if err != nil {
-		log.Fatal(err)
+		return nil, fmt.Errorf("could not stabilish connection: %w", err)
 	}
 
 	sourceUrl := os.Getenv("MIGRATION_SOURCE_URL")
-	migration(sourceUrl)
-	return db
+	err = migration(sourceUrl)
+	if err != nil {
+		return nil, err
+	}
+	return db, nil
 }
 
-func validateAndCreateSchema() {
+func validateAndCreateSchema() error {
 	stringConn := fmt.Sprintf(stringConnBase,
 		dbHost, dbPort, dbUsername, dbPassword, dbName)
 
 	dbWithoutSchema, err := sql.Open("postgres", stringConn)
 	if err != nil {
-		log.Fatal(err)
+		return fmt.Errorf("could not open connection for validate and migrate database: %w", err)
 	}
 	dbWithoutSchema.QueryRow(fmt.Sprintf("CREATE SCHEMA IF NOT EXISTS %s", dbschema))
 	err = dbWithoutSchema.Close()
 	if err != nil {
-		log.Fatal(err)
+		return fmt.Errorf("could not create database schema: %w", err)
 	}
+	return nil
 }
 
-func migration(sourceUrl string) {
+func migration(sourceUrl string) error {
 	driver, err := postgres.WithInstance(db, &postgres.Config{})
 	if err != nil {
-		log.Fatal(err)
+		return fmt.Errorf("could not create migration connection: %w", err)
 	}
 	m, err := migrate.NewWithDatabaseInstance(
 		"file://"+sourceUrl,
@@ -81,7 +88,8 @@ func migration(sourceUrl string) {
 	if m != nil {
 		err = m.Up()
 		if err != nil && err.Error() != "no change" {
-			log.Fatal(err)
+			return fmt.Errorf("error when executing database migration: %w", err)
 		}
 	}
+	return nil
 }

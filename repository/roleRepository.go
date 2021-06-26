@@ -5,28 +5,34 @@ import (
 	"golauth/model"
 )
 
-type RoleRepository struct {
+type RoleRepository interface {
+	FindByName(name string) (model.Role, error)
+	Create(role model.Role) (model.Role, error)
+	Edit(role model.Role) error
+}
+
+type roleRepository struct {
 	db *sql.DB
 }
 
 func NewRoleRepository(db *sql.DB) RoleRepository {
-	return RoleRepository{db: db}
+	return roleRepository{db: db}
 }
 
-func (rr RoleRepository) FindByName(name string) (model.Role, error) {
+func (rr roleRepository) FindByName(name string) (model.Role, error) {
 	role := model.Role{}
 	row := rr.db.QueryRow("SELECT * FROM golauth_role WHERE name = $1", name)
 	err := row.Scan(&role.ID, &role.Name, &role.Description, &role.Enabled, &role.CreationDate)
 	return role, err
 }
 
-func (rr RoleRepository) Create(role model.Role) (model.Role, error) {
+func (rr roleRepository) Create(role model.Role) (model.Role, error) {
 	err := rr.db.QueryRow("INSERT INTO golauth_role (name,description,enabled) VALUES ($1, $2, $3) RETURNING id, creation_date;",
 		role.Name, role.Description, role.Enabled).Scan(&role.ID, &role.CreationDate)
 	return role, err
 }
 
-func (rr RoleRepository) Edit(role model.Role) error {
+func (rr roleRepository) Edit(role model.Role) error {
 	updateStatement := `
 		UPDATE golauth_role
 		SET name = $2, description = $3, enabled = $4
