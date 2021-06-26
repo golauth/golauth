@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"golauth/config/datasource"
 	"golauth/config/routes"
+	"golauth/util"
 	"log"
 	"net/http"
 	"os"
@@ -19,6 +20,7 @@ var (
 
 func init() {
 	_ = gotenv.Load()
+	util.LoadKeyEnv()
 
 	port = os.Getenv("PORT")
 	if port == "" {
@@ -35,7 +37,10 @@ func main() {
 	addr := fmt.Sprint(":", port)
 	router := mux.NewRouter().PathPrefix(pathPrefix).Subrouter()
 
-	db := datasource.CreateDBConnection()
+	db, err := datasource.CreateDBConnection()
+	if err != nil {
+		log.Fatalf("error when creating database connection: %s", err.Error())
+	}
 
 	r := routes.NewRoutes(pathPrefix, db)
 	r.RegisterRouter(router)

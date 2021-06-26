@@ -11,6 +11,7 @@ stop-db:
 	docker-compose -p ${STACK_NAME} stop
 
 build-image:
+	make build
 	docker build -t golauth/golauth -f Dockerfile .
 
 run:
@@ -18,3 +19,9 @@ run:
 
 fmt:
 	go fmt ./...
+
+test:
+	ROOT_PATH=${PWD} go test ./... -coverprofile=coverage.out
+
+build:
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-w -s" -o golauth

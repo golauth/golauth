@@ -19,7 +19,7 @@ var (
 	SignKey        *rsa.PrivateKey
 )
 
-func init() {
+func LoadKeyEnv() {
 	_ = gotenv.Load()
 
 	privateKeyPath = os.Getenv("PRIVATE_KEY_PATH")
