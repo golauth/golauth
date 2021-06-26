@@ -1,5 +1,9 @@
-name: Project quality analysis with tests and sonar
-on: pull_request
+name: Quality
+on:
+  push:
+    branches:
+      - master
+  pull_request:
 
 jobs:
   test:
