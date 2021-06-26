@@ -11,8 +11,7 @@ stop-db:
 	docker-compose -p ${STACK_NAME} stop
 
 build-image:
-	make build
-	docker build -t golauth/golauth -f Dockerfile .
+	docker build -t golauth/golauth:dev -f Dockerfile .
 
 run:
 	go run main.go
