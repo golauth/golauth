@@ -1,8 +1,14 @@
 # golauth
 
 [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=golauth_golauth&metric=alert_status)](https://sonarcloud.io/dashboard?id=golauth_golauth)
+[![Bugs](https://sonarcloud.io/api/project_badges/measure?project=golauth_golauth&metric=bugs)](https://sonarcloud.io/dashboard?id=golauth_golauth)
+[![Code Smells](https://sonarcloud.io/api/project_badges/measure?project=golauth_golauth&metric=code_smells)](https://sonarcloud.io/dashboard?id=golauth_golauth)
+[![Coverage](https://sonarcloud.io/api/project_badges/measure?project=golauth_golauth&metric=coverage)](https://sonarcloud.io/dashboard?id=golauth_golauth)
+[![Lines of Code](https://sonarcloud.io/api/project_badges/measure?project=golauth_golauth&metric=ncloc)](https://sonarcloud.io/dashboard?id=golauth_golauth)
 
-Authentication server with Golang.
+---
+
+Simple authentication and authorization server with Golang.
 
 ## Usage
 
@@ -20,7 +26,7 @@ docker run -p 8080:8080 \
 Docker compose example with database creation:
 
 ```yaml
-version: '3.7'
+version: '3'
 
 services:
   postgres:
@@ -59,14 +65,14 @@ networks:
 
 ##### Environment Variables
 
-| Env Variable | Description              | Default |
-|--------------|--------------------------|---------|
-| DB_HOST      | Dabatase hostname        |db|
-| DB_PORT      | Database port            |5432|
-| DB_NAME      | Database name            |golauth|
-| DB_USERNAME  | Database username        |golauth|
-| DB_PASSWORD  | Database password        |golauth|
-| PORT         | Default application port |8080|
+| Env Variable | Description                     |
+|--------------|---------------------------------|
+| DB_HOST      | Dabatase hostname               |
+| DB_PORT      | Database port                   |
+| DB_NAME      | Database name                   |
+| DB_USERNAME  | Database username               |
+| DB_PASSWORD  | Database password               |
+| PORT         | Application port (default 8080) |
 
 ### Accessing
 
@@ -89,3 +95,4 @@ $ curl --request POST \
     --data username=admin \
     --data password=admin123
 ```
+---
