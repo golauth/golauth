@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/stretchr/testify/assert"
 	"golauth/config/datasource"
 	"golauth/model"
@@ -8,7 +9,7 @@ import (
 )
 
 func TestUserRoleRepository(t *testing.T) {
-	ctx := Up()
+	ctx := Up(true)
 	defer Down(ctx)
 
 	dbTest, err := datasource.CreateDBConnection()
@@ -40,5 +41,24 @@ func TestUserRoleRepository(t *testing.T) {
 		assert.NoError(t, err)
 		assert.NotNil(t, userRole)
 		assert.NotNil(t, userRole.CreationDate)
+	})
+}
+
+func TestUserRoleRepositoryWithMock(t *testing.T) {
+	dbTest, mock := newDBMock()
+	repo := NewUserRoleRepository(dbTest)
+	defer func() {
+		_ = dbTest.Close()
+	}()
+
+	t.Run("AddUserRole scan error", func(t *testing.T) {
+		mock.ExpectQuery("INSERT INTO golauth_user_role").
+			WithArgs(sqlmock.AnyArg()).
+			WillReturnError(mockScanError)
+		result, err := repo.AddUserRole(1, 1)
+		assert.Empty(t, result)
+		assert.NotNil(t, err)
+		assert.ErrorAs(t, err, &mockScanError)
+		assert.Contains(t, err.Error(), "could not add userrole [user:1:role:1]")
 	})
 }

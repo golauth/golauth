@@ -9,7 +9,7 @@ import (
 )
 
 func TestDatabase_ok(t *testing.T) {
-	ctx := repository.Up()
+	ctx := repository.Up(true)
 
 	testedDb, err := CreateDBConnection()
 	if err != nil {

@@ -3,6 +3,7 @@ package routes
 import (
 	"database/sql"
 	"golauth/controller"
+	"golauth/model"
 	"golauth/util"
 	"net/http"
 
@@ -65,12 +66,12 @@ func (r *Routes) applySecurity(next http.Handler) http.Handler {
 		if r.isPrivateURI(requestURI) {
 			token, err := util.ExtractToken(request)
 			if err != nil {
-				util.SendError(responseWriter, err)
+				util.SendError(responseWriter, &model.Error{StatusCode: http.StatusBadGateway, Message: err.Error()})
 				return
 			}
 			err = util.ValidateToken(token)
 			if err != nil {
-				util.SendError(responseWriter, err)
+				util.SendError(responseWriter, &model.Error{StatusCode: http.StatusUnauthorized, Message: err.Error()})
 				return
 			}
 		}

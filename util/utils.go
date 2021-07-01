@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"golauth/model"
-	"log"
 	"net/http"
 )
 
@@ -58,10 +57,4 @@ func SendResult(w http.ResponseWriter, data interface{}, err error) {
 	}
 
 	SendSuccess(w, data)
-}
-
-func LogError(err error) {
-	if err != nil {
-		log.Println("ERROR: ", err)
-	}
 }

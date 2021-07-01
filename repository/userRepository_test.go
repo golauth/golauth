@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/stretchr/testify/assert"
 	"golauth/config/datasource"
 	"golauth/model"
@@ -9,7 +10,7 @@ import (
 )
 
 func TestUser(t *testing.T) {
-	ctx := Up()
+	ctx := Up(true)
 	defer Down(ctx)
 
 	dbTest, err := datasource.CreateDBConnection()
@@ -66,5 +67,46 @@ func TestUser(t *testing.T) {
 			t.Errorf("could not create user: %s", err.Error())
 		}
 		assert.NotEmpty(t, user.ID)
+	})
+}
+
+func TestUserRepositoryWithMock(t *testing.T) {
+	dbTest, mock := newDBMock()
+	repo := NewUserRepository(dbTest)
+	defer func() {
+		_ = dbTest.Close()
+	}()
+
+	t.Run("FindByUsername scan error", func(t *testing.T) {
+		mock.ExpectQuery("SELECT").
+			WithArgs("username").
+			WillReturnError(mockScanError)
+		result, err := repo.FindByUsername("username")
+		assert.Empty(t, result)
+		assert.NotNil(t, err)
+		assert.ErrorAs(t, err, &mockScanError)
+		assert.Contains(t, err.Error(), "could not find user by username [username]")
+	})
+
+	t.Run("FindByID scan error", func(t *testing.T) {
+		mock.ExpectQuery("SELECT").
+			WithArgs(1).
+			WillReturnError(mockScanError)
+		result, err := repo.FindByID(1)
+		assert.Empty(t, result)
+		assert.NotNil(t, err)
+		assert.ErrorAs(t, err, &mockScanError)
+		assert.Contains(t, err.Error(), "could not find user by id [1]")
+	})
+
+	t.Run("Create scan error", func(t *testing.T) {
+		mock.ExpectQuery("INSERT").
+			WithArgs(sqlmock.AnyArg()).
+			WillReturnError(mockScanError)
+		result, err := repo.Create(model.User{Username: "username"})
+		assert.Empty(t, result)
+		assert.NotNil(t, err)
+		assert.ErrorAs(t, err, &mockScanError)
+		assert.Contains(t, err.Error(), "could not create user username")
 	})
 }

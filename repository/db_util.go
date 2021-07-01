@@ -3,7 +3,9 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
+	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/docker/go-connections/nat"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
@@ -13,7 +15,10 @@ import (
 )
 
 var (
-	pgC testcontainers.Container
+	pgC               testcontainers.Container
+	mockScanError     = errors.New("scan error")
+	mockDBClosedError = errors.New("sql: database is closed")
+	mockUpdateError   = errors.New("exec update error")
 )
 
 const (
@@ -24,7 +29,7 @@ const (
 	testPostgresSvcPort = "5432"
 )
 
-func Up() context.Context {
+func Up(configRootPath bool) context.Context {
 	ctx := context.Background()
 	req := testcontainers.ContainerRequest{
 		Image:        "postgres:12-alpine",
@@ -59,17 +64,21 @@ func Up() context.Context {
 	testDbPort, _ := pgC.MappedPort(ctx, testPostgresSvcPort)
 	log.Printf("Database started as port: %s", testDbPort)
 
+	setEnv(testDbPort, configRootPath)
+	return ctx
+}
+
+func setEnv(testDbPort nat.Port, configRootPath bool) {
 	_ = os.Setenv("DB_HOST", testDbHost)
 	_ = os.Setenv("DB_PORT", testDbPort.Port())
 	_ = os.Setenv("DB_NAME", testDbName)
 	_ = os.Setenv("DB_USERNAME", testDbUser)
 	_ = os.Setenv("DB_PASSWORD", testDbPassword)
-	_ = os.Setenv("MIGRATION_SOURCE_URL", getMigrationsPath())
-	return ctx
+	_ = os.Setenv("MIGRATION_SOURCE_URL", getMigrationsPath(configRootPath))
 }
 
-func getMigrationsPath() string {
-	return fmt.Sprintf("%s/migrations", getRootPath())
+func getMigrationsPath(configRootPath bool) string {
+	return fmt.Sprintf("%s/migrations", getRootPath(configRootPath))
 }
 
 func Down(ctx context.Context) {
@@ -79,8 +88,8 @@ func Down(ctx context.Context) {
 	}
 }
 
-func Cleanup(db *sql.DB) {
-	c, ioErr := ioutil.ReadFile(getCleanupScript())
+func Cleanup(db *sql.DB, configRootPath bool) {
+	c, ioErr := ioutil.ReadFile(getCleanupScript(configRootPath))
 	if ioErr != nil {
 		log.Fatal(ioErr)
 	}
@@ -91,10 +100,22 @@ func Cleanup(db *sql.DB) {
 	}
 }
 
-func getCleanupScript() string {
-	return fmt.Sprintf("%s/util/test/cleanup.sql", getRootPath())
+func newDBMock() (*sql.DB, sqlmock.Sqlmock) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		log.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+
+	return db, mock
 }
 
-func getRootPath() string {
-	return os.Getenv("ROOT_PATH")
+func getCleanupScript(configRootPath bool) string {
+	return fmt.Sprintf("%s/util/test/cleanup.sql", getRootPath(configRootPath))
+}
+
+func getRootPath(configRootPath bool) string {
+	if configRootPath {
+		return os.Getenv("ROOT_PATH")
+	}
+	return "."
 }

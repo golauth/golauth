@@ -2,6 +2,7 @@ package util
 
 import (
 	"crypto/rsa"
+	"errors"
 	"fmt"
 	"github.com/dgrijalva/jwt-go"
 	"github.com/subosito/gotenv"
@@ -18,6 +19,8 @@ var (
 	VerifyKey      *rsa.PublicKey
 	SignKey        *rsa.PrivateKey
 )
+
+var ErrBearerTokenExtract = errors.New("bearer token extract error")
 
 func LoadKeyEnv() {
 	_ = gotenv.Load()
@@ -46,35 +49,32 @@ func LoadKeyEnv() {
 	}
 }
 
-func ValidateToken(token string) *model.Error {
+func ValidateToken(token string) error {
 	claims := &model.Claims{}
 	parsedToken, err := jwt.ParseWithClaims(token, claims, func(token *jwt.Token) (i interface{}, err error) {
 		return VerifyKey, nil
 	})
 
 	if err != nil {
-		if err == jwt.ErrSignatureInvalid {
-			return &model.Error{Message: err.Error(), StatusCode: http.StatusUnauthorized}
-		}
-		return &model.Error{Message: err.Error(), StatusCode: http.StatusUnauthorized}
+		return fmt.Errorf("error when parse with claims: %w", err)
 	}
 
 	err = parsedToken.Claims.Valid()
 	if err != nil {
-		return &model.Error{Message: err.Error(), StatusCode: http.StatusUnauthorized}
+		return fmt.Errorf("parsed token claims invalid: %w", err)
 	}
 
 	if !parsedToken.Valid {
-		return &model.Error{Message: "Invalid token", StatusCode: http.StatusUnauthorized}
+		return fmt.Errorf("parsed token invalid")
 	}
 
 	return nil
 }
 
-func ExtractToken(r *http.Request) (string, *model.Error) {
+func ExtractToken(r *http.Request) (string, error) {
 	authorization := r.Header.Get("Authorization")
 	if len(authorization) > len("Bearer ") {
 		return authorization[7:], nil
 	}
-	return "", &model.Error{Message: "bearer token extract error", StatusCode: http.StatusBadGateway}
+	return "", ErrBearerTokenExtract
 }

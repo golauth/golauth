@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"golauth/model"
 	"golauth/repository"
 	"golauth/util"
@@ -29,16 +30,21 @@ func NewSignInController(db *sql.DB) SignInController {
 const tokenExpirationTime = 30
 
 func (s SignInController) Token(w http.ResponseWriter, r *http.Request) {
-
 	var username string
 	var password string
+	var err error
 
 	if r.Header.Get("Content-Type") == "application/x-www-form-urlencoded" {
-		username, password = s.extractUserPassForm(r, username, password)
+		username, password, err = s.extractUserPassForm(r, username, password)
 	} else if r.Header.Get("Content-Type") == "application/json" {
-		username, password = s.extractUserPassJson(r, username, password)
+		username, password, err = s.extractUserPassJson(r, username, password)
 	} else {
 		util.SendBadRequest(w, errors.New("Content-Type not supported"))
+		return
+	}
+
+	if err != nil {
+		util.SendServerError(w, err)
 		return
 	}
 
@@ -68,20 +74,25 @@ func (s SignInController) Token(w http.ResponseWriter, r *http.Request) {
 	util.SendSuccess(w, tokenResponse)
 }
 
-func (s SignInController) extractUserPassJson(r *http.Request, username string, password string) (string, string) {
+func (s SignInController) extractUserPassJson(r *http.Request, username string, password string) (string, string, error) {
 	var userLogin model.UserLogin
-	_ = json.NewDecoder(r.Body).Decode(&userLogin)
+	err := json.NewDecoder(r.Body).Decode(&userLogin)
+	if err != nil {
+		return "", "", fmt.Errorf("json decoder error: %s", err.Error())
+	}
 	username = userLogin.Username
 	password = userLogin.Password
-	return username, password
+	return username, password, err
 }
 
-func (s SignInController) extractUserPassForm(r *http.Request, username string, password string) (string, string) {
+func (s SignInController) extractUserPassForm(r *http.Request, username string, password string) (string, string, error) {
 	err := r.ParseForm()
-	util.LogError(err)
+	if err != nil {
+		return "", "", fmt.Errorf("parse form error: %s", err.Error())
+	}
 	username = r.FormValue("username")
 	password = r.FormValue("password")
-	return username, password
+	return username, password, nil
 }
 
 func (s SignInController) tokenError(w http.ResponseWriter, err error) model.Error {
