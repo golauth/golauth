@@ -5,31 +5,33 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"golang.org/x/crypto/bcrypt"
 	"golauth/model"
 	"golauth/repository"
+	"golauth/usercase"
 	"golauth/util"
 	"net/http"
-	"time"
-
-	"github.com/dgrijalva/jwt-go"
-	"golang.org/x/crypto/bcrypt"
 )
 
-type SignInController struct {
-	userRepository          repository.UserRepository
-	userAuthorityRepository repository.UserAuthorityRepository
+type SignInController interface {
+	Token(w http.ResponseWriter, r *http.Request)
 }
 
-func NewSignInController(db *sql.DB) SignInController {
-	return SignInController{
+type signInController struct {
+	userRepository          repository.UserRepository
+	userAuthorityRepository repository.UserAuthorityRepository
+	tokenService            usercase.TokenService
+}
+
+func NewSignInController(db *sql.DB, privBytes []byte, pubBytes []byte) SignInController {
+	return signInController{
 		userRepository:          repository.NewUserRepository(db),
 		userAuthorityRepository: repository.NewUserAuthorityRepository(db),
+		tokenService:            usercase.NewTokenService(privBytes, pubBytes),
 	}
 }
 
-const tokenExpirationTime = 30
-
-func (s SignInController) Token(w http.ResponseWriter, r *http.Request) {
+func (s signInController) Token(w http.ResponseWriter, r *http.Request) {
 	var username string
 	var password string
 	var err error
@@ -64,7 +66,7 @@ func (s SignInController) Token(w http.ResponseWriter, r *http.Request) {
 
 	authorities, _ := s.loadAuthorities(user.ID)
 
-	jwtToken, err := s.generateJwtToken(user, authorities)
+	jwtToken, err := s.tokenService.GenerateJwtToken(user, authorities)
 	if err != nil {
 		e := s.tokenError(w, err)
 		_ = json.NewEncoder(w).Encode(e)
@@ -74,7 +76,7 @@ func (s SignInController) Token(w http.ResponseWriter, r *http.Request) {
 	util.SendSuccess(w, tokenResponse)
 }
 
-func (s SignInController) extractUserPassJson(r *http.Request, username string, password string) (string, string, error) {
+func (s signInController) extractUserPassJson(r *http.Request, username string, password string) (string, string, error) {
 	var userLogin model.UserLogin
 	err := json.NewDecoder(r.Body).Decode(&userLogin)
 	if err != nil {
@@ -85,7 +87,7 @@ func (s SignInController) extractUserPassJson(r *http.Request, username string, 
 	return username, password, err
 }
 
-func (s SignInController) extractUserPassForm(r *http.Request, username string, password string) (string, string, error) {
+func (s signInController) extractUserPassForm(r *http.Request, username string, password string) (string, string, error) {
 	err := r.ParseForm()
 	if err != nil {
 		return "", "", fmt.Errorf("parse form error: %s", err.Error())
@@ -95,7 +97,7 @@ func (s SignInController) extractUserPassForm(r *http.Request, username string, 
 	return username, password, nil
 }
 
-func (s SignInController) tokenError(w http.ResponseWriter, err error) model.Error {
+func (s signInController) tokenError(w http.ResponseWriter, err error) model.Error {
 	var e model.Error
 	e.Message = err.Error()
 	e.StatusCode = http.StatusInternalServerError
@@ -103,7 +105,7 @@ func (s SignInController) tokenError(w http.ResponseWriter, err error) model.Err
 	return e
 }
 
-func (s SignInController) invalidPasswordError(w http.ResponseWriter, err error) model.Error {
+func (s signInController) invalidPasswordError(w http.ResponseWriter, err error) model.Error {
 	var e model.Error
 	e.Message = err.Error()
 	e.StatusCode = http.StatusUnauthorized
@@ -111,7 +113,7 @@ func (s SignInController) invalidPasswordError(w http.ResponseWriter, err error)
 	return e
 }
 
-func (s SignInController) usernameNotFoundError(w http.ResponseWriter) model.Error {
+func (s signInController) usernameNotFoundError(w http.ResponseWriter) model.Error {
 	var e model.Error
 	e.Message = "username not found"
 	e.StatusCode = http.StatusUnauthorized
@@ -119,22 +121,6 @@ func (s SignInController) usernameNotFoundError(w http.ResponseWriter) model.Err
 	return e
 }
 
-func (s SignInController) loadAuthorities(userId int) ([]string, error) {
+func (s signInController) loadAuthorities(userId int) ([]string, error) {
 	return s.userAuthorityRepository.FindAuthoritiesByUserID(userId)
-}
-
-func (s SignInController) generateJwtToken(user model.User, authorities []string) (interface{}, error) {
-	expirationTime := time.Now().Add(tokenExpirationTime * time.Minute)
-	claims := &model.Claims{
-		Username:    user.Username,
-		FirstName:   user.FirstName,
-		LastName:    user.LastName,
-		Authorities: authorities,
-		StandardClaims: jwt.StandardClaims{
-			ExpiresAt: expirationTime.Unix(),
-		},
-	}
-
-	token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
-	return token.SignedString(util.SignKey)
 }

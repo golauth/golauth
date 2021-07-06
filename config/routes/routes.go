@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"golauth/controller"
 	"golauth/model"
+	"golauth/usercase"
 	"golauth/util"
 	"net/http"
 
@@ -16,16 +17,19 @@ type Routes struct {
 	checkTokenController controller.CheckTokenController
 	userController       controller.UserController
 	roleController       controller.RoleController
+	tokenService         usercase.TokenService
 	publicURI            map[string]bool
 }
 
-func NewRoutes(pathPrefix string, db *sql.DB) *Routes {
+func NewRoutes(pathPrefix string, db *sql.DB, privBytes []byte, pubBytes []byte) *Routes {
+	tokenService := usercase.NewTokenService(privBytes, pubBytes)
 	return &Routes{
 		signUpController:     controller.NewSignupController(db),
-		signInController:     controller.NewSignInController(db),
-		checkTokenController: controller.NewCheckTokenController(),
+		signInController:     controller.NewSignInController(db, privBytes, pubBytes),
+		checkTokenController: controller.NewCheckTokenController(privBytes, pubBytes),
 		userController:       controller.NewUserController(db),
 		roleController:       controller.NewRoleController(db),
+		tokenService:         tokenService,
 		publicURI: map[string]bool{
 			pathPrefix + "/token":       true,
 			pathPrefix + "/check_token": true,
@@ -64,12 +68,12 @@ func (r *Routes) applySecurity(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(responseWriter http.ResponseWriter, request *http.Request) {
 		requestURI := request.RequestURI
 		if r.isPrivateURI(requestURI) {
-			token, err := util.ExtractToken(request)
+			token, err := r.tokenService.ExtractToken(request)
 			if err != nil {
 				util.SendError(responseWriter, &model.Error{StatusCode: http.StatusBadGateway, Message: err.Error()})
 				return
 			}
-			err = util.ValidateToken(token)
+			err = r.tokenService.ValidateToken(token)
 			if err != nil {
 				util.SendError(responseWriter, &model.Error{StatusCode: http.StatusUnauthorized, Message: err.Error()})
 				return

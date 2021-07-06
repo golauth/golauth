@@ -2,23 +2,30 @@ package controller
 
 import (
 	"golauth/model"
+	"golauth/usercase"
 	"golauth/util"
 	"net/http"
 )
 
-type CheckTokenController struct{}
-
-func NewCheckTokenController() CheckTokenController {
-	return CheckTokenController{}
+type CheckTokenController interface {
+	CheckToken(w http.ResponseWriter, r *http.Request)
 }
 
-func (c CheckTokenController) CheckToken(w http.ResponseWriter, r *http.Request) {
-	token, err := util.ExtractToken(r)
+type checkTokenController struct {
+	svc usercase.TokenService
+}
+
+func NewCheckTokenController(privBytes []byte, pubBytes []byte) CheckTokenController {
+	return checkTokenController{svc: usercase.NewTokenService(privBytes, pubBytes)}
+}
+
+func (c checkTokenController) CheckToken(w http.ResponseWriter, r *http.Request) {
+	token, err := c.svc.ExtractToken(r)
 	if err != nil {
 		util.SendError(w, &model.Error{StatusCode: http.StatusBadGateway, Message: err.Error()})
 		return
 	}
-	err = util.ValidateToken(token)
+	err = c.svc.ValidateToken(token)
 	if err != nil {
 		util.SendError(w, &model.Error{StatusCode: http.StatusUnauthorized, Message: err.Error()})
 		return
