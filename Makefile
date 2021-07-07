@@ -20,6 +20,7 @@ fmt:
 	go fmt ./...
 
 test:
+	make mock
 	ROOT_PATH=${PWD} go test ./... -coverprofile=coverage.out
 
 build:
@@ -27,3 +28,6 @@ build:
 
 cover:
 	go tool cover -html coverage.out
+
+mock:
+	go generate -v ./...

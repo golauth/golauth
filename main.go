@@ -42,15 +42,12 @@ func init() {
 func main() {
 	addr := fmt.Sprint(":", port)
 	router := mux.NewRouter().PathPrefix(pathPrefix).Subrouter()
-
-	db, err := datasource.CreateDBConnection()
+	ds, err := datasource.NewDatasource()
 	if err != nil {
 		log.Fatalf("error when creating database connection: %s", err.Error())
 	}
-
-	r := routes.NewRoutes(pathPrefix, db, privBytes, pubBytes)
+	r := routes.NewRoutes(pathPrefix, ds.GetDB(), privBytes, pubBytes)
 	r.RegisterRouter(router)
-
 	fmt.Println("Server listening on port: ", port)
 	log.Fatal(http.ListenAndServe(addr, router))
 }

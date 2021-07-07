@@ -12,10 +12,9 @@ func TestUserRoleRepository(t *testing.T) {
 	ctx := Up(true)
 	defer Down(ctx)
 
-	dbTest, err := datasource.CreateDBConnection()
-	if err != nil {
-		t.Fatalf("error when creating datasource: %s", err.Error())
-	}
+	ds, err := datasource.NewDatasource()
+	assert.NoError(t, err)
+	dbTest := ds.GetDB()
 
 	repo := NewUserRoleRepository(dbTest)
 

@@ -1,3 +1,4 @@
+//go:generate mockgen -source checkTokenController.go -destination mock/checkTokenController_mock.go -package mock
 package controller
 
 import (

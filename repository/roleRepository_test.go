@@ -14,10 +14,9 @@ func TestRoleRepository(t *testing.T) {
 	ctx := Up(true)
 	defer Down(ctx)
 
-	dbTest, err := datasource.CreateDBConnection()
-	if err != nil {
-		t.Fatal("error when creating datasource: %w", err)
-	}
+	ds, err := datasource.NewDatasource()
+	assert.NoError(t, err)
+	dbTest := ds.GetDB()
 
 	rr := NewRoleRepository(dbTest)
 
@@ -51,10 +50,9 @@ func TestRoleRepository_Edit(t *testing.T) {
 	ctx := Up(true)
 	defer Down(ctx)
 
-	dbTest, err := datasource.CreateDBConnection()
-	if err != nil {
-		t.Fatal("error when creating datasource: %w", err)
-	}
+	ds, err := datasource.NewDatasource()
+	assert.NoError(t, err)
+	dbTest := ds.GetDB()
 
 	rr := NewRoleRepository(dbTest)
 
@@ -99,10 +97,9 @@ func TestNoSchemaInit(t *testing.T) {
 	ctx := Up(false)
 	defer Down(ctx)
 
-	dbTest, err := datasource.CreateDBConnection()
-	if err != nil {
-		t.Fatal("error when creating datasource: %w", err)
-	}
+	ds, err := datasource.NewDatasource()
+	assert.NoError(t, err)
+	dbTest := ds.GetDB()
 
 	rr := NewRoleRepository(dbTest)
 
