@@ -1,7 +1,6 @@
 package controller
 
 import (
-	"database/sql"
 	"encoding/json"
 	"github.com/gorilla/mux"
 	"golauth/model"
@@ -15,10 +14,10 @@ type UserController struct {
 	userRoleRepository repository.UserRoleRepository
 }
 
-func NewUserController(db *sql.DB) UserController {
+func NewUserController(uRepo repository.UserRepository, urRepo repository.UserRoleRepository) UserController {
 	return UserController{
-		userRepository:     repository.NewUserRepository(db),
-		userRoleRepository: repository.NewUserRoleRepository(db),
+		userRepository:     uRepo,
+		userRoleRepository: urRepo,
 	}
 }
 
@@ -33,5 +32,6 @@ func (u UserController) AddRole(w http.ResponseWriter, r *http.Request) {
 	var userRole model.UserRole
 	_ = json.NewDecoder(r.Body).Decode(&userRole)
 	savedUserRole, err := u.userRoleRepository.AddUserRole(userRole.UserID, userRole.RoleID)
+	w.WriteHeader(http.StatusCreated)
 	util.SendResult(w, savedUserRole, err)
 }

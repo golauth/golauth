@@ -1,3 +1,4 @@
+//go:generate mockgen -source userRoleRepository.go -destination mock/userRoleRepository_mock.go -package mock
 package repository
 
 import (

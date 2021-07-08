@@ -1,5 +1,4 @@
 STACK_NAME=golauth
-GO111MODULE=on
 
 prepare:
 	cp .env.example .env

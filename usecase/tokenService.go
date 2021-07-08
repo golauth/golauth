@@ -1,4 +1,5 @@
-package usercase
+//go:generate mockgen -source tokenService.go -destination mock/tokenService_mock.go -package mock
+package usecase
 
 import (
 	"crypto/rsa"

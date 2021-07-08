@@ -1,4 +1,4 @@
-package usercase
+package usecase
 
 import (
 	"fmt"

@@ -4,7 +4,8 @@ import (
 	"database/sql"
 	"golauth/controller"
 	"golauth/model"
-	"golauth/usercase"
+	"golauth/repository"
+	"golauth/usecase"
 	"golauth/util"
 	"net/http"
 
@@ -17,18 +18,23 @@ type Routes struct {
 	checkTokenController controller.CheckTokenController
 	userController       controller.UserController
 	roleController       controller.RoleController
-	tokenService         usercase.TokenService
+	tokenService         usecase.TokenService
 	publicURI            map[string]bool
 }
 
 func NewRoutes(pathPrefix string, db *sql.DB, privBytes []byte, pubBytes []byte) *Routes {
-	tokenService := usercase.NewTokenService(privBytes, pubBytes)
+	tokenService := usecase.NewTokenService(privBytes, pubBytes)
+	uRepo := repository.NewUserRepository(db)
+	rRepo := repository.NewRoleRepository(db)
+	urRepo := repository.NewUserRoleRepository(db)
+	signupService := usecase.NewSignupService(uRepo, rRepo, urRepo)
+
 	return &Routes{
-		signUpController:     controller.NewSignupController(db),
+		signUpController:     controller.NewSignupController(signupService),
 		signInController:     controller.NewSignInController(db, privBytes, pubBytes),
-		checkTokenController: controller.NewCheckTokenController(privBytes, pubBytes),
-		userController:       controller.NewUserController(db),
-		roleController:       controller.NewRoleController(db),
+		checkTokenController: controller.NewCheckTokenController(tokenService),
+		userController:       controller.NewUserController(uRepo, urRepo),
+		roleController:       controller.NewRoleController(rRepo),
 		tokenService:         tokenService,
 		publicURI: map[string]bool{
 			pathPrefix + "/token":       true,
@@ -44,7 +50,7 @@ func (r *Routes) RegisterRouter(router *mux.Router) {
 	router.HandleFunc("/check_token", r.checkTokenController.CheckToken).Methods(http.MethodGet, http.MethodOptions)
 
 	router.HandleFunc("/users/{username}", r.userController.FindByUsername).Methods(http.MethodGet, http.MethodOptions)
-	router.HandleFunc("/users/{username}/add-role", r.userController.AddRole).Methods(http.MethodGet, http.MethodOptions)
+	router.HandleFunc("/users/{username}/add-role", r.userController.AddRole).Methods(http.MethodPost, http.MethodOptions)
 
 	router.HandleFunc("/roles", r.roleController.CreateRole).Methods(http.MethodPost, http.MethodOptions)
 	router.HandleFunc("/roles/{id}", r.roleController.EditRole).Methods(http.MethodPut, http.MethodOptions)

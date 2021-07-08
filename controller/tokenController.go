@@ -8,7 +8,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	"golauth/model"
 	"golauth/repository"
-	"golauth/usercase"
+	"golauth/usecase"
 	"golauth/util"
 	"net/http"
 )
@@ -20,14 +20,14 @@ type SignInController interface {
 type signInController struct {
 	userRepository          repository.UserRepository
 	userAuthorityRepository repository.UserAuthorityRepository
-	tokenService            usercase.TokenService
+	tokenService            usecase.TokenService
 }
 
 func NewSignInController(db *sql.DB, privBytes []byte, pubBytes []byte) SignInController {
 	return signInController{
 		userRepository:          repository.NewUserRepository(db),
 		userAuthorityRepository: repository.NewUserAuthorityRepository(db),
-		tokenService:            usercase.NewTokenService(privBytes, pubBytes),
+		tokenService:            usecase.NewTokenService(privBytes, pubBytes),
 	}
 }
 
