@@ -4,6 +4,7 @@ package datasource
 import (
 	"database/sql"
 	"fmt"
+	"github.com/sirupsen/logrus"
 	"os"
 
 	"github.com/golang-migrate/migrate/v4"
@@ -95,6 +96,7 @@ func (d datasource) validateAndCreateSchema() error {
 }
 
 func (d datasource) migration(sourceUrl string) error {
+	logrus.Info("starting migration execution")
 	driver, err := postgres.WithInstance(d.db, &postgres.Config{})
 	if err != nil {
 		return fmt.Errorf("could not create migration connection: %w", err)
@@ -110,5 +112,6 @@ func (d datasource) migration(sourceUrl string) error {
 			return fmt.Errorf("error when executing database migration: %w", err)
 		}
 	}
+	logrus.Info("finalizing migrations!")
 	return nil
 }

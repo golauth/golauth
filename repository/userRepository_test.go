@@ -1,111 +1,161 @@
 package repository
 
 import (
+	"database/sql"
 	"github.com/DATA-DOG/go-sqlmock"
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"github.com/stretchr/testify/suite"
 	"golauth/config/datasource"
 	"golauth/model"
+	"golauth/postgrescontainer"
 	"testing"
 	"time"
 )
 
-func TestUser(t *testing.T) {
-	ctx := Up(true)
-	defer Down(ctx)
+type UserRepositorySuite struct {
+	suite.Suite
+	*require.Assertions
+	mockCtrl *gomock.Controller
+	db       *sql.DB
 
-	ds, err := datasource.NewDatasource()
+	repo UserRepository
+}
+
+func TestUserRepository(t *testing.T) {
+	ctxContainer, err := postgrescontainer.ContainerDBStart("./..")
 	assert.NoError(t, err)
-	dbTest := ds.GetDB()
+	s := new(UserRepositorySuite)
+	suite.Run(t, s)
+	postgrescontainer.ContainerDBStop(ctxContainer)
+}
 
-	r := NewUserRepository(dbTest)
+func (s *UserRepositorySuite) SetupTest() {
+	s.Assertions = require.New(s.T())
+	s.mockCtrl = gomock.NewController(s.T())
+	ds, err := datasource.NewDatasource()
+	s.NotNil(ds)
+	s.NoError(err)
+	s.db = ds.GetDB()
 
-	t.Run("load user without password", func(t *testing.T) {
-		u, err := r.FindByUsername("admin")
-		if err != nil {
-			t.Errorf("could not get admin: %s", err.Error())
-		}
-		assert.NotNil(t, u)
-		assert.Equal(t, "admin", u.Username)
-		assert.Empty(t, u.Password)
-	})
+	s.repo = NewUserRepository(s.db)
+}
 
-	t.Run("load user with password", func(t *testing.T) {
-		u, err := r.FindByUsernameWithPassword("admin")
-		if err != nil {
-			t.Errorf("could not get admin: %s", err.Error())
-		}
-		assert.NotNil(t, u)
-		assert.Equal(t, "admin", u.Username)
-		assert.NotEmpty(t, u.Password)
-	})
+func (s *UserRepositorySuite) TearDownTest() {
+	s.mockCtrl.Finish()
+}
 
-	t.Run("load user by id", func(t *testing.T) {
-		u, err := r.FindByID(1)
-		if err != nil {
-			t.Errorf("could not user with id 1: %s", err.Error())
-		}
-		assert.NotNil(t, u)
-		assert.Equal(t, "admin", u.Username)
-		assert.Empty(t, u.Password)
-	})
+func (s UserRepositorySuite) prepareDatabase(clean bool, scripts ...string) {
+	cleanScript := ""
+	if clean {
+		cleanScript = "clear-data.sql"
+	}
+	err := postgrescontainer.DatasetTest(s.db, "./..", cleanScript, scripts...)
+	s.NoError(err)
+}
 
-	t.Run("create new user", func(t *testing.T) {
-		u := model.User{
-			Username:     "guest",
-			FirstName:    "Guest",
-			LastName:     "None",
-			Email:        "guest@none.com",
-			Document:     "123456",
-			Password:     "e10adc3949ba59abbe56e057f20f883e",
-			Enabled:      true,
-			CreationDate: time.Now(),
-		}
+func (s *UserRepositorySuite) TestFindUserWithoutPassword() {
+	s.prepareDatabase(true, "add-users.sql")
+	u, err := s.repo.FindByUsername("admin")
+	s.NoError(err)
+	s.NotNil(u)
+	s.Equal("admin", u.Username)
+	s.Empty(u.Password)
+}
 
-		user, err := r.Create(u)
-		if err != nil {
-			t.Errorf("could not create user: %s", err.Error())
-		}
-		assert.NotEmpty(t, user.ID)
-	})
+func (s *UserRepositorySuite) TestFindUserWithPassword() {
+	s.prepareDatabase(true, "add-users.sql")
+	u, err := s.repo.FindByUsernameWithPassword("admin")
+	s.NoError(err)
+	s.NotNil(u)
+	s.Equal("admin", u.Username)
+	s.NotEmpty(u.Password)
+}
+
+func (s *UserRepositorySuite) TestFindUserByIdWithoutPassword() {
+	s.prepareDatabase(true, "add-users.sql")
+	u, err := s.repo.FindByID(1)
+	s.NoError(err)
+	s.NotNil(u)
+	s.Equal("admin", u.Username)
+	s.Empty(u.Password)
+}
+
+func (s *UserRepositorySuite) TestCreateNewUserOk() {
+	s.prepareDatabase(true, "add-users.sql")
+	u := model.User{
+		Username:     "guest",
+		FirstName:    "Guest",
+		LastName:     "None",
+		Email:        "guest@none.com",
+		Document:     "123456",
+		Password:     "e10adc3949ba59abbe56e057f20f883e",
+		Enabled:      true,
+		CreationDate: time.Now(),
+	}
+
+	user, err := s.repo.Create(u)
+	s.NoError(err)
+	s.NotEmpty(user.ID)
+}
+
+// =====================================================================================
+type UserRepositoryDBMockSuite struct {
+	suite.Suite
+	*require.Assertions
+	mockCtrl *gomock.Controller
+	db       *sql.DB
+	mockDB   sqlmock.Sqlmock
+	repo     UserRepository
 }
 
 func TestUserRepositoryWithMock(t *testing.T) {
-	dbTest, mock := newDBMock()
-	repo := NewUserRepository(dbTest)
-	defer func() {
-		_ = dbTest.Close()
-	}()
+	suite.Run(t, new(UserRepositoryDBMockSuite))
+}
 
-	t.Run("FindByUsername scan error", func(t *testing.T) {
-		mock.ExpectQuery("SELECT").
-			WithArgs("username").
-			WillReturnError(mockScanError)
-		result, err := repo.FindByUsername("username")
-		assert.Empty(t, result)
-		assert.NotNil(t, err)
-		assert.ErrorAs(t, err, &mockScanError)
-		assert.Contains(t, err.Error(), "could not find user by username [username]")
-	})
+func (s *UserRepositoryDBMockSuite) SetupTest() {
+	s.Assertions = require.New(s.T())
+	s.mockCtrl = gomock.NewController(s.T())
 
-	t.Run("FindByID scan error", func(t *testing.T) {
-		mock.ExpectQuery("SELECT").
-			WithArgs(1).
-			WillReturnError(mockScanError)
-		result, err := repo.FindByID(1)
-		assert.Empty(t, result)
-		assert.NotNil(t, err)
-		assert.ErrorAs(t, err, &mockScanError)
-		assert.Contains(t, err.Error(), "could not find user by id [1]")
-	})
+	var err error
+	s.db, s.mockDB, err = sqlmock.New()
+	s.NoError(err)
 
-	t.Run("Create scan error", func(t *testing.T) {
-		mock.ExpectQuery("INSERT").
-			WithArgs(sqlmock.AnyArg()).
-			WillReturnError(mockScanError)
-		result, err := repo.Create(model.User{Username: "username"})
-		assert.Empty(t, result)
-		assert.NotNil(t, err)
-		assert.ErrorAs(t, err, &mockScanError)
-		assert.Contains(t, err.Error(), "could not create user username")
-	})
+	s.repo = NewUserRepository(s.db)
+}
+
+func (s *UserRepositoryDBMockSuite) TearDownTest() {
+	_ = s.db.Close()
+	s.mockCtrl.Finish()
+}
+
+func (s *UserRepositoryDBMockSuite) TestFindByUsernameScanError() {
+	s.mockDB.ExpectQuery("SELECT").
+		WithArgs("username").
+		WillReturnError(postgrescontainer.ErrMockScan)
+	result, err := s.repo.FindByUsername("username")
+	s.Empty(result)
+	s.NotNil(err)
+	s.ErrorAs(err, &postgrescontainer.ErrMockScan)
+}
+
+func (s *UserRepositoryDBMockSuite) TestFindByIDScanError() {
+	s.mockDB.ExpectQuery("SELECT").
+		WithArgs(1).
+		WillReturnError(postgrescontainer.ErrMockScan)
+	result, err := s.repo.FindByID(1)
+	s.Empty(result)
+	s.NotNil(err)
+	s.ErrorAs(err, &postgrescontainer.ErrMockScan)
+}
+
+func (s *UserRepositoryDBMockSuite) TestCreateScanError() {
+	s.mockDB.ExpectQuery("INSERT").
+		WithArgs(sqlmock.AnyArg()).
+		WillReturnError(postgrescontainer.ErrMockScan)
+	result, err := s.repo.Create(model.User{Username: "username"})
+	s.Empty(result)
+	s.NotNil(err)
+	s.ErrorAs(err, &postgrescontainer.ErrMockScan)
 }

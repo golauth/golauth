@@ -8,9 +8,9 @@ require (
 	github.com/docker/go-connections v0.4.0
 	github.com/golang-migrate/migrate/v4 v4.14.1
 	github.com/golang/mock v1.4.4
-	github.com/gorilla/context v1.1.1
 	github.com/gorilla/mux v1.8.0
 	github.com/lib/pq v1.10.2 // indirect
+	github.com/sirupsen/logrus v1.8.1
 	github.com/stretchr/testify v1.7.0
 	github.com/subosito/gotenv v1.2.0
 	github.com/testcontainers/testcontainers-go v0.11.1

@@ -1,60 +1,123 @@
 package repository
 
 import (
+	"database/sql"
 	"github.com/DATA-DOG/go-sqlmock"
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"github.com/stretchr/testify/suite"
 	"golauth/config/datasource"
+	"golauth/model"
+	"golauth/postgrescontainer"
 	"testing"
 )
 
+type UserAuthorityRepositorySuite struct {
+	suite.Suite
+	*require.Assertions
+	mockCtrl *gomock.Controller
+	db       *sql.DB
+
+	repo UserAuthorityRepository
+}
+
 func TestUserAuthorityRepository(t *testing.T) {
-	ctx := Up(true)
-	defer Down(ctx)
-
-	ds, err := datasource.NewDatasource()
+	ctxContainer, err := postgrescontainer.ContainerDBStart("./..")
 	assert.NoError(t, err)
-	dbTest := ds.GetDB()
+	s := new(UserAuthorityRepositorySuite)
+	suite.Run(t, s)
+	postgrescontainer.ContainerDBStop(ctxContainer)
+}
 
-	repo := NewUserAuthorityRepository(dbTest)
+func (s *UserAuthorityRepositorySuite) SetupTest() {
+	s.Assertions = require.New(s.T())
+	s.mockCtrl = gomock.NewController(s.T())
+	ds, err := datasource.NewDatasource()
+	s.NotNil(ds)
+	s.NoError(err)
+	s.db = ds.GetDB()
 
-	t.Run("FindAuthoritiesByUserID load authorities user exists", func(t *testing.T) {
-		a, err := repo.FindAuthoritiesByUserID(1)
-		assert.NoError(t, err)
-		assert.NotNil(t, a)
-		assert.Len(t, a, 2)
-	})
+	s.repo = NewUserAuthorityRepository(s.db)
+}
 
-	t.Run("FindAuthoritiesByUserID load authorities user not exists", func(t *testing.T) {
-		a, err := repo.FindAuthoritiesByUserID(999)
-		assert.NoError(t, err)
-		assert.Nil(t, a)
-	})
+func (s *UserAuthorityRepositorySuite) TearDownTest() {
+	s.mockCtrl.Finish()
+}
+
+func (s UserAuthorityRepositorySuite) prepareDatabase(clean bool, scripts ...string) {
+	cleanScript := ""
+	if clean {
+		cleanScript = "clear-data.sql"
+	}
+	err := postgrescontainer.DatasetTest(s.db, "./..", cleanScript, scripts...)
+	s.NoError(err)
+}
+
+func (s *UserAuthorityRepositorySuite) TestFindAuthoritiesByUserIDUserExists() {
+	s.prepareDatabase(true, "add-users.sql")
+	a, err := s.repo.FindAuthoritiesByUserID(1)
+	s.NoError(err)
+	s.NotNil(a)
+	s.Len(a, 2)
+}
+
+func (s *UserAuthorityRepositorySuite) TestFindAuthoritiesByUserIDUserNotExists() {
+	s.prepareDatabase(true)
+	a, err := s.repo.FindAuthoritiesByUserID(1)
+	s.NoError(err)
+	s.Nil(a)
+}
+
+// =====================================================================================
+type UserAuthorityRepositoryDBMockSuite struct {
+	suite.Suite
+	*require.Assertions
+	mockCtrl *gomock.Controller
+	db       *sql.DB
+	mockDB   sqlmock.Sqlmock
+	repo     UserAuthorityRepository
+	roleMock model.Role
 }
 
 func TestUserAuthorityRepositoryWithMock(t *testing.T) {
-	dbTest, mock := newDBMock()
-	repo := NewUserAuthorityRepository(dbTest)
-	defer func() {
-		_ = dbTest.Close()
-	}()
+	suite.Run(t, new(UserAuthorityRepositoryDBMockSuite))
+}
 
-	t.Run("FindAuthoritiesByUserID with error not find by user", func(t *testing.T) {
-		mock.ExpectQuery("SELECT").WithArgs(1).WillReturnError(mockDBClosedError)
-		result, err := repo.FindAuthoritiesByUserID(1)
-		assert.Empty(t, result)
-		assert.Error(t, err)
-		assert.ErrorAs(t, err, &mockDBClosedError)
-	})
+func (s *UserAuthorityRepositoryDBMockSuite) SetupTest() {
+	s.Assertions = require.New(s.T())
+	s.mockCtrl = gomock.NewController(s.T())
 
-	t.Run("FindAuthoritiesByUserID error when parsing result to slice", func(t *testing.T) {
-		rows := sqlmock.NewRows([]string{"name"}).
-			AddRow("user").
-			AddRow(nil).RowError(2, mockScanError)
+	var err error
+	s.db, s.mockDB, err = sqlmock.New()
+	s.NoError(err)
 
-		mock.ExpectQuery("SELECT").WithArgs(1).WillReturnRows(rows)
-		result, err := repo.FindAuthoritiesByUserID(1)
-		assert.Error(t, err)
-		assert.Empty(t, result)
-		assert.ErrorAs(t, err, &mockScanError)
-	})
+	s.repo = NewUserAuthorityRepository(s.db)
+
+	s.roleMock = model.Role{Name: "role", Description: "role", Enabled: true}
+}
+
+func (s *UserAuthorityRepositoryDBMockSuite) TearDownTest() {
+	_ = s.db.Close()
+	s.mockCtrl.Finish()
+}
+
+func (s *UserAuthorityRepositoryDBMockSuite) TestUserAuthorityRepositoryWithMockErrDbClosed() {
+	s.mockDB.ExpectQuery("SELECT").WithArgs(1).WillReturnError(postgrescontainer.ErrMockDBClosed)
+	result, err := s.repo.FindAuthoritiesByUserID(1)
+	s.Empty(result)
+	s.Error(err)
+	s.ErrorAs(err, &postgrescontainer.ErrMockDBClosed)
+}
+
+func (s *UserAuthorityRepositoryDBMockSuite) TestUserAuthorityRepositoryWithMockScanErr() {
+	rows := sqlmock.NewRows([]string{"name"}).
+		AddRow("user").
+		AddRow(nil).RowError(2, postgrescontainer.ErrMockScan)
+
+	s.mockDB.ExpectQuery("SELECT").WithArgs(1).WillReturnRows(rows)
+	result, err := s.repo.FindAuthoritiesByUserID(1)
+	s.Error(err)
+	s.Empty(result)
+	s.ErrorAs(err, &postgrescontainer.ErrMockScan)
 }
