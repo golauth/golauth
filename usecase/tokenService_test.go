@@ -1,8 +1,11 @@
 package usecase
 
 import (
+	"errors"
 	"fmt"
-	"github.com/stretchr/testify/assert"
+	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/require"
+	"github.com/stretchr/testify/suite"
 	"golauth/model"
 	"net/http"
 	"strings"
@@ -48,36 +51,56 @@ C3lphcWNqIkK/9zoAfe5ac+BxjSH2PH69XZsPFg3UKe0bylnnTZP3IIL2iavXEW/
 AQIDAQAB
 -----END PUBLIC KEY-----`)
 
-func TestExtractToken_ok(t *testing.T) {
-	svc := NewTokenService(privBytes, pubBytes)
+type TokenServiceSuite struct {
+	suite.Suite
+	*require.Assertions
+	mockCtrl *gomock.Controller
+
+	svc TokenService
+}
+
+func TestTokenService(t *testing.T) {
+	suite.Run(t, new(TokenServiceSuite))
+}
+
+func (s *TokenServiceSuite) SetupTest() {
+	s.Assertions = require.New(s.T())
+	s.mockCtrl = gomock.NewController(s.T())
+
+	s.svc = NewTokenService(privBytes, pubBytes)
+}
+
+func (s *TokenServiceSuite) TearDownTest() {
+	s.mockCtrl.Finish()
+}
+
+func (s TokenServiceSuite) TestExtractTokenOk() {
 	token := "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6ImFkbWluIiwiZmlyc3ROYW1lIjoiQWRtaW4iLCJsYXN0TmFtZSI6IkFkbWluIiwiYXV0aG9yaXRpZXMiOlsiQURNSU4iLCJVU0VSIl0sImV4cCI6MTYyNTExMDI4MH0.aXZnvA7IGvVbXcv3xYWv2ApCzb4mSfCElDS2-8I0Eoey2yZjTXun7ToKZEp3ANUSNsAp0Cc2T-NwsvXw-28ZzJG6OW1BmZ8in6DGk5c82zWEuokt_oqF496jZC4doeomop39dO-ETgpD1j63M6jzwz0joecbvCg_rixYdtN52Ix6ekIFMae6mvElD68wLTIlJLp6ld58on_jyHV3o5K13SUhP8SHkFJzUfgVaJxLGFRAa8qeOPJakTDsIqigbOUQVw3RdNGVpCGwCj86G9NWhcz0SdMsOMLsnLAhqUSOf6sqyagt3-mvquD_ehv4KDdx8g1wLzsz62bwJUzl85PdJQ"
 	reader := strings.NewReader("")
 	req, err := http.NewRequest(http.MethodPost, "/check_token", reader)
 	if err != nil {
-		t.Fatal("error when creating request: %w", err)
+		s.T().Fatal("error when creating request: %w", err)
 	}
 	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", token))
-	extracted, err := svc.ExtractToken(req)
-	assert.NoError(t, err)
-	assert.NotEmpty(t, extracted)
-	assert.Equal(t, token, extracted)
+	extracted, err := s.svc.ExtractToken(req)
+	s.NoError(err)
+	s.NotEmpty(extracted)
+	s.Equal(token, extracted)
 }
 
-func TestExtractToken_not_ok(t *testing.T) {
-	svc := NewTokenService(privBytes, pubBytes)
+func (s TokenServiceSuite) TestExtractTokenNotOk() {
 	reader := strings.NewReader("")
 	req, err := http.NewRequest(http.MethodPost, "/check_token", reader)
 	if err != nil {
-		t.Fatal("error when creating request: %w", err)
+		s.T().Fatal("error when creating request: %w", err)
 	}
-	extracted, err := svc.ExtractToken(req)
-	assert.Error(t, err)
-	assert.Empty(t, extracted)
-	assert.ErrorAs(t, err, &ErrBearerTokenExtract)
+	extracted, err := s.svc.ExtractToken(req)
+	s.Error(err)
+	s.Empty(extracted)
+	s.ErrorAs(err, &ErrBearerTokenExtract)
 }
 
-func TestValidateToken_ok(t *testing.T) {
-	svc := NewTokenService(privBytes, pubBytes)
+func (s TokenServiceSuite) TestValidateTokenOk() {
 	user := model.User{
 		ID:           0,
 		Username:     "user",
@@ -89,8 +112,66 @@ func TestValidateToken_ok(t *testing.T) {
 		Enabled:      true,
 		CreationDate: time.Time{},
 	}
-	token, err := svc.GenerateJwtToken(user, []string{"ADMIN"})
-	assert.NoError(t, err)
-	err = svc.ValidateToken(fmt.Sprintf("%v", token))
-	assert.NoError(t, err)
+	token, err := s.svc.GenerateJwtToken(user, []string{"ADMIN"})
+	s.NoError(err)
+	err = s.svc.ValidateToken(fmt.Sprintf("%v", token))
+	s.NoError(err)
+}
+
+func (s TokenServiceSuite) TestValidateTokenErrParseClaims() {
+	err := s.svc.ValidateToken("nil")
+	s.Error(err)
+	s.EqualError(err, "error when parse with claims: token contains an invalid number of segments")
+}
+
+// ===================================================================================
+
+type TokenServiceInvalidKeysSuite struct {
+	suite.Suite
+	*require.Assertions
+	mockCtrl *gomock.Controller
+}
+
+func TestTokenServiceInvalidKeys(t *testing.T) {
+	suite.Run(t, new(TokenServiceInvalidKeysSuite))
+}
+
+func (s *TokenServiceInvalidKeysSuite) SetupTest() {
+	s.Assertions = require.New(s.T())
+	s.mockCtrl = gomock.NewController(s.T())
+}
+
+func (s *TokenServiceInvalidKeysSuite) TearDownTest() {
+	s.mockCtrl.Finish()
+}
+
+func (s *TokenServiceInvalidKeysSuite) TestNewTokenServicePrivKeyInvalid() {
+	errChan := make(chan error, 1)
+	expected := errors.New("could not parse RSA private key from pem: Invalid Key: Key must be PEM encoded PKCS1 or PKCS8 private key")
+	getPanic(errChan, NewTokenService, nil, nil)
+	err := <-errChan
+	s.Error(err)
+	s.Equal(expected.Error(), err.Error())
+}
+
+func (s *TokenServiceInvalidKeysSuite) TestNewTokenServicePubKeyInvalid() {
+	errChan := make(chan error, 1)
+	expected := errors.New("could not parse RSA public key from pem: Invalid Key: Key must be PEM encoded PKCS1 or PKCS8 private key")
+	getPanic(errChan, NewTokenService, privBytes, nil)
+	err := <-errChan
+	s.Error(err)
+	s.Equal(expected.Error(), err.Error())
+}
+
+type funcNewTokenService func(privBytes []byte, pubBytes []byte) TokenService
+
+func getPanic(errChan chan error, fn funcNewTokenService, args ...[]byte) {
+	defer func() {
+		if r := recover(); r == nil {
+			errChan <- nil
+		} else {
+			errChan <- r.(error)
+		}
+	}()
+	fn(args[0], args[1])
 }

@@ -35,7 +35,7 @@ jobs:
             -Dsonar.organization=golauth
             -Dsonar.projectKey=golauth_golauth
             -Dsonar.sources=.
-            -Dsonar.exclusions=**/*_test.go,**/*.sql,**/mock/*_mock.go
+            -Dsonar.exclusions=**/*_test.go,**/*.sql,**/*_mock.go
             -Dsonar.tests=.
             -Dsonar.test.inclusions=**/*_test.go
             -Dsonar.go.coverage.reportPaths=/github/workspace/coverage.out

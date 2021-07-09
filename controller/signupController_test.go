@@ -18,7 +18,7 @@ type SignupControllerSuite struct {
 	suite.Suite
 	*require.Assertions
 	mockCtrl *gomock.Controller
-	svc      *mock.MockSignupService
+	svc      *mock.MockUserService
 
 	ctrl SignupController
 }
@@ -30,7 +30,7 @@ func TestSignupController(t *testing.T) {
 func (s *SignupControllerSuite) SetupTest() {
 	s.Assertions = require.New(s.T())
 	s.mockCtrl = gomock.NewController(s.T())
-	s.svc = mock.NewMockSignupService(s.mockCtrl)
+	s.svc = mock.NewMockUserService(s.mockCtrl)
 
 	s.ctrl = NewSignupController(s.svc)
 }

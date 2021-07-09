@@ -13,10 +13,10 @@ type SignupController interface {
 }
 
 type signupController struct {
-	service usecase.SignupService
+	service usecase.UserService
 }
 
-func NewSignupController(service usecase.SignupService) SignupController {
+func NewSignupController(service usecase.UserService) SignupController {
 	return signupController{service: service}
 }
 

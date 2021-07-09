@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"github.com/dgrijalva/jwt-go"
 	"golauth/model"
-	"log"
 	"net/http"
 	"time"
 )
@@ -37,12 +36,12 @@ func (ts *tokenService) parseKeys(privBytes []byte, pubBytes []byte) {
 	var err error
 	ts.privateKey, err = jwt.ParseRSAPrivateKeyFromPEM(privBytes)
 	if err != nil {
-		log.Fatal(fmt.Errorf("could not parse RSA private key from pem: %w", err))
+		panic(fmt.Errorf("could not parse RSA private key from pem: %w", err))
 	}
 
 	ts.publicKey, err = jwt.ParseRSAPublicKeyFromPEM(pubBytes)
 	if err != nil {
-		log.Fatal(fmt.Errorf("could not parse RSA public key from pem: %w", err))
+		panic(fmt.Errorf("could not parse RSA public key from pem: %w", err))
 	}
 }
 

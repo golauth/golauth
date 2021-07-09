@@ -14,7 +14,7 @@ import (
 
 type Routes struct {
 	signUpController     controller.SignupController
-	signInController     controller.SignInController
+	tokenController      controller.TokenController
 	checkTokenController controller.CheckTokenController
 	userController       controller.UserController
 	roleController       controller.RoleController
@@ -23,15 +23,16 @@ type Routes struct {
 }
 
 func NewRoutes(pathPrefix string, db *sql.DB, privBytes []byte, pubBytes []byte) *Routes {
-	tokenService := usecase.NewTokenService(privBytes, pubBytes)
 	uRepo := repository.NewUserRepository(db)
 	rRepo := repository.NewRoleRepository(db)
 	urRepo := repository.NewUserRoleRepository(db)
-	signupService := usecase.NewSignupService(uRepo, rRepo, urRepo)
+	uaRepo := repository.NewUserAuthorityRepository(db)
+	tokenService := usecase.NewTokenService(privBytes, pubBytes)
+	userService := usecase.NewUserService(uRepo, rRepo, urRepo, uaRepo, tokenService)
 
 	return &Routes{
-		signUpController:     controller.NewSignupController(signupService),
-		signInController:     controller.NewSignInController(db, privBytes, pubBytes),
+		signUpController:     controller.NewSignupController(userService),
+		tokenController:      controller.NewTokenController(uRepo, uaRepo, tokenService, userService),
 		checkTokenController: controller.NewCheckTokenController(tokenService),
 		userController:       controller.NewUserController(uRepo, urRepo),
 		roleController:       controller.NewRoleController(rRepo),
@@ -46,7 +47,7 @@ func NewRoutes(pathPrefix string, db *sql.DB, privBytes []byte, pubBytes []byte)
 
 func (r *Routes) RegisterRouter(router *mux.Router) {
 	router.HandleFunc("/signup", r.signUpController.CreateUser).Methods(http.MethodPost, http.MethodOptions)
-	router.HandleFunc("/token", r.signInController.Token).Methods(http.MethodPost, http.MethodOptions)
+	router.HandleFunc("/token", r.tokenController.Token).Methods(http.MethodPost, http.MethodOptions)
 	router.HandleFunc("/check_token", r.checkTokenController.CheckToken).Methods(http.MethodGet, http.MethodOptions)
 
 	router.HandleFunc("/users/{username}", r.userController.FindByUsername).Methods(http.MethodGet, http.MethodOptions)
