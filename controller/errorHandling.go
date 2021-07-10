@@ -1,13 +1,14 @@
-package util
+package controller
 
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"golauth/model"
 	"net/http"
 )
 
-func SendServerError(w http.ResponseWriter, err error) {
+func sendServerError(w http.ResponseWriter, err error) {
 	var e model.Error
 	e.Message = err.Error()
 	e.StatusCode = http.StatusInternalServerError
@@ -15,7 +16,7 @@ func SendServerError(w http.ResponseWriter, err error) {
 	_ = json.NewEncoder(w).Encode(e)
 }
 
-func SendBadRequest(w http.ResponseWriter, err error) {
+func sendBadRequest(w http.ResponseWriter, err error) {
 	var e model.Error
 	e.Message = err.Error()
 	e.StatusCode = http.StatusBadRequest
@@ -23,7 +24,7 @@ func SendBadRequest(w http.ResponseWriter, err error) {
 	_ = json.NewEncoder(w).Encode(e)
 }
 
-func SendNotFound(w http.ResponseWriter, err error) {
+func sendNotFound(w http.ResponseWriter, err error) {
 	var e model.Error
 	e.Message = err.Error()
 	e.StatusCode = http.StatusNotFound
@@ -31,30 +32,20 @@ func SendNotFound(w http.ResponseWriter, err error) {
 	_ = json.NewEncoder(w).Encode(e)
 }
 
-func SendSuccess(w http.ResponseWriter, data interface{}) {
+func sendSuccess(w http.ResponseWriter, data interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(data)
 }
 
-func SendError(w http.ResponseWriter, err *model.Error) {
-	if err.StatusCode == 0 {
-		w.WriteHeader(http.StatusInternalServerError)
-	} else {
-		w.WriteHeader(err.StatusCode)
-	}
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(err)
-}
-
-func SendResult(w http.ResponseWriter, data interface{}, err error) {
+func sendResult(w http.ResponseWriter, data interface{}, err error) {
 	if err != nil {
-		if err == sql.ErrNoRows {
-			SendNotFound(w, err)
+		if errors.Is(err, sql.ErrNoRows) {
+			sendNotFound(w, err)
 		} else {
-			SendServerError(w, err)
+			sendServerError(w, err)
 		}
 		return
 	}
 
-	SendSuccess(w, data)
+	sendSuccess(w, data)
 }

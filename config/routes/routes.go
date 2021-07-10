@@ -2,11 +2,11 @@ package routes
 
 import (
 	"database/sql"
+	"encoding/json"
 	"golauth/controller"
 	"golauth/model"
 	"golauth/repository"
 	"golauth/usecase"
-	"golauth/util"
 	"net/http"
 
 	"github.com/gorilla/mux"
@@ -26,12 +26,12 @@ type router struct {
 	publicURI            map[string]bool
 }
 
-func NewRouter(pathPrefix string, db *sql.DB, privBytes []byte, pubBytes []byte) Router {
+func NewRouter(pathPrefix string, db *sql.DB) Router {
 	uRepo := repository.NewUserRepository(db)
 	rRepo := repository.NewRoleRepository(db)
 	urRepo := repository.NewUserRoleRepository(db)
 	uaRepo := repository.NewUserAuthorityRepository(db)
-	tokenService := usecase.NewTokenService(privBytes, pubBytes)
+	tokenService := usecase.NewTokenService()
 	userService := usecase.NewUserService(uRepo, rRepo, urRepo, uaRepo, tokenService)
 
 	return &router{
@@ -81,12 +81,16 @@ func (r *router) applySecurity(next http.Handler) http.Handler {
 		if r.isPrivateURI(requestURI) {
 			token, err := r.tokenService.ExtractToken(request)
 			if err != nil {
-				util.SendError(responseWriter, &model.Error{StatusCode: http.StatusBadGateway, Message: err.Error()})
+				responseWriter.WriteHeader(http.StatusInternalServerError)
+				responseWriter.Header().Set("Content-Type", "application/json")
+				_ = json.NewEncoder(responseWriter).Encode(&model.Error{StatusCode: http.StatusBadGateway, Message: err.Error()})
 				return
 			}
 			err = r.tokenService.ValidateToken(token)
 			if err != nil {
-				util.SendError(responseWriter, &model.Error{StatusCode: http.StatusUnauthorized, Message: err.Error()})
+				responseWriter.WriteHeader(http.StatusUnauthorized)
+				responseWriter.Header().Set("Content-Type", "application/json")
+				_ = json.NewEncoder(responseWriter).Encode(&model.Error{StatusCode: http.StatusUnauthorized, Message: err.Error()})
 				return
 			}
 		}
@@ -94,7 +98,7 @@ func (r *router) applySecurity(next http.Handler) http.Handler {
 	})
 }
 
-func (r *router) isPrivateURI(requestURI string) bool {
+func (r router) isPrivateURI(requestURI string) bool {
 	_, contains := r.publicURI[requestURI]
 	return !contains
 }

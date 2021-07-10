@@ -1,6 +1,6 @@
 package model
 
 type TokenResponse struct {
-	AccessToken  interface{} `json:"access_token"`
-	RefreshToken interface{} `json:"refresh_token"`
+	AccessToken  string `json:"access_token"`
+	RefreshToken string `json:"refresh_token"`
 }

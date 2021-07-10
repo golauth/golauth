@@ -7,7 +7,6 @@ import (
 	"golauth/model"
 	"golauth/repository"
 	"golauth/usecase"
-	"golauth/util"
 	"net/http"
 )
 
@@ -47,12 +46,12 @@ func (s tokenController) Token(w http.ResponseWriter, r *http.Request) {
 	} else if r.Header.Get("Content-Type") == "application/json" {
 		username, password, err = s.extractUserPasswordFromJson(r, username, password)
 	} else {
-		util.SendBadRequest(w, ErrContentTypeNotSuported)
+		sendBadRequest(w, ErrContentTypeNotSuported)
 		return
 	}
 
 	if err != nil {
-		util.SendServerError(w, err)
+		sendServerError(w, err)
 		return
 	}
 	tk, err := s.userService.GenerateToken(username, password)
@@ -61,7 +60,7 @@ func (s tokenController) Token(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	util.SendSuccess(w, tk)
+	sendSuccess(w, tk)
 }
 
 func (s tokenController) encapsulateModelError(w http.ResponseWriter, err error) {

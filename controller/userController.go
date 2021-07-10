@@ -5,7 +5,6 @@ import (
 	"github.com/gorilla/mux"
 	"golauth/model"
 	"golauth/repository"
-	"golauth/util"
 	"net/http"
 )
 
@@ -25,7 +24,7 @@ func (u UserController) FindByUsername(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
 	username, _ := params["username"]
 	user, err := u.userRepository.FindByUsername(username)
-	util.SendResult(w, user, err)
+	sendResult(w, user, err)
 }
 
 func (u UserController) AddRole(w http.ResponseWriter, r *http.Request) {
@@ -33,5 +32,5 @@ func (u UserController) AddRole(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewDecoder(r.Body).Decode(&userRole)
 	savedUserRole, err := u.userRoleRepository.AddUserRole(userRole.UserID, userRole.RoleID)
 	w.WriteHeader(http.StatusCreated)
-	util.SendResult(w, savedUserRole, err)
+	sendResult(w, savedUserRole, err)
 }

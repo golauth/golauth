@@ -2,66 +2,86 @@
 package usecase
 
 import (
+	"crypto/rand"
 	"crypto/rsa"
+	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/dgrijalva/jwt-go"
+	"github.com/cristalhq/jwt/v3"
 	"golauth/model"
 	"net/http"
 	"time"
 )
 
-var ErrBearerTokenExtract = errors.New("bearer token extract error")
-
-const tokenExpirationTime = 30
+var (
+	ErrBearerTokenExtract = errors.New("bearer token extract error")
+	errExpiredToken       = errors.New("expired token")
+	errSignerGenerate     = errors.New("could not generate signer from private key")
+	errVerifierGenerate   = errors.New("could not generate verifier from public key")
+	keyAlgorithm          = jwt.RS512
+	tokenExpirationTime   = 30
+)
 
 type TokenService interface {
 	ValidateToken(token string) error
 	ExtractToken(r *http.Request) (string, error)
-	GenerateJwtToken(user model.User, authorities []string) (interface{}, error)
+	GenerateJwtToken(user model.User, authorities []string) (string, error)
 }
 
 type tokenService struct {
-	publicKey  *rsa.PublicKey
-	privateKey *rsa.PrivateKey
+	signer   jwt.Signer
+	verifier jwt.Verifier
 }
 
-func NewTokenService(privBytes []byte, pubBytes []byte) TokenService {
+func NewTokenService() TokenService {
 	ts := tokenService{}
-	ts.parseKeys(privBytes, pubBytes)
+	ts.prepare()
 	return ts
 }
 
-func (ts *tokenService) parseKeys(privBytes []byte, pubBytes []byte) {
-	var err error
-	ts.privateKey, err = jwt.ParseRSAPrivateKeyFromPEM(privBytes)
-	if err != nil {
-		panic(fmt.Errorf("could not parse RSA private key from pem: %w", err))
-	}
-
-	ts.publicKey, err = jwt.ParseRSAPublicKeyFromPEM(pubBytes)
-	if err != nil {
-		panic(fmt.Errorf("could not parse RSA public key from pem: %w", err))
-	}
+func (ts *tokenService) prepare() {
+	key := ts.generatePrivateKey()
+	ts.signer = ts.generateSigner(key)
+	ts.verifier = ts.generateVerifier(key)
 }
 
-func (ts tokenService) ValidateToken(token string) error {
+func (ts tokenService) generateSigner(key *rsa.PrivateKey) jwt.Signer {
+	signer, err := jwt.NewSignerRS(keyAlgorithm, key)
+	if err != nil {
+		panic(errSignerGenerate)
+	}
+	return signer
+}
+
+func (ts tokenService) generateVerifier(key *rsa.PrivateKey) jwt.Verifier {
+	verifier, err := jwt.NewVerifierRS(keyAlgorithm, &key.PublicKey)
+	if err != nil {
+		panic(errVerifierGenerate)
+	}
+	return verifier
+}
+
+func (ts *tokenService) generatePrivateKey() *rsa.PrivateKey {
+	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		panic(fmt.Errorf("could not generate private key: %w", err))
+	}
+	return privateKey
+}
+
+func (ts tokenService) ValidateToken(strToken string) error {
+	token, err := jwt.ParseAndVerifyString(strToken, ts.verifier)
+	if err != nil {
+		return fmt.Errorf("could not parse and verify strToken: %w", err)
+	}
+
 	claims := &model.Claims{}
-	parsedToken, err := jwt.ParseWithClaims(token, claims, func(token *jwt.Token) (i interface{}, err error) {
-		return ts.publicKey, nil
-	})
-
+	err = json.Unmarshal(token.RawClaims(), &claims)
 	if err != nil {
-		return fmt.Errorf("error when parse with claims: %w", err)
+		return fmt.Errorf("could not unmarshal claims: %w", err)
 	}
-
-	err = parsedToken.Claims.Valid()
-	if err != nil {
-		return fmt.Errorf("parsed token claims invalid: %w", err)
-	}
-
-	if !parsedToken.Valid {
-		return fmt.Errorf("parsed token invalid")
+	if !claims.IsValidAt(time.Now()) {
+		return errExpiredToken
 	}
 
 	return nil
@@ -75,18 +95,22 @@ func (ts tokenService) ExtractToken(r *http.Request) (string, error) {
 	return "", ErrBearerTokenExtract
 }
 
-func (ts tokenService) GenerateJwtToken(user model.User, authorities []string) (interface{}, error) {
-	expirationTime := time.Now().Add(tokenExpirationTime * time.Minute)
+func (ts tokenService) GenerateJwtToken(user model.User, authorities []string) (string, error) {
+	expirationTime := time.Now().Add(time.Duration(tokenExpirationTime) * time.Minute)
 	claims := &model.Claims{
 		Username:    user.Username,
 		FirstName:   user.FirstName,
 		LastName:    user.LastName,
 		Authorities: authorities,
 		StandardClaims: jwt.StandardClaims{
-			ExpiresAt: expirationTime.Unix(),
+			ExpiresAt: jwt.NewNumericDate(expirationTime),
 		},
 	}
+	builder := jwt.NewBuilder(ts.signer)
+	token, err := builder.Build(claims)
+	if err != nil {
+		return "", fmt.Errorf("could not build token with claims: %w", err)
+	}
 
-	token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
-	return token.SignedString(ts.privateKey)
+	return token.String(), nil
 }

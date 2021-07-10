@@ -45,10 +45,10 @@ func (s CheckTokenControllerSuite) TestCheckTokenErrExtractToken() {
 	s.tkSvc.EXPECT().ExtractToken(r).Return("", usecase.ErrBearerTokenExtract).Times(1)
 
 	s.ct.CheckToken(w, r)
-	s.Equal(http.StatusBadGateway, w.Code)
+	s.Equal(http.StatusBadRequest, w.Code)
 	var result model.Error
 	_ = json.NewDecoder(w.Body).Decode(&result)
-	s.Equal(http.StatusBadGateway, result.StatusCode)
+	s.Equal(http.StatusBadRequest, result.StatusCode)
 	s.EqualError(usecase.ErrBearerTokenExtract, result.Message)
 }
 

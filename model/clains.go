@@ -1,6 +1,6 @@
 package model
 
-import "github.com/dgrijalva/jwt-go"
+import "github.com/cristalhq/jwt/v3"
 
 type Claims struct {
 	Username    string   `json:"username"`
