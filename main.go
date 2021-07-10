@@ -46,8 +46,8 @@ func main() {
 	if err != nil {
 		log.Fatalf("error when creating database connection: %s", err.Error())
 	}
-	r := routes.NewRoutes(pathPrefix, ds.GetDB(), privBytes, pubBytes)
-	r.RegisterRouter(router)
+	r := routes.NewRouter(pathPrefix, ds.GetDB(), privBytes, pubBytes)
+	r.RegisterRoutes(router)
 	fmt.Println("Server listening on port: ", port)
 	log.Fatal(http.ListenAndServe(addr, router))
 }
