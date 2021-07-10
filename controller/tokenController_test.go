@@ -2,6 +2,7 @@ package controller
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
@@ -89,6 +90,20 @@ func (s TokenControllerSuite) TestTokenJsonOk() {
 	var result model.TokenResponse
 	_ = json.NewDecoder(w.Body).Decode(&result)
 	s.Equal(token, result.AccessToken)
+}
+
+func (s TokenControllerSuite) TestTokenJsonNotOk() {
+	w := httptest.NewRecorder()
+	r, _ := http.NewRequest("POST", "/token", strings.NewReader("{foo:bar}"))
+	r.Header.Set("Content-Type", "application/json")
+
+	expectedErr := errors.New("json decoder error")
+	s.ctrl.Token(w, r)
+	s.Equal(http.StatusInternalServerError, w.Code)
+	var result model.Error
+	_ = json.NewDecoder(w.Body).Decode(&result)
+	s.Equal(http.StatusInternalServerError, result.StatusCode)
+	s.ErrorAs(fmt.Errorf(result.Message), &expectedErr)
 }
 
 func (s TokenControllerSuite) TestTokenInvalidContentType() {

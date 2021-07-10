@@ -2,9 +2,9 @@
 package controller
 
 import (
+	"encoding/json"
 	"golauth/model"
 	"golauth/usecase"
-	"golauth/util"
 	"net/http"
 )
 
@@ -23,13 +23,14 @@ func NewCheckTokenController(service usecase.TokenService) CheckTokenController 
 func (c checkTokenController) CheckToken(w http.ResponseWriter, r *http.Request) {
 	token, err := c.service.ExtractToken(r)
 	if err != nil {
-		util.SendError(w, &model.Error{StatusCode: http.StatusBadGateway, Message: err.Error()})
+		sendBadRequest(w, err)
 		return
 	}
 	err = c.service.ValidateToken(token)
 	if err != nil {
-		util.SendError(w, &model.Error{StatusCode: http.StatusUnauthorized, Message: err.Error()})
+		w.WriteHeader(http.StatusUnauthorized)
+		_ = json.NewEncoder(w).Encode(&model.Error{StatusCode: http.StatusUnauthorized, Message: err.Error()})
 		return
 	}
-	util.SendSuccess(w, true)
+	sendSuccess(w, true)
 }

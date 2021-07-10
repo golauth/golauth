@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"golauth/model"
 	"golauth/usecase"
-	"golauth/util"
 	"net/http"
 )
 
@@ -25,5 +24,5 @@ func (s signupController) CreateUser(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewDecoder(r.Body).Decode(&decodedUser)
 	user, err := s.service.CreateUser(decodedUser)
 	w.WriteHeader(http.StatusCreated)
-	util.SendResult(w, user, err)
+	sendResult(w, user, err)
 }

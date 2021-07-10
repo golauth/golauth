@@ -219,7 +219,7 @@ func (s UserServiceSuite) TestGenerateTokenErrGeneratingToken() {
 	authorities := []string{"PANEL_EDIT", "PANEL_READ"}
 	s.userRepository.EXPECT().FindByUsernameWithPassword(username).Return(user, nil).Times(1)
 	s.userAuthorityRepository.EXPECT().FindAuthoritiesByUserID(user.ID).Return(authorities, nil).Times(1)
-	s.tokenService.EXPECT().GenerateJwtToken(user, authorities).Return(model.TokenResponse{}, fmt.Errorf("could not generate token")).Times(1)
+	s.tokenService.EXPECT().GenerateJwtToken(user, authorities).Return("", fmt.Errorf("could not generate token")).Times(1)
 
 	tokenResponse, err := s.svc.GenerateToken(username, password)
 	s.ErrorIs(err, ErrGeneratingToken)
