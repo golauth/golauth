@@ -1,7 +1,9 @@
+//go:generate mockgen -source userRoleRepository.go -destination mock/userRoleRepository_mock.go -package mock
 package repository
 
 import (
 	"database/sql"
+	"fmt"
 	"golauth/model"
 )
 
@@ -21,5 +23,8 @@ func (urr userRoleRepository) AddUserRole(userId int, roleId int) (model.UserRol
 	userRole := model.UserRole{UserID: userId, RoleID: roleId}
 	err := urr.db.QueryRow("INSERT INTO golauth_user_role (user_id,role_id) VALUES ($1, $2) RETURNING creation_date;",
 		userRole.UserID, userRole.RoleID).Scan(&userRole.CreationDate)
+	if err != nil {
+		return model.UserRole{}, fmt.Errorf("could not add userrole [user:%d:role:%d]: %w", userId, roleId, err)
+	}
 	return userRole, err
 }

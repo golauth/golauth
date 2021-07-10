@@ -4,3 +4,4 @@ vendor/
 *.iml
 coverage.out
 golauth
+**/mock/*_mock.go

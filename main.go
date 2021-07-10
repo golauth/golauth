@@ -16,11 +16,17 @@ import (
 var (
 	port       string
 	pathPrefix string
+	privBytes  []byte
+	pubBytes   []byte
 )
 
 func init() {
 	_ = gotenv.Load()
-	util.LoadKeyEnv()
+	var err error
+	privBytes, pubBytes, err = util.LoadKeyFromEnv()
+	if err != nil {
+		log.Fatalf("error when loading keys: %s", err.Error())
+	}
 
 	port = os.Getenv("PORT")
 	if port == "" {
@@ -36,15 +42,12 @@ func init() {
 func main() {
 	addr := fmt.Sprint(":", port)
 	router := mux.NewRouter().PathPrefix(pathPrefix).Subrouter()
-
-	db, err := datasource.CreateDBConnection()
+	ds, err := datasource.NewDatasource()
 	if err != nil {
 		log.Fatalf("error when creating database connection: %s", err.Error())
 	}
-
-	r := routes.NewRoutes(pathPrefix, db)
-	r.RegisterRouter(router)
-
+	r := routes.NewRouter(pathPrefix, ds.GetDB(), privBytes, pubBytes)
+	r.RegisterRoutes(router)
 	fmt.Println("Server listening on port: ", port)
 	log.Fatal(http.ListenAndServe(addr, router))
 }
