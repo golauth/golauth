@@ -1,8 +1,9 @@
-package controller
+package handler
 
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"github.com/golang/mock/gomock"
 	"github.com/gorilla/mux"
 	"github.com/stretchr/testify/require"
@@ -116,10 +117,6 @@ func (s RoleControllerSuite) TestEditRoleNotOk() {
 
 	s.rc.EditRole(w, r)
 	s.Equal(http.StatusInternalServerError, w.Code)
-
-	var result model.Error
-	_ = json.NewDecoder(w.Body).Decode(&result)
-
-	s.Equal(http.StatusInternalServerError, result.StatusCode)
-	s.Equal("cannot cast [id] to [int]", result.Message)
+	expected := errors.New("cannot cast [id] to [int]")
+	s.ErrorAs(errors.New(w.Body.String()), &expected)
 }

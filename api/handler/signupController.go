@@ -1,4 +1,4 @@
-package controller
+package handler
 
 import (
 	"encoding/json"
@@ -22,7 +22,12 @@ func NewSignupController(service usecase.UserService) SignupController {
 func (s signupController) CreateUser(w http.ResponseWriter, r *http.Request) {
 	var decodedUser model.User
 	_ = json.NewDecoder(r.Body).Decode(&decodedUser)
-	user, err := s.service.CreateUser(decodedUser)
+	data, err := s.service.CreateUser(decodedUser)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 	w.WriteHeader(http.StatusCreated)
-	sendResult(w, user, err)
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(data)
 }

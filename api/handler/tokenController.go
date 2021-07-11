@@ -1,4 +1,4 @@
-package controller
+package handler
 
 import (
 	"encoding/json"
@@ -46,29 +46,22 @@ func (s tokenController) Token(w http.ResponseWriter, r *http.Request) {
 	} else if r.Header.Get("Content-Type") == "application/json" {
 		username, password, err = s.extractUserPasswordFromJson(r, username, password)
 	} else {
-		sendBadRequest(w, ErrContentTypeNotSuported)
+		http.Error(w, ErrContentTypeNotSuported.Error(), http.StatusMethodNotAllowed)
 		return
 	}
 
 	if err != nil {
-		sendServerError(w, err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	tk, err := s.userService.GenerateToken(username, password)
+	data, err := s.userService.GenerateToken(username, password)
 	if err != nil {
-		s.encapsulateModelError(w, err)
+		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
 	}
 
-	sendSuccess(w, tk)
-}
-
-func (s tokenController) encapsulateModelError(w http.ResponseWriter, err error) {
-	var e model.Error
-	e.Message = err.Error()
-	e.StatusCode = http.StatusUnauthorized
-	w.WriteHeader(http.StatusUnauthorized)
-	_ = json.NewEncoder(w).Encode(e)
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(data)
 }
 
 func (s tokenController) extractUserPasswordFromJson(r *http.Request, username string, password string) (string, string, error) {

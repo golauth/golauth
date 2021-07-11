@@ -1,8 +1,7 @@
-package controller
+package handler
 
 import (
 	"encoding/json"
-	"errors"
 	"github.com/gorilla/mux"
 	"golauth/model"
 	"golauth/repository"
@@ -21,20 +20,30 @@ func NewRoleController(rRepo repository.RoleRepository) RoleController {
 func (c RoleController) CreateRole(w http.ResponseWriter, r *http.Request) {
 	var role model.Role
 	_ = json.NewDecoder(r.Body).Decode(&role)
-	savedRole, err := c.roleRepository.Create(role)
+	data, err := c.roleRepository.Create(role)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 	w.WriteHeader(http.StatusCreated)
-	sendResult(w, savedRole, err)
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(data)
 }
 
 func (c RoleController) EditRole(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
 	_, err := strconv.Atoi(params["id"])
 	if err != nil {
-		sendServerError(w, errors.New("cannot cast [id] to [int]"))
+		http.Error(w, "cannot cast [id] to [int]", http.StatusInternalServerError)
 		return
 	}
-	var role model.Role
-	_ = json.NewDecoder(r.Body).Decode(&role)
-	err = c.roleRepository.Edit(role)
-	sendResult(w, role, err)
+	var data model.Role
+	_ = json.NewDecoder(r.Body).Decode(&data)
+	err = c.roleRepository.Edit(data)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(data)
 }
