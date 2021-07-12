@@ -7,9 +7,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
-	"golauth/config/datasource"
+	datasource2 "golauth/infrastructure/datasource"
 	"golauth/model"
-	"golauth/postgrescontainer"
+	"golauth/ops"
 	"testing"
 	"time"
 )
@@ -24,17 +24,17 @@ type UserRepositorySuite struct {
 }
 
 func TestUserRepository(t *testing.T) {
-	ctxContainer, err := postgrescontainer.ContainerDBStart("./..")
+	ctxContainer, err := ops.ContainerDBStart("./../..")
 	assert.NoError(t, err)
 	s := new(UserRepositorySuite)
 	suite.Run(t, s)
-	postgrescontainer.ContainerDBStop(ctxContainer)
+	ops.ContainerDBStop(ctxContainer)
 }
 
 func (s *UserRepositorySuite) SetupTest() {
 	s.Assertions = require.New(s.T())
 	s.mockCtrl = gomock.NewController(s.T())
-	ds, err := datasource.NewDatasource()
+	ds, err := datasource2.NewDatasource()
 	s.NotNil(ds)
 	s.NoError(err)
 	s.db = ds.GetDB()
@@ -51,7 +51,7 @@ func (s UserRepositorySuite) prepareDatabase(clean bool, scripts ...string) {
 	if clean {
 		cleanScript = "clear-data.sql"
 	}
-	err := postgrescontainer.DatasetTest(s.db, "./..", cleanScript, scripts...)
+	err := ops.DatasetTest(s.db, "./../..", cleanScript, scripts...)
 	s.NoError(err)
 }
 
@@ -133,29 +133,29 @@ func (s *UserRepositoryDBMockSuite) TearDownTest() {
 func (s *UserRepositoryDBMockSuite) TestFindByUsernameScanError() {
 	s.mockDB.ExpectQuery("SELECT").
 		WithArgs("username").
-		WillReturnError(postgrescontainer.ErrMockScan)
+		WillReturnError(ops.ErrMockScan)
 	result, err := s.repo.FindByUsername("username")
 	s.Empty(result)
 	s.NotNil(err)
-	s.ErrorAs(err, &postgrescontainer.ErrMockScan)
+	s.ErrorAs(err, &ops.ErrMockScan)
 }
 
 func (s *UserRepositoryDBMockSuite) TestFindByIDScanError() {
 	s.mockDB.ExpectQuery("SELECT").
 		WithArgs(1).
-		WillReturnError(postgrescontainer.ErrMockScan)
+		WillReturnError(ops.ErrMockScan)
 	result, err := s.repo.FindByID(1)
 	s.Empty(result)
 	s.NotNil(err)
-	s.ErrorAs(err, &postgrescontainer.ErrMockScan)
+	s.ErrorAs(err, &ops.ErrMockScan)
 }
 
 func (s *UserRepositoryDBMockSuite) TestCreateScanError() {
 	s.mockDB.ExpectQuery("INSERT").
 		WithArgs(sqlmock.AnyArg()).
-		WillReturnError(postgrescontainer.ErrMockScan)
+		WillReturnError(ops.ErrMockScan)
 	result, err := s.repo.Create(model.User{Username: "username"})
 	s.Empty(result)
 	s.NotNil(err)
-	s.ErrorAs(err, &postgrescontainer.ErrMockScan)
+	s.ErrorAs(err, &ops.ErrMockScan)
 }

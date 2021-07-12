@@ -1,4 +1,4 @@
-package postgrescontainer
+package ops
 
 import (
 	"context"
@@ -78,7 +78,7 @@ func setEnv(testDbPort nat.Port, basePath string) {
 }
 
 func getMigrationsPath(basePath string) string {
-	return fmt.Sprintf("%s/migrations", basePath)
+	return fmt.Sprintf("%s/ops/migrations", basePath)
 }
 
 func ContainerDBStop(ctx context.Context) {
@@ -138,7 +138,7 @@ func clearDataScript(basePath string, fileName string) (string, error) {
 }
 
 func loadScript(basePath string, fileName string) (string, error) {
-	filePath := fmt.Sprintf("%s/postgrescontainer/sql_scripts/%s", basePath, fileName)
+	filePath := fmt.Sprintf("%s/ops/test_scripts/%s", basePath, fileName)
 	c, err := ioutil.ReadFile(filePath)
 	if err != nil {
 		return "", err

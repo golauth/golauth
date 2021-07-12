@@ -7,9 +7,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
-	"golauth/config/datasource"
+	"golauth/infrastructure/datasource"
 	"golauth/model"
-	"golauth/postgrescontainer"
+	"golauth/ops"
 	"testing"
 )
 
@@ -23,11 +23,11 @@ type UserRoleRepositorySuite struct {
 }
 
 func TestUserRoleRepository(t *testing.T) {
-	ctxContainer, err := postgrescontainer.ContainerDBStart("./..")
+	ctxContainer, err := ops.ContainerDBStart("./../..")
 	assert.NoError(t, err)
 	s := new(UserRoleRepositorySuite)
 	suite.Run(t, s)
-	postgrescontainer.ContainerDBStop(ctxContainer)
+	ops.ContainerDBStop(ctxContainer)
 }
 
 func (s *UserRoleRepositorySuite) SetupTest() {
@@ -50,7 +50,7 @@ func (s UserRoleRepositorySuite) prepareDatabase(clean bool, scripts ...string) 
 	if clean {
 		cleanScript = "clear-data.sql"
 	}
-	err := postgrescontainer.DatasetTest(s.db, "./..", cleanScript, scripts...)
+	err := ops.DatasetTest(s.db, "./../..", cleanScript, scripts...)
 	s.NoError(err)
 }
 
@@ -113,9 +113,9 @@ func (s *UserRoleRepositoryDBMockSuite) TearDownTest() {
 func (s UserRoleRepositoryDBMockSuite) TestRoleRepositoryWithMockFindScanError() {
 	s.mockDB.ExpectQuery("INSERT INTO golauth_user_role").
 		WithArgs(sqlmock.AnyArg()).
-		WillReturnError(postgrescontainer.ErrMockScan)
+		WillReturnError(ops.ErrMockScan)
 	result, err := s.repo.AddUserRole(1, 1)
 	s.Empty(result)
 	s.NotNil(err)
-	s.ErrorAs(err, &postgrescontainer.ErrMockScan)
+	s.ErrorAs(err, &ops.ErrMockScan)
 }

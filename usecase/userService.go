@@ -5,8 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"golang.org/x/crypto/bcrypt"
+	repository2 "golauth/infrastructure/repository"
 	"golauth/model"
-	"golauth/repository"
 )
 
 const defaultRoleName = "USER"
@@ -23,18 +23,18 @@ type UserService interface {
 }
 
 type userService struct {
-	userRepository          repository.UserRepository
-	roleRepository          repository.RoleRepository
-	userRoleRepository      repository.UserRoleRepository
-	userAuthorityRepository repository.UserAuthorityRepository
+	userRepository          repository2.UserRepository
+	roleRepository          repository2.RoleRepository
+	userRoleRepository      repository2.UserRoleRepository
+	userAuthorityRepository repository2.UserAuthorityRepository
 	tokenService            TokenService
 }
 
 func NewUserService(
-	userRepository repository.UserRepository,
-	roleRepository repository.RoleRepository,
-	userRoleRepository repository.UserRoleRepository,
-	userAuthorityRepository repository.UserAuthorityRepository,
+	userRepository repository2.UserRepository,
+	roleRepository repository2.RoleRepository,
+	userRoleRepository repository2.UserRoleRepository,
+	userAuthorityRepository repository2.UserAuthorityRepository,
 	tokenService TokenService) UserService {
 	return userService{
 		userRepository:          userRepository,

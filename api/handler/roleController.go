@@ -3,17 +3,17 @@ package handler
 import (
 	"encoding/json"
 	"github.com/gorilla/mux"
+	repository2 "golauth/infrastructure/repository"
 	"golauth/model"
-	"golauth/repository"
 	"net/http"
 	"strconv"
 )
 
 type RoleController struct {
-	roleRepository repository.RoleRepository
+	roleRepository repository2.RoleRepository
 }
 
-func NewRoleController(rRepo repository.RoleRepository) RoleController {
+func NewRoleController(rRepo repository2.RoleRepository) RoleController {
 	return RoleController{roleRepository: rRepo}
 }
 

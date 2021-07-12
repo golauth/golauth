@@ -7,9 +7,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
-	"golauth/config/datasource"
+	datasource2 "golauth/infrastructure/datasource"
 	"golauth/model"
-	"golauth/postgrescontainer"
+	"golauth/ops"
 	"testing"
 )
 
@@ -23,17 +23,17 @@ type UserAuthorityRepositorySuite struct {
 }
 
 func TestUserAuthorityRepository(t *testing.T) {
-	ctxContainer, err := postgrescontainer.ContainerDBStart("./..")
+	ctxContainer, err := ops.ContainerDBStart("./../..")
 	assert.NoError(t, err)
 	s := new(UserAuthorityRepositorySuite)
 	suite.Run(t, s)
-	postgrescontainer.ContainerDBStop(ctxContainer)
+	ops.ContainerDBStop(ctxContainer)
 }
 
 func (s *UserAuthorityRepositorySuite) SetupTest() {
 	s.Assertions = require.New(s.T())
 	s.mockCtrl = gomock.NewController(s.T())
-	ds, err := datasource.NewDatasource()
+	ds, err := datasource2.NewDatasource()
 	s.NotNil(ds)
 	s.NoError(err)
 	s.db = ds.GetDB()
@@ -50,7 +50,7 @@ func (s UserAuthorityRepositorySuite) prepareDatabase(clean bool, scripts ...str
 	if clean {
 		cleanScript = "clear-data.sql"
 	}
-	err := postgrescontainer.DatasetTest(s.db, "./..", cleanScript, scripts...)
+	err := ops.DatasetTest(s.db, "./../..", cleanScript, scripts...)
 	s.NoError(err)
 }
 
@@ -103,21 +103,21 @@ func (s *UserAuthorityRepositoryDBMockSuite) TearDownTest() {
 }
 
 func (s *UserAuthorityRepositoryDBMockSuite) TestUserAuthorityRepositoryWithMockErrDbClosed() {
-	s.mockDB.ExpectQuery("SELECT").WithArgs(1).WillReturnError(postgrescontainer.ErrMockDBClosed)
+	s.mockDB.ExpectQuery("SELECT").WithArgs(1).WillReturnError(ops.ErrMockDBClosed)
 	result, err := s.repo.FindAuthoritiesByUserID(1)
 	s.Empty(result)
 	s.Error(err)
-	s.ErrorAs(err, &postgrescontainer.ErrMockDBClosed)
+	s.ErrorAs(err, &ops.ErrMockDBClosed)
 }
 
 func (s *UserAuthorityRepositoryDBMockSuite) TestUserAuthorityRepositoryWithMockScanErr() {
 	rows := sqlmock.NewRows([]string{"name"}).
 		AddRow("user").
-		AddRow(nil).RowError(2, postgrescontainer.ErrMockScan)
+		AddRow(nil).RowError(2, ops.ErrMockScan)
 
 	s.mockDB.ExpectQuery("SELECT").WithArgs(1).WillReturnRows(rows)
 	result, err := s.repo.FindAuthoritiesByUserID(1)
 	s.Error(err)
 	s.Empty(result)
-	s.ErrorAs(err, &postgrescontainer.ErrMockScan)
+	s.ErrorAs(err, &ops.ErrMockScan)
 }

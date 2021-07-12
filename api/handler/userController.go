@@ -3,17 +3,17 @@ package handler
 import (
 	"encoding/json"
 	"github.com/gorilla/mux"
+	repository2 "golauth/infrastructure/repository"
 	"golauth/model"
-	"golauth/repository"
 	"net/http"
 )
 
 type UserController struct {
-	userRepository     repository.UserRepository
-	userRoleRepository repository.UserRoleRepository
+	userRepository     repository2.UserRepository
+	userRoleRepository repository2.UserRoleRepository
 }
 
-func NewUserController(uRepo repository.UserRepository, urRepo repository.UserRoleRepository) UserController {
+func NewUserController(uRepo repository2.UserRepository, urRepo repository2.UserRoleRepository) UserController {
 	return UserController{
 		userRepository:     uRepo,
 		userRoleRepository: urRepo,

@@ -11,7 +11,7 @@ FROM alpine as dist
 ENV MIGRATION_SOURCE_URL=./migrations
 
 COPY --from=builder /build/golauth /app/
-COPY --from=builder /build/migrations /app/migrations
+COPY --from=builder /build/ops/migrations /app/migrations
 RUN addgroup -S golauth && adduser -S golauth -G golauth \
     && chown -R golauth:golauth  /app
 USER golauth

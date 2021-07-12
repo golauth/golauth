@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	repository2 "golauth/infrastructure/repository"
 	"golauth/model"
-	"golauth/repository"
 	"golauth/usecase"
 	"net/http"
 )
@@ -17,15 +17,15 @@ type TokenController interface {
 }
 
 type tokenController struct {
-	userRepository          repository.UserRepository
-	userAuthorityRepository repository.UserAuthorityRepository
+	userRepository          repository2.UserRepository
+	userAuthorityRepository repository2.UserAuthorityRepository
 	tokenService            usecase.TokenService
 	userService             usecase.UserService
 }
 
 func NewTokenController(
-	userRepository repository.UserRepository,
-	userAuthorityRepository repository.UserAuthorityRepository,
+	userRepository repository2.UserRepository,
+	userAuthorityRepository repository2.UserAuthorityRepository,
 	tokenService usecase.TokenService,
 	userService usecase.UserService) TokenController {
 	return tokenController{

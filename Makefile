@@ -9,6 +9,9 @@ start-db:
 stop-db:
 	docker-compose -p ${STACK_NAME} stop
 
+down-db:
+	docker-compose -p ${STACK_NAME} down -v
+
 build-image:
 	docker build -t golauth/golauth:dev -f Dockerfile .
 
