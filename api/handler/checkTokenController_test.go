@@ -1,12 +1,11 @@
-package controller
+package handler
 
 import (
-	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
-	"golauth/model"
 	"golauth/usecase"
 	"golauth/usecase/mock"
 	"net/http"
@@ -46,10 +45,7 @@ func (s CheckTokenControllerSuite) TestCheckTokenErrExtractToken() {
 
 	s.ct.CheckToken(w, r)
 	s.Equal(http.StatusBadRequest, w.Code)
-	var result model.Error
-	_ = json.NewDecoder(w.Body).Decode(&result)
-	s.Equal(http.StatusBadRequest, result.StatusCode)
-	s.EqualError(usecase.ErrBearerTokenExtract, result.Message)
+	s.ErrorAs(errors.New(w.Body.String()), &usecase.ErrBearerTokenExtract)
 }
 
 func (s CheckTokenControllerSuite) TestCheckTokenInvalidToken() {
@@ -61,10 +57,8 @@ func (s CheckTokenControllerSuite) TestCheckTokenInvalidToken() {
 
 	s.ct.CheckToken(w, r)
 	s.Equal(http.StatusUnauthorized, w.Code)
-	var result model.Error
-	_ = json.NewDecoder(w.Body).Decode(&result)
-	s.Equal(http.StatusUnauthorized, result.StatusCode)
-	s.Equal("parsed token invalid", result.Message)
+	expected := errors.New("parsed token invalid")
+	s.ErrorAs(errors.New(w.Body.String()), &expected)
 }
 
 func (s CheckTokenControllerSuite) TestCheckTokenOk() {

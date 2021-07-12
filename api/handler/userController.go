@@ -1,4 +1,4 @@
-package controller
+package handler
 
 import (
 	"encoding/json"
@@ -23,14 +23,22 @@ func NewUserController(uRepo repository.UserRepository, urRepo repository.UserRo
 func (u UserController) FindByUsername(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
 	username, _ := params["username"]
-	user, err := u.userRepository.FindByUsername(username)
-	sendResult(w, user, err)
+	data, err := u.userRepository.FindByUsername(username)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	_ = json.NewEncoder(w).Encode(data)
 }
 
 func (u UserController) AddRole(w http.ResponseWriter, r *http.Request) {
 	var userRole model.UserRole
 	_ = json.NewDecoder(r.Body).Decode(&userRole)
-	savedUserRole, err := u.userRoleRepository.AddUserRole(userRole.UserID, userRole.RoleID)
+	data, err := u.userRoleRepository.AddUserRole(userRole.UserID, userRole.RoleID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 	w.WriteHeader(http.StatusCreated)
-	sendResult(w, savedUserRole, err)
+	_ = json.NewEncoder(w).Encode(data)
 }

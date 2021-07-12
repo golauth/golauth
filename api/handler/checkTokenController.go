@@ -1,9 +1,8 @@
 //go:generate mockgen -source checkTokenController.go -destination mock/checkTokenController_mock.go -package mock
-package controller
+package handler
 
 import (
 	"encoding/json"
-	"golauth/model"
 	"golauth/usecase"
 	"net/http"
 )
@@ -23,14 +22,13 @@ func NewCheckTokenController(service usecase.TokenService) CheckTokenController 
 func (c checkTokenController) CheckToken(w http.ResponseWriter, r *http.Request) {
 	token, err := c.service.ExtractToken(r)
 	if err != nil {
-		sendBadRequest(w, err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 	err = c.service.ValidateToken(token)
 	if err != nil {
-		w.WriteHeader(http.StatusUnauthorized)
-		_ = json.NewEncoder(w).Encode(&model.Error{StatusCode: http.StatusUnauthorized, Message: err.Error()})
+		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
 	}
-	sendSuccess(w, true)
+	_ = json.NewEncoder(w).Encode(true)
 }

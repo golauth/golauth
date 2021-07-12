@@ -1,4 +1,4 @@
-package controller
+package handler
 
 import (
 	"encoding/json"
@@ -97,16 +97,12 @@ func (s TokenControllerSuite) TestTokenJsonNotOk() {
 	r, _ := http.NewRequest("POST", "/token", strings.NewReader("{foo:bar}"))
 	r.Header.Set("Content-Type", "application/json")
 
-	expectedErr := errors.New("json decoder error")
 	s.ctrl.Token(w, r)
 	s.Equal(http.StatusInternalServerError, w.Code)
-	var result model.Error
-	_ = json.NewDecoder(w.Body).Decode(&result)
-	s.Equal(http.StatusInternalServerError, result.StatusCode)
-	s.ErrorAs(fmt.Errorf(result.Message), &expectedErr)
+	s.Contains(w.Body.String(), "json decoder error")
 }
 
-func (s TokenControllerSuite) TestTokenInvalidContentType() {
+func (s TokenControllerSuite) TestTokenMethodNotAllowed() {
 	username := "admin"
 	password := "123456"
 
@@ -115,11 +111,9 @@ func (s TokenControllerSuite) TestTokenInvalidContentType() {
 	r.Header.Set("Content-Type", "text/html")
 
 	s.ctrl.Token(w, r)
-	s.Equal(http.StatusBadRequest, w.Code)
-	var result model.Error
-	_ = json.NewDecoder(w.Body).Decode(&result)
-	s.Equal(http.StatusBadRequest, result.StatusCode)
-	s.Equal(ErrContentTypeNotSuported.Error(), result.Message)
+	s.Equal(http.StatusMethodNotAllowed, w.Code)
+	errResult := errors.New(w.Body.String())
+	s.ErrorAs(ErrContentTypeNotSuported, &errResult)
 }
 
 func (s TokenControllerSuite) TestTokenErrParseForm() {
@@ -129,10 +123,7 @@ func (s TokenControllerSuite) TestTokenErrParseForm() {
 
 	s.ctrl.Token(w, r)
 	s.Equal(http.StatusInternalServerError, w.Code)
-	var result model.Error
-	_ = json.NewDecoder(w.Body).Decode(&result)
-	s.Equal(http.StatusInternalServerError, result.StatusCode)
-	s.Equal("parse form error: missing form body", result.Message)
+	s.Contains(w.Body.String(), "parse form error: missing form body")
 }
 
 func (s TokenControllerSuite) TestTokenErrGenerateToken() {
@@ -147,8 +138,5 @@ func (s TokenControllerSuite) TestTokenErrGenerateToken() {
 
 	s.ctrl.Token(w, r)
 	s.Equal(http.StatusUnauthorized, w.Code)
-	var result model.Error
-	_ = json.NewDecoder(w.Body).Decode(&result)
-	s.Equal(http.StatusUnauthorized, result.StatusCode)
-	s.Equal("could not find user by username admin", result.Message)
+	s.Contains(w.Body.String(), "could not find user by username admin")
 }

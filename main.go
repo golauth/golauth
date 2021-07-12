@@ -2,8 +2,8 @@ package main
 
 import (
 	"fmt"
+	"golauth/api"
 	"golauth/config/datasource"
-	"golauth/config/routes"
 	"log"
 	"net/http"
 	"os"
@@ -34,7 +34,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("error when creating database connection: %s", err.Error())
 	}
-	r := routes.NewRouter(pathPrefix, ds.GetDB())
+	r := api.NewRouter(pathPrefix, ds.GetDB())
 	r.RegisterRoutes(router)
 	fmt.Println("Server listening on port: ", port)
 	log.Fatal(http.ListenAndServe(addr, router))
