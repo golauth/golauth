@@ -4,13 +4,16 @@ package repository
 import (
 	"database/sql"
 	"fmt"
-	"golauth/model"
+	"github.com/google/uuid"
+	"golauth/entity"
 )
 
 type RoleRepository interface {
-	FindByName(name string) (model.Role, error)
-	Create(role model.Role) (model.Role, error)
-	Edit(role model.Role) error
+	FindByName(name string) (entity.Role, error)
+	Create(role entity.Role) (entity.Role, error)
+	Edit(role entity.Role) error
+	ChangeStatus(id uuid.UUID, enabled bool) error
+	ExistsById(id uuid.UUID) (bool, error)
 }
 
 type roleRepository struct {
@@ -21,39 +24,68 @@ func NewRoleRepository(db *sql.DB) RoleRepository {
 	return roleRepository{db: db}
 }
 
-func (rr roleRepository) FindByName(name string) (model.Role, error) {
-	role := model.Role{}
-	row := rr.db.QueryRow("SELECT * FROM golauth_role WHERE name = $1", name)
+func (r roleRepository) FindByName(name string) (entity.Role, error) {
+	role := entity.Role{}
+	row := r.db.QueryRow("SELECT * FROM golauth_role WHERE name = $1", name)
 	err := row.Scan(&role.ID, &role.Name, &role.Description, &role.Enabled, &role.CreationDate)
 	if err != nil {
-		return model.Role{}, fmt.Errorf("could not find role %s: %w", name, err)
+		return entity.Role{}, fmt.Errorf("could not find role %s: %w", name, err)
 	}
 	return role, nil
 }
 
-func (rr roleRepository) Create(role model.Role) (model.Role, error) {
-	err := rr.db.QueryRow("INSERT INTO golauth_role (name,description,enabled) VALUES ($1, $2, $3) RETURNING id, creation_date;",
+func (r roleRepository) Create(role entity.Role) (entity.Role, error) {
+	err := r.db.QueryRow("INSERT INTO golauth_role (name,description,enabled) VALUES ($1, $2, $3) RETURNING id, creation_date;",
 		role.Name, role.Description, role.Enabled).Scan(&role.ID, &role.CreationDate)
 	if err != nil {
-		return model.Role{}, fmt.Errorf("could not create role %s: %w", role.Name, err)
+		return entity.Role{}, fmt.Errorf("could not create role %s: %w", role.Name, err)
 	}
 	return role, nil
 }
 
-func (rr roleRepository) Edit(role model.Role) error {
+func (r roleRepository) Edit(role entity.Role) error {
 	updateStatement := `
 		UPDATE golauth_role
-		SET name = $2, description = $3, enabled = $4
+		SET name = $2, description = $3
 		WHERE id = $1
 	`
-	r, err := rr.db.Exec(updateStatement, role.ID, role.Name, role.Description, role.Enabled)
+	res, err := r.db.Exec(updateStatement, role.ID, role.Name, role.Description)
 	if err != nil {
 		return fmt.Errorf("could not edit role %s: %w", role.Name, err)
 	}
 
-	nRows, err := r.RowsAffected()
-	if err != nil || nRows == 0 {
+	rows, err := res.RowsAffected()
+	if err != nil || rows == 0 {
 		return fmt.Errorf("no rows affected: %w", err)
 	}
 	return nil
+}
+
+func (r roleRepository) ChangeStatus(id uuid.UUID, enabled bool) error {
+	updateStatement := `
+		UPDATE golauth_role
+		SET enabled = $2
+		WHERE id = $1
+	`
+	res, err := r.db.Exec(updateStatement, id, enabled)
+	if err != nil {
+		return fmt.Errorf("could not edit role %s: %w", id, err)
+	}
+
+	rows, err := res.RowsAffected()
+	if err != nil || rows == 0 {
+		return fmt.Errorf("no rows affected: %w", err)
+	}
+	return nil
+}
+
+func (r roleRepository) ExistsById(id uuid.UUID) (bool, error) {
+	var exists bool
+	query := "SELECT EXISTS (SELECT 1 FROM golauth_role WHERE id $1)"
+	row := r.db.QueryRow(query, id)
+	err := row.Scan(&exists)
+	if err != nil {
+		return false, err
+	}
+	return exists, nil
 }

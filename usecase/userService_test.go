@@ -3,11 +3,12 @@ package usecase
 import (
 	"fmt"
 	"github.com/golang/mock/gomock"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 	"golang.org/x/crypto/bcrypt"
+	"golauth/entity"
 	"golauth/infrastructure/repository/mock"
-	"golauth/model"
 	mockSvc "golauth/usecase/mock"
 	"testing"
 	"time"
@@ -26,8 +27,8 @@ type UserServiceSuite struct {
 
 	svc UserService
 
-	mockUser      model.User
-	mockSavedUser model.User
+	mockUser      entity.User
+	mockSavedUser entity.User
 }
 
 func TestUserService(t *testing.T) {
@@ -46,7 +47,7 @@ func (s *UserServiceSuite) SetupTest() {
 
 	s.svc = NewUserService(s.userRepository, s.roleRepository, s.userRoleRepository, s.userAuthorityRepository, s.tokenService)
 
-	s.mockUser = model.User{
+	s.mockUser = entity.User{
 		Username:  "admin",
 		FirstName: "User",
 		LastName:  "Name",
@@ -55,8 +56,8 @@ func (s *UserServiceSuite) SetupTest() {
 		Password:  "4567",
 		Enabled:   true,
 	}
-	s.mockSavedUser = model.User{
-		ID:           1,
+	s.mockSavedUser = entity.User{
+		ID:           uuid.New(),
 		Username:     "admin",
 		FirstName:    "User",
 		LastName:     "Name",
@@ -74,11 +75,13 @@ func (s *UserServiceSuite) TearDownTest() {
 }
 
 func (s UserServiceSuite) TestCreateUserOk() {
-	role := model.Role{ID: 1, Name: "USER", Description: "User", Enabled: true, CreationDate: time.Now()}
-	userRole := model.UserRole{UserID: 1, RoleID: 1, CreationDate: time.Now()}
+	roleId := uuid.New()
+	userId := s.mockSavedUser.ID
+	role := entity.Role{ID: roleId, Name: "USER", Description: "User", Enabled: true, CreationDate: time.Now()}
+	userRole := entity.UserRole{UserID: userId, RoleID: roleId, CreationDate: time.Now()}
 	s.userRepository.EXPECT().Create(gomock.Any()).Return(s.mockSavedUser, nil).Times(1)
 	s.roleRepository.EXPECT().FindByName(defaultRoleName).Return(role, nil).Times(1)
-	s.userRoleRepository.EXPECT().AddUserRole(1, 1).Return(userRole, nil).Times(1)
+	s.userRoleRepository.EXPECT().AddUserRole(userId, roleId).Return(userRole, nil).Times(1)
 
 	createUser, err := s.svc.CreateUser(s.mockUser)
 	s.NoError(err)
@@ -86,33 +89,38 @@ func (s UserServiceSuite) TestCreateUserOk() {
 }
 
 func (s UserServiceSuite) TestCreateUserErrWhenSave() {
-	s.userRepository.EXPECT().Create(gomock.Any()).Return(model.User{}, fmt.Errorf("could not create user admin")).Times(1)
+	s.userRepository.EXPECT().Create(gomock.Any()).Return(entity.User{}, fmt.Errorf("could not create user admin")).Times(1)
 
-	_, err := s.svc.CreateUser(model.User{})
+	_, err := s.svc.CreateUser(entity.User{})
 	s.EqualError(err, "could not save user: could not create user admin")
 }
 
 func (s UserServiceSuite) TestCreateUserErrFindRole() {
 	s.userRepository.EXPECT().Create(gomock.Any()).Return(s.mockSavedUser, nil).Times(1)
-	s.roleRepository.EXPECT().FindByName(defaultRoleName).Return(model.Role{}, fmt.Errorf("could not find role USER")).Times(1)
+	s.roleRepository.EXPECT().FindByName(defaultRoleName).Return(entity.Role{}, fmt.Errorf("could not find role USER")).Times(1)
 
 	_, err := s.svc.CreateUser(s.mockUser)
 	s.EqualError(err, "could not fetch default role: could not find role USER")
 }
 
 func (s UserServiceSuite) TestCreateUserErrAddUserRole() {
-	role := model.Role{ID: 1, Name: "USER", Description: "User", Enabled: true, CreationDate: time.Now()}
+	roleId := uuid.New()
+	userId := s.mockSavedUser.ID
+	role := entity.Role{ID: roleId, Name: "USER", Description: "User", Enabled: true, CreationDate: time.Now()}
 	s.userRepository.EXPECT().Create(gomock.Any()).Return(s.mockSavedUser, nil).Times(1)
 	s.roleRepository.EXPECT().FindByName(defaultRoleName).Return(role, nil).Times(1)
-	s.userRoleRepository.EXPECT().AddUserRole(1, 1).Return(model.UserRole{}, fmt.Errorf("could not add userrole [user:1:role:1]")).Times(1)
+	s.userRoleRepository.
+		EXPECT().
+		AddUserRole(userId, roleId).Return(entity.UserRole{}, fmt.Errorf("could not add userrole [user:%s:role:%s]", userId, roleId)).
+		Times(1)
 
 	_, err := s.svc.CreateUser(s.mockUser)
-	s.EqualError(err, "could not add default role to user: could not add userrole [user:1:role:1]")
+	s.EqualError(err, fmt.Sprintf("could not add default role to user: could not add userrole [user:%s:role:%s]", userId, roleId))
 }
 
 func (s UserServiceSuite) TestCreateUserErrGenerateHashPassword() {
 	bcryptDefaultCost = 50
-	_, err := s.svc.CreateUser(model.User{Password: "1234"})
+	_, err := s.svc.CreateUser(entity.User{Password: "1234"})
 	s.EqualError(err, "could not generate password: crypto/bcrypt: cost 50 is outside allowed range (4,31)")
 }
 
@@ -120,8 +128,8 @@ func (s UserServiceSuite) TestGenerateTokenOk() {
 	username := "admin"
 	password := "123456"
 	encodedPassword, _ := bcrypt.GenerateFromPassword([]byte("123456"), bcryptDefaultCost)
-	user := model.User{
-		ID:           1,
+	user := entity.User{
+		ID:           uuid.New(),
 		Username:     username,
 		FirstName:    "User",
 		LastName:     "Name",
@@ -140,7 +148,7 @@ func (s UserServiceSuite) TestGenerateTokenOk() {
 	tokenResponse, err := s.svc.GenerateToken(username, password)
 	s.NoError(err)
 	s.NotEmpty(tokenResponse)
-	s.Empty(tokenResponse.RefreshToken)
+	s.Zero(tokenResponse.RefreshToken)
 	s.Equal(token, tokenResponse.AccessToken)
 }
 
@@ -148,7 +156,7 @@ func (s UserServiceSuite) TestGenerateTokenUserNotFound() {
 	username := "admin"
 	password := "123456"
 
-	s.userRepository.EXPECT().FindByUsernameWithPassword(username).Return(model.User{}, fmt.Errorf("could not find user by username admin")).Times(1)
+	s.userRepository.EXPECT().FindByUsernameWithPassword(username).Return(entity.User{}, fmt.Errorf("could not find user by username admin")).Times(1)
 
 	tokenResponse, err := s.svc.GenerateToken(username, password)
 	s.ErrorIs(err, ErrInvalidUsernameOrPassword)
@@ -159,8 +167,8 @@ func (s UserServiceSuite) TestGenerateTokenInvalidPassword() {
 	username := "admin"
 	password := "123456"
 	encodedPassword, _ := bcrypt.GenerateFromPassword([]byte("1234567"), bcryptDefaultCost)
-	user := model.User{
-		ID:           1,
+	user := entity.User{
+		ID:           uuid.New(),
 		Username:     username,
 		FirstName:    "User",
 		LastName:     "Name",
@@ -181,8 +189,8 @@ func (s UserServiceSuite) TestGenerateTokenErrFetchAuthorities() {
 	username := "admin"
 	password := "123456"
 	encodedPassword, _ := bcrypt.GenerateFromPassword([]byte("123456"), bcryptDefaultCost)
-	user := model.User{
-		ID:           1,
+	user := entity.User{
+		ID:           uuid.New(),
 		Username:     username,
 		FirstName:    "User",
 		LastName:     "Name",
@@ -205,8 +213,8 @@ func (s UserServiceSuite) TestGenerateTokenErrGeneratingToken() {
 	username := "admin"
 	password := "123456"
 	encodedPassword, _ := bcrypt.GenerateFromPassword([]byte("123456"), bcryptDefaultCost)
-	user := model.User{
-		ID:           1,
+	user := entity.User{
+		ID:           uuid.New(),
 		Username:     username,
 		FirstName:    "User",
 		LastName:     "Name",

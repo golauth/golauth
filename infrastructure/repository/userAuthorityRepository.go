@@ -4,10 +4,11 @@ package repository
 import (
 	"database/sql"
 	"fmt"
+	"github.com/google/uuid"
 )
 
 type UserAuthorityRepository interface {
-	FindAuthoritiesByUserID(userId int) ([]string, error)
+	FindAuthoritiesByUserID(userId uuid.UUID) ([]string, error)
 }
 
 type userAuthorityRepository struct {
@@ -18,7 +19,7 @@ func NewUserAuthorityRepository(db *sql.DB) UserAuthorityRepository {
 	return userAuthorityRepository{db: db}
 }
 
-func (u userAuthorityRepository) FindAuthoritiesByUserID(userId int) ([]string, error) {
+func (u userAuthorityRepository) FindAuthoritiesByUserID(userId uuid.UUID) ([]string, error) {
 	var authorities []string
 	var err error
 	var query = `

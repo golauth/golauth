@@ -5,7 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"golang.org/x/crypto/bcrypt"
-	repository2 "golauth/infrastructure/repository"
+	"golauth/entity"
+	"golauth/infrastructure/repository"
 	"golauth/model"
 )
 
@@ -18,23 +19,23 @@ var (
 )
 
 type UserService interface {
-	CreateUser(user model.User) (model.User, error)
+	CreateUser(user entity.User) (entity.User, error)
 	GenerateToken(username string, password string) (model.TokenResponse, error)
 }
 
 type userService struct {
-	userRepository          repository2.UserRepository
-	roleRepository          repository2.RoleRepository
-	userRoleRepository      repository2.UserRoleRepository
-	userAuthorityRepository repository2.UserAuthorityRepository
+	userRepository          repository.UserRepository
+	roleRepository          repository.RoleRepository
+	userRoleRepository      repository.UserRoleRepository
+	userAuthorityRepository repository.UserAuthorityRepository
 	tokenService            TokenService
 }
 
 func NewUserService(
-	userRepository repository2.UserRepository,
-	roleRepository repository2.RoleRepository,
-	userRoleRepository repository2.UserRoleRepository,
-	userAuthorityRepository repository2.UserAuthorityRepository,
+	userRepository repository.UserRepository,
+	roleRepository repository.RoleRepository,
+	userRoleRepository repository.UserRoleRepository,
+	userAuthorityRepository repository.UserAuthorityRepository,
 	tokenService TokenService) UserService {
 	return userService{
 		userRepository:          userRepository,
@@ -45,24 +46,24 @@ func NewUserService(
 	}
 }
 
-func (s userService) CreateUser(user model.User) (model.User, error) {
+func (s userService) CreateUser(user entity.User) (entity.User, error) {
 	hash, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcryptDefaultCost)
 	if err != nil {
-		return model.User{}, fmt.Errorf("could not generate password: %w", err)
+		return entity.User{}, fmt.Errorf("could not generate password: %w", err)
 	}
 
 	user.Password = string(hash)
 	savedUser, err := s.userRepository.Create(user)
 	if err != nil {
-		return model.User{}, fmt.Errorf("could not save user: %w", err)
+		return entity.User{}, fmt.Errorf("could not save user: %w", err)
 	}
 	role, err := s.roleRepository.FindByName(defaultRoleName)
 	if err != nil {
-		return model.User{}, fmt.Errorf("could not fetch default role: %w", err)
+		return entity.User{}, fmt.Errorf("could not fetch default role: %w", err)
 	}
 	_, err = s.userRoleRepository.AddUserRole(savedUser.ID, role.ID)
 	if err != nil {
-		return model.User{}, fmt.Errorf("could not add default role to user: %w", err)
+		return entity.User{}, fmt.Errorf("could not add default role to user: %w", err)
 	}
 
 	return savedUser, nil

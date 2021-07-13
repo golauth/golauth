@@ -3,8 +3,8 @@ package handler
 import (
 	"encoding/json"
 	"github.com/gorilla/mux"
+	"golauth/entity"
 	repository2 "golauth/infrastructure/repository"
-	"golauth/model"
 	"net/http"
 )
 
@@ -32,7 +32,7 @@ func (u UserController) FindByUsername(w http.ResponseWriter, r *http.Request) {
 }
 
 func (u UserController) AddRole(w http.ResponseWriter, r *http.Request) {
-	var userRole model.UserRole
+	var userRole entity.UserRole
 	_ = json.NewDecoder(r.Body).Decode(&userRole)
 	data, err := u.userRoleRepository.AddUserRole(userRole.UserID, userRole.RoleID)
 	if err != nil {

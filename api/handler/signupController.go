@@ -2,7 +2,7 @@ package handler
 
 import (
 	"encoding/json"
-	"golauth/model"
+	"golauth/entity"
 	"golauth/usecase"
 	"net/http"
 )
@@ -20,7 +20,7 @@ func NewSignupController(service usecase.UserService) SignupController {
 }
 
 func (s signupController) CreateUser(w http.ResponseWriter, r *http.Request) {
-	var decodedUser model.User
+	var decodedUser entity.User
 	_ = json.NewDecoder(r.Body).Decode(&decodedUser)
 	data, err := s.service.CreateUser(decodedUser)
 	if err != nil {

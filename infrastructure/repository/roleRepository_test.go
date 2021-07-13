@@ -4,11 +4,12 @@ import (
 	"database/sql"
 	"errors"
 	"github.com/golang/mock/gomock"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
+	"golauth/entity"
 	datasource2 "golauth/infrastructure/datasource"
-	"golauth/model"
 	"golauth/ops"
 	"testing"
 	"time"
@@ -67,7 +68,7 @@ func (s RoleRepositorySuite) TestRoleRepositoryFindRoleByName() {
 
 func (s RoleRepositorySuite) TestRoleRepositoryCreateNewRole() {
 	s.prepareDatabase(true, "add-users.sql")
-	r := model.Role{
+	r := entity.Role{
 		Name:         "CUSTOMER_EDIT",
 		Description:  "Customer edit",
 		Enabled:      true,
@@ -99,8 +100,8 @@ func (s RoleRepositorySuite) TestRoleRepositoryEditOk() {
 
 func (s RoleRepositorySuite) TestRoleRepositoryEditIdNotFound() {
 	s.prepareDatabase(true)
-	r := model.Role{
-		ID:           1,
+	r := entity.Role{
+		ID:           uuid.New(),
 		Name:         "CUSTOMER_EDIT",
 		Description:  "Customer edit",
 		Enabled:      true,
@@ -123,7 +124,7 @@ func (s RoleRepositorySuite) TestRoleRepositoryFindByNameNotFound() {
 
 func (s RoleRepositorySuite) TestRoleRepositoryCreateDuplicatedRole() {
 	s.prepareDatabase(true, "add-users.sql")
-	r := model.Role{
+	r := entity.Role{
 		Name:         "USER",
 		Description:  "New Role User",
 		Enabled:      true,
@@ -145,7 +146,7 @@ type RoleRepositoryDBMockSuite struct {
 	db       *sql.DB
 	mockDB   sqlmock.Sqlmock
 	repo     RoleRepository
-	roleMock model.Role
+	roleMock entity.Role
 }
 
 func TestRoleRepositoryWithMock(t *testing.T) {
@@ -162,7 +163,7 @@ func (s *RoleRepositoryDBMockSuite) SetupTest() {
 
 	s.repo = NewRoleRepository(s.db)
 
-	s.roleMock = model.Role{Name: "role", Description: "role", Enabled: true}
+	s.roleMock = entity.Role{Name: "role", Description: "role", Enabled: true}
 }
 
 func (s *RoleRepositoryDBMockSuite) TearDownTest() {

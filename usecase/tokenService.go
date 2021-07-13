@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/cristalhq/jwt/v3"
+	"golauth/entity"
 	"golauth/model"
 	"net/http"
 	"time"
@@ -25,7 +26,7 @@ var (
 type TokenService interface {
 	ValidateToken(token string) error
 	ExtractToken(r *http.Request) (string, error)
-	GenerateJwtToken(user model.User, authorities []string) (string, error)
+	GenerateJwtToken(user entity.User, authorities []string) (string, error)
 }
 
 type tokenService struct {
@@ -95,7 +96,7 @@ func (ts tokenService) ExtractToken(r *http.Request) (string, error) {
 	return "", ErrBearerTokenExtract
 }
 
-func (ts tokenService) GenerateJwtToken(user model.User, authorities []string) (string, error) {
+func (ts tokenService) GenerateJwtToken(user entity.User, authorities []string) (string, error) {
 	expirationTime := time.Now().Add(time.Duration(tokenExpirationTime) * time.Minute)
 	claims := &model.Claims{
 		Username:    user.Username,

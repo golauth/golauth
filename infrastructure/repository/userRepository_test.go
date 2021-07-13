@@ -4,11 +4,12 @@ import (
 	"database/sql"
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/golang/mock/gomock"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
+	"golauth/entity"
 	datasource2 "golauth/infrastructure/datasource"
-	"golauth/model"
 	"golauth/ops"
 	"testing"
 	"time"
@@ -75,16 +76,17 @@ func (s *UserRepositorySuite) TestFindUserWithPassword() {
 
 func (s *UserRepositorySuite) TestFindUserByIdWithoutPassword() {
 	s.prepareDatabase(true, "add-users.sql")
-	u, err := s.repo.FindByID(1)
+	userId, _ := uuid.Parse("8c61f220-8bb8-48b9-b225-d54dfa6503db")
+	u, err := s.repo.FindByID(userId)
 	s.NoError(err)
 	s.NotNil(u)
 	s.Equal("admin", u.Username)
-	s.Empty(u.Password)
+	s.Zero(u.Password)
 }
 
 func (s *UserRepositorySuite) TestCreateNewUserOk() {
 	s.prepareDatabase(true, "add-users.sql")
-	u := model.User{
+	u := entity.User{
 		Username:     "guest",
 		FirstName:    "Guest",
 		LastName:     "None",
@@ -144,7 +146,7 @@ func (s *UserRepositoryDBMockSuite) TestFindByIDScanError() {
 	s.mockDB.ExpectQuery("SELECT").
 		WithArgs(1).
 		WillReturnError(ops.ErrMockScan)
-	result, err := s.repo.FindByID(1)
+	result, err := s.repo.FindByID(uuid.New())
 	s.Empty(result)
 	s.NotNil(err)
 	s.ErrorAs(err, &ops.ErrMockScan)
@@ -154,7 +156,7 @@ func (s *UserRepositoryDBMockSuite) TestCreateScanError() {
 	s.mockDB.ExpectQuery("INSERT").
 		WithArgs(sqlmock.AnyArg()).
 		WillReturnError(ops.ErrMockScan)
-	result, err := s.repo.Create(model.User{Username: "username"})
+	result, err := s.repo.Create(entity.User{Username: "username"})
 	s.Empty(result)
 	s.NotNil(err)
 	s.ErrorAs(err, &ops.ErrMockScan)

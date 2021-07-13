@@ -4,11 +4,12 @@ import (
 	"bytes"
 	"encoding/json"
 	"github.com/golang/mock/gomock"
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
+	"golauth/entity"
 	"golauth/infrastructure/repository/mock"
-	"golauth/model"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -44,8 +45,8 @@ func (s *UserControllerSuite) TearDownTest() {
 }
 
 func (s *UserControllerSuite) TestFindByUsernameOk() {
-	user := model.User{
-		ID:           0,
+	user := entity.User{
+		ID:           uuid.New(),
 		Username:     "admin",
 		FirstName:    "User",
 		LastName:     "Name",
@@ -74,7 +75,7 @@ func (s *UserControllerSuite) TestFindByUsernameOk() {
 }
 
 func (s *UserControllerSuite) TestAddRoleOk() {
-	userRole := model.UserRole{RoleID: 2, UserID: 2, CreationDate: time.Now()}
+	userRole := entity.UserRole{RoleID: uuid.New(), UserID: uuid.New(), CreationDate: time.Now()}
 	s.urRepo.EXPECT().AddUserRole(userRole.UserID, userRole.RoleID).Return(userRole, nil).Times(1)
 
 	body, _ := json.Marshal(userRole)

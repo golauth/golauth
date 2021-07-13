@@ -71,7 +71,7 @@ func (s TokenControllerSuite) TestTokenFormOk() {
 func (s TokenControllerSuite) TestTokenJsonOk() {
 	username := "admin"
 	password := "123456"
-	login := model.UserLogin{
+	login := model.UserLoginRequest{
 		Username: username,
 		Password: password,
 	}

@@ -4,11 +4,12 @@ import (
 	"database/sql"
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/golang/mock/gomock"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
+	"golauth/entity"
 	datasource2 "golauth/infrastructure/datasource"
-	"golauth/model"
 	"golauth/ops"
 	"testing"
 )
@@ -20,6 +21,8 @@ type UserAuthorityRepositorySuite struct {
 	db       *sql.DB
 
 	repo UserAuthorityRepository
+
+	userAdminId uuid.UUID
 }
 
 func TestUserAuthorityRepository(t *testing.T) {
@@ -39,6 +42,8 @@ func (s *UserAuthorityRepositorySuite) SetupTest() {
 	s.db = ds.GetDB()
 
 	s.repo = NewUserAuthorityRepository(s.db)
+
+	s.userAdminId, _ = uuid.Parse("8c61f220-8bb8-48b9-b225-d54dfa6503db")
 }
 
 func (s *UserAuthorityRepositorySuite) TearDownTest() {
@@ -56,7 +61,7 @@ func (s UserAuthorityRepositorySuite) prepareDatabase(clean bool, scripts ...str
 
 func (s *UserAuthorityRepositorySuite) TestFindAuthoritiesByUserIDUserExists() {
 	s.prepareDatabase(true, "add-users.sql")
-	a, err := s.repo.FindAuthoritiesByUserID(1)
+	a, err := s.repo.FindAuthoritiesByUserID(s.userAdminId)
 	s.NoError(err)
 	s.NotNil(a)
 	s.Len(a, 2)
@@ -64,7 +69,7 @@ func (s *UserAuthorityRepositorySuite) TestFindAuthoritiesByUserIDUserExists() {
 
 func (s *UserAuthorityRepositorySuite) TestFindAuthoritiesByUserIDUserNotExists() {
 	s.prepareDatabase(true)
-	a, err := s.repo.FindAuthoritiesByUserID(1)
+	a, err := s.repo.FindAuthoritiesByUserID(s.userAdminId)
 	s.NoError(err)
 	s.Nil(a)
 }
@@ -73,11 +78,12 @@ func (s *UserAuthorityRepositorySuite) TestFindAuthoritiesByUserIDUserNotExists(
 type UserAuthorityRepositoryDBMockSuite struct {
 	suite.Suite
 	*require.Assertions
-	mockCtrl *gomock.Controller
-	db       *sql.DB
-	mockDB   sqlmock.Sqlmock
-	repo     UserAuthorityRepository
-	roleMock model.Role
+	mockCtrl    *gomock.Controller
+	db          *sql.DB
+	mockDB      sqlmock.Sqlmock
+	repo        UserAuthorityRepository
+	roleMock    entity.Role
+	userAdminId uuid.UUID
 }
 
 func TestUserAuthorityRepositoryWithMock(t *testing.T) {
@@ -94,7 +100,8 @@ func (s *UserAuthorityRepositoryDBMockSuite) SetupTest() {
 
 	s.repo = NewUserAuthorityRepository(s.db)
 
-	s.roleMock = model.Role{Name: "role", Description: "role", Enabled: true}
+	s.roleMock = entity.Role{Name: "role", Description: "role", Enabled: true}
+	s.userAdminId, _ = uuid.Parse("8c61f220-8bb8-48b9-b225-d54dfa6503db")
 }
 
 func (s *UserAuthorityRepositoryDBMockSuite) TearDownTest() {
@@ -103,8 +110,8 @@ func (s *UserAuthorityRepositoryDBMockSuite) TearDownTest() {
 }
 
 func (s *UserAuthorityRepositoryDBMockSuite) TestUserAuthorityRepositoryWithMockErrDbClosed() {
-	s.mockDB.ExpectQuery("SELECT").WithArgs(1).WillReturnError(ops.ErrMockDBClosed)
-	result, err := s.repo.FindAuthoritiesByUserID(1)
+	s.mockDB.ExpectQuery("SELECT").WithArgs(s.userAdminId).WillReturnError(ops.ErrMockDBClosed)
+	result, err := s.repo.FindAuthoritiesByUserID(s.userAdminId)
 	s.Empty(result)
 	s.Error(err)
 	s.ErrorAs(err, &ops.ErrMockDBClosed)
@@ -115,8 +122,8 @@ func (s *UserAuthorityRepositoryDBMockSuite) TestUserAuthorityRepositoryWithMock
 		AddRow("user").
 		AddRow(nil).RowError(2, ops.ErrMockScan)
 
-	s.mockDB.ExpectQuery("SELECT").WithArgs(1).WillReturnRows(rows)
-	result, err := s.repo.FindAuthoritiesByUserID(1)
+	s.mockDB.ExpectQuery("SELECT").WithArgs(s.userAdminId).WillReturnRows(rows)
+	result, err := s.repo.FindAuthoritiesByUserID(s.userAdminId)
 	s.Error(err)
 	s.Empty(result)
 	s.ErrorAs(err, &ops.ErrMockScan)

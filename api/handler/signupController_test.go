@@ -6,7 +6,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
-	"golauth/model"
+	"golauth/entity"
 	"golauth/usecase/mock"
 	"net/http"
 	"net/http/httptest"
@@ -40,7 +40,7 @@ func (s *SignupControllerSuite) TearDownTest() {
 }
 
 func (s SignupControllerSuite) TestCreateUser() {
-	user := model.User{
+	user := entity.User{
 		Username:  "admin",
 		FirstName: "User",
 		LastName:  "Name",
@@ -49,7 +49,7 @@ func (s SignupControllerSuite) TestCreateUser() {
 		Password:  "4567",
 		Enabled:   true,
 	}
-	savedUser := model.User{
+	savedUser := entity.User{
 		Username:  "admin",
 		FirstName: "User",
 		LastName:  "Name",

@@ -1,9 +1,18 @@
 package model
 
-import "time"
+import (
+	"github.com/google/uuid"
+	"time"
+)
 
-type Authority struct {
-	ID           int       `json:"id"`
+type AuthorityRequest struct {
+	ID          uuid.UUID `json:"id"`
+	Name        string    `json:"name"`
+	Description string    `json:"description"`
+}
+
+type AuthorityResponse struct {
+	ID           uuid.UUID `json:"id"`
 	Name         string    `json:"name"`
 	Description  string    `json:"description"`
 	Enabled      bool      `json:"enabled"`
