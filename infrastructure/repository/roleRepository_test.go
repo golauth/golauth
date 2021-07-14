@@ -4,12 +4,13 @@ import (
 	"database/sql"
 	"errors"
 	"github.com/golang/mock/gomock"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
-	"golauth/config/datasource"
-	"golauth/model"
-	"golauth/postgrescontainer"
+	"golauth/entity"
+	datasource2 "golauth/infrastructure/datasource"
+	"golauth/ops"
 	"testing"
 	"time"
 
@@ -26,17 +27,17 @@ type RoleRepositorySuite struct {
 }
 
 func TestRoleRepository(t *testing.T) {
-	ctxContainer, err := postgrescontainer.ContainerDBStart("./..")
+	ctxContainer, err := ops.ContainerDBStart("./../..")
 	assert.NoError(t, err)
 	s := new(RoleRepositorySuite)
 	suite.Run(t, s)
-	postgrescontainer.ContainerDBStop(ctxContainer)
+	ops.ContainerDBStop(ctxContainer)
 }
 
 func (s *RoleRepositorySuite) SetupTest() {
 	s.Assertions = require.New(s.T())
 	s.mockCtrl = gomock.NewController(s.T())
-	ds, err := datasource.NewDatasource()
+	ds, err := datasource2.NewDatasource()
 	s.NotNil(ds)
 	s.NoError(err)
 	s.db = ds.GetDB()
@@ -53,7 +54,7 @@ func (s RoleRepositorySuite) prepareDatabase(clean bool, scripts ...string) {
 	if clean {
 		cleanScript = "clear-data.sql"
 	}
-	err := postgrescontainer.DatasetTest(s.db, "./..", cleanScript, scripts...)
+	err := ops.DatasetTest(s.db, "./../..", cleanScript, scripts...)
 	s.NoError(err)
 }
 
@@ -67,7 +68,7 @@ func (s RoleRepositorySuite) TestRoleRepositoryFindRoleByName() {
 
 func (s RoleRepositorySuite) TestRoleRepositoryCreateNewRole() {
 	s.prepareDatabase(true, "add-users.sql")
-	r := model.Role{
+	r := entity.Role{
 		Name:         "CUSTOMER_EDIT",
 		Description:  "Customer edit",
 		Enabled:      true,
@@ -99,8 +100,8 @@ func (s RoleRepositorySuite) TestRoleRepositoryEditOk() {
 
 func (s RoleRepositorySuite) TestRoleRepositoryEditIdNotFound() {
 	s.prepareDatabase(true)
-	r := model.Role{
-		ID:           1,
+	r := entity.Role{
+		ID:           uuid.New(),
 		Name:         "CUSTOMER_EDIT",
 		Description:  "Customer edit",
 		Enabled:      true,
@@ -123,7 +124,7 @@ func (s RoleRepositorySuite) TestRoleRepositoryFindByNameNotFound() {
 
 func (s RoleRepositorySuite) TestRoleRepositoryCreateDuplicatedRole() {
 	s.prepareDatabase(true, "add-users.sql")
-	r := model.Role{
+	r := entity.Role{
 		Name:         "USER",
 		Description:  "New Role User",
 		Enabled:      true,
@@ -136,6 +137,33 @@ func (s RoleRepositorySuite) TestRoleRepositoryCreateDuplicatedRole() {
 	s.ErrorAs(err, &expectedErr)
 }
 
+func (s RoleRepositorySuite) TestRoleRepositoryChangeStatusOk() {
+	s.prepareDatabase(true, "add-users.sql")
+	id, _ := uuid.Parse("c12b415b-c3ad-487f-9800-f548aa18cc58")
+	err := s.repo.ChangeStatus(id, false)
+	s.NoError(err)
+
+	edited, err := s.repo.FindByName("USER")
+	s.NoError(err)
+	s.NotNil(edited)
+	s.False(edited.Enabled)
+}
+
+func (s RoleRepositorySuite) TestRoleRepositoryExistsByID() {
+	s.prepareDatabase(true, "add-users.sql")
+	id, _ := uuid.Parse("c12b415b-c3ad-487f-9800-f548aa18cc58")
+	exists, err := s.repo.ExistsById(id)
+	s.NoError(err)
+	s.True(exists)
+}
+
+func (s RoleRepositorySuite) TestRoleRepositoryNotExistsByID() {
+	s.prepareDatabase(true, "add-users.sql")
+	exists, err := s.repo.ExistsById(uuid.New())
+	s.NoError(err)
+	s.False(exists)
+}
+
 // =====================================================================================
 
 type RoleRepositoryDBMockSuite struct {
@@ -145,7 +173,7 @@ type RoleRepositoryDBMockSuite struct {
 	db       *sql.DB
 	mockDB   sqlmock.Sqlmock
 	repo     RoleRepository
-	roleMock model.Role
+	roleMock entity.Role
 }
 
 func TestRoleRepositoryWithMock(t *testing.T) {
@@ -162,7 +190,7 @@ func (s *RoleRepositoryDBMockSuite) SetupTest() {
 
 	s.repo = NewRoleRepository(s.db)
 
-	s.roleMock = model.Role{Name: "role", Description: "role", Enabled: true}
+	s.roleMock = entity.Role{Name: "role", Description: "role", Enabled: true}
 }
 
 func (s *RoleRepositoryDBMockSuite) TearDownTest() {
@@ -173,30 +201,30 @@ func (s *RoleRepositoryDBMockSuite) TearDownTest() {
 func (s RoleRepositoryDBMockSuite) TestRoleRepositoryWithMockFindScanError() {
 	s.mockDB.ExpectQuery("SELECT").
 		WithArgs("role").
-		WillReturnError(postgrescontainer.ErrMockScan)
+		WillReturnError(ops.ErrMockScan)
 	result, err := s.repo.FindByName("role")
 	s.Empty(result)
 	s.NotNil(err)
-	s.ErrorAs(err, &postgrescontainer.ErrMockScan)
+	s.ErrorAs(err, &ops.ErrMockScan)
 }
 
 func (s RoleRepositoryDBMockSuite) TestRoleRepositoryWithMockCreateScanError() {
 	s.mockDB.ExpectQuery("INSERT").
 		WithArgs(s.roleMock.Name, s.roleMock.Description, s.roleMock.Enabled).
-		WillReturnError(postgrescontainer.ErrMockScan)
+		WillReturnError(ops.ErrMockScan)
 	result, err := s.repo.Create(s.roleMock)
 	s.Empty(result)
 	s.NotNil(err)
-	s.ErrorAs(err, &postgrescontainer.ErrMockScan)
+	s.ErrorAs(err, &ops.ErrMockScan)
 }
 
 func (s RoleRepositoryDBMockSuite) TestRoleRepositoryWithMockEditExecError() {
 	s.mockDB.ExpectExec("UPDATE").
 		WithArgs(s.roleMock.ID, s.roleMock.Name, s.roleMock.Description, s.roleMock.Enabled).
-		WillReturnError(postgrescontainer.ErrMockUpdate)
+		WillReturnError(ops.ErrMockUpdate)
 	err := s.repo.Edit(s.roleMock)
 	s.NotNil(err)
-	s.ErrorAs(err, &postgrescontainer.ErrMockUpdate)
+	s.ErrorAs(err, &ops.ErrMockUpdate)
 }
 
 func (s RoleRepositoryDBMockSuite) TestRoleRepositoryWithMockEditNoRowsAffected() {
@@ -206,4 +234,35 @@ func (s RoleRepositoryDBMockSuite) TestRoleRepositoryWithMockEditNoRowsAffected(
 	err := s.repo.Edit(s.roleMock)
 	s.NotNil(err)
 	s.ErrorAs(err, &sql.ErrNoRows)
+}
+
+func (s RoleRepositoryDBMockSuite) TestRoleRepositoryWithMockChangeStatusExecError() {
+	id := uuid.New()
+	s.mockDB.ExpectExec("UPDATE").
+		WithArgs(id, false).
+		WillReturnError(ops.ErrMockUpdate)
+	err := s.repo.ChangeStatus(id, false)
+	s.NotNil(err)
+	s.ErrorAs(err, &ops.ErrMockUpdate)
+}
+
+func (s RoleRepositoryDBMockSuite) TestRoleRepositoryWithMockChangeNoRowsAffected() {
+	id := uuid.New()
+	s.mockDB.ExpectExec("UPDATE").
+		WithArgs(id, false).
+		WillReturnResult(sqlmock.NewResult(0, 0))
+	err := s.repo.ChangeStatus(id, false)
+	s.NotNil(err)
+	s.ErrorAs(err, &sql.ErrNoRows)
+}
+
+func (s RoleRepositoryDBMockSuite) TestRoleRepositoryWithMockExistsByIDScanError() {
+	id := uuid.New()
+	s.mockDB.ExpectQuery("SELECT EXISTS").
+		WithArgs(id).
+		WillReturnError(ops.ErrMockScan)
+	result, err := s.repo.ExistsById(id)
+	s.Empty(result)
+	s.NotNil(err)
+	s.ErrorAs(err, &ops.ErrMockScan)
 }

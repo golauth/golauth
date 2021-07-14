@@ -4,15 +4,17 @@ import (
 	"database/sql"
 	"golauth/api/handler"
 	"golauth/api/middleware"
-	"golauth/repository"
+	"golauth/infrastructure/repository"
 	"golauth/usecase"
 	"net/http"
 
 	"github.com/gorilla/mux"
 )
 
+const pathPrefix = "/auth"
+
 type Router interface {
-	RegisterRoutes(router *mux.Router)
+	Config() *mux.Router
 }
 
 type router struct {
@@ -22,10 +24,9 @@ type router struct {
 	userController       handler.UserController
 	roleController       handler.RoleController
 	tokenService         usecase.TokenService
-	pathPrefix           string
 }
 
-func NewRouter(pathPrefix string, db *sql.DB) Router {
+func NewRouter(db *sql.DB) Router {
 	uRepo := repository.NewUserRepository(db)
 	rRepo := repository.NewRoleRepository(db)
 	urRepo := repository.NewUserRoleRepository(db)
@@ -33,29 +34,36 @@ func NewRouter(pathPrefix string, db *sql.DB) Router {
 	tokenService := usecase.NewTokenService()
 	userService := usecase.NewUserService(uRepo, rRepo, urRepo, uaRepo, tokenService)
 
+	roleSvc := usecase.NewRoleService(rRepo)
+
 	return &router{
 		signupController:     handler.NewSignupController(userService),
 		tokenController:      handler.NewTokenController(uRepo, uaRepo, tokenService, userService),
 		checkTokenController: handler.NewCheckTokenController(tokenService),
-		userController:       handler.NewUserController(uRepo, urRepo),
-		roleController:       handler.NewRoleController(rRepo),
+		userController:       handler.NewUserController(userService),
+		roleController:       handler.NewRoleController(roleSvc),
 		tokenService:         tokenService,
-		pathPrefix:           pathPrefix,
 	}
 }
 
-func (r *router) RegisterRoutes(router *mux.Router) {
-	router.HandleFunc("/signup", r.signupController.CreateUser).Methods(http.MethodPost, http.MethodOptions).Name("signup")
-	router.HandleFunc("/token", r.tokenController.Token).Methods(http.MethodPost, http.MethodOptions).Name("token")
-	router.HandleFunc("/check_token", r.checkTokenController.CheckToken).Methods(http.MethodGet, http.MethodOptions).Name("checkToken")
+func (r *router) Config() *mux.Router {
+	rt := mux.NewRouter().PathPrefix("/auth").Subrouter()
 
-	router.HandleFunc("/users/{username}", r.userController.FindByUsername).Methods(http.MethodGet, http.MethodOptions).Name("getUser")
-	router.HandleFunc("/users/{username}/add-role", r.userController.AddRole).Methods(http.MethodPost, http.MethodOptions).Name("addRoleToUser")
+	rt.HandleFunc("/signup", r.signupController.CreateUser).Methods(http.MethodPost, http.MethodOptions).Name("signup")
+	rt.HandleFunc("/token", r.tokenController.Token).Methods(http.MethodPost, http.MethodOptions).Name("token")
+	rt.HandleFunc("/check_token", r.checkTokenController.CheckToken).Methods(http.MethodGet, http.MethodOptions).Name("checkToken")
 
-	router.HandleFunc("/roles", r.roleController.CreateRole).Methods(http.MethodPost, http.MethodOptions).Name("addRole")
-	router.HandleFunc("/roles/{id}", r.roleController.EditRole).Methods(http.MethodPut, http.MethodOptions).Name("editRole")
+	rt.HandleFunc("/users/{id}", r.userController.FindById).Methods(http.MethodGet, http.MethodOptions).Name("getUser")
+	rt.HandleFunc("/users/{id}/add-role", r.userController.AddRole).Methods(http.MethodPost, http.MethodOptions).Name("addRoleToUser")
 
-	router.Use(middleware.NewCorsMiddleware("*").Apply)
-	router.Use(middleware.NewSecurityMiddleware(r.tokenService, r.pathPrefix).Apply)
-	router.Use(middleware.NewCommonMiddleware().Apply)
+	rt.HandleFunc("/roles", r.roleController.Create).Methods(http.MethodPost, http.MethodOptions).Name("addRole")
+	rt.HandleFunc("/roles/{name}", r.roleController.FindByName).Methods(http.MethodGet, http.MethodOptions).Name("findRoleByName")
+	rt.HandleFunc("/roles/{id}", r.roleController.Edit).Methods(http.MethodPut, http.MethodOptions).Name("editRole")
+	rt.HandleFunc("/roles/{id}/change-status", r.roleController.ChangeStatus).Methods(http.MethodPatch, http.MethodOptions).Name("changeStatus")
+
+	rt.Use(middleware.NewCorsMiddleware("*").Apply)
+	rt.Use(middleware.NewSecurityMiddleware(r.tokenService, pathPrefix).Apply)
+	rt.Use(middleware.NewCommonMiddleware().Apply)
+
+	return rt
 }

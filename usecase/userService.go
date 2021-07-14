@@ -4,9 +4,11 @@ package usecase
 import (
 	"errors"
 	"fmt"
+	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
+	"golauth/entity"
+	"golauth/infrastructure/repository"
 	"golauth/model"
-	"golauth/repository"
 )
 
 const defaultRoleName = "USER"
@@ -18,8 +20,10 @@ var (
 )
 
 type UserService interface {
-	CreateUser(user model.User) (model.User, error)
+	CreateUser(userReq model.UserRequest) (model.UserResponse, error)
 	GenerateToken(username string, password string) (model.TokenResponse, error)
+	FindByID(id uuid.UUID) (model.UserResponse, error)
+	AddUserRole(id uuid.UUID, id2 uuid.UUID) error
 }
 
 type userService struct {
@@ -45,32 +49,48 @@ func NewUserService(
 	}
 }
 
-func (s userService) CreateUser(user model.User) (model.User, error) {
+func (s userService) CreateUser(userReq model.UserRequest) (model.UserResponse, error) {
+	user := entity.User{
+		Username:  userReq.Username,
+		FirstName: userReq.FirstName,
+		LastName:  userReq.LastName,
+		Email:     userReq.Email,
+		Document:  userReq.Document,
+		Password:  userReq.Password,
+		Enabled:   true,
+	}
 	hash, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcryptDefaultCost)
 	if err != nil {
-		return model.User{}, fmt.Errorf("could not generate password: %w", err)
+		return model.UserResponse{}, fmt.Errorf("could not generate password: %w", err)
 	}
-
 	user.Password = string(hash)
 	savedUser, err := s.userRepository.Create(user)
 	if err != nil {
-		return model.User{}, fmt.Errorf("could not save user: %w", err)
+		return model.UserResponse{}, fmt.Errorf("could not save user: %w", err)
 	}
 	role, err := s.roleRepository.FindByName(defaultRoleName)
 	if err != nil {
-		return model.User{}, fmt.Errorf("could not fetch default role: %w", err)
+		return model.UserResponse{}, fmt.Errorf("could not fetch default role: %w", err)
 	}
-	_, err = s.userRoleRepository.AddUserRole(savedUser.ID, role.ID)
+	err = s.userRoleRepository.AddUserRole(savedUser.ID, role.ID)
 	if err != nil {
-		return model.User{}, fmt.Errorf("could not add default role to user: %w", err)
+		return model.UserResponse{}, fmt.Errorf("could not add default role to user: %w", err)
 	}
 
-	return savedUser, nil
+	return model.UserResponse{
+		ID:           savedUser.ID,
+		Username:     savedUser.Username,
+		FirstName:    savedUser.FirstName,
+		LastName:     savedUser.LastName,
+		Email:        savedUser.Email,
+		Document:     savedUser.Document,
+		Enabled:      savedUser.Enabled,
+		CreationDate: savedUser.CreationDate,
+	}, nil
 }
 
 func (s userService) GenerateToken(username string, password string) (model.TokenResponse, error) {
-
-	user, err := s.userRepository.FindByUsernameWithPassword(username)
+	user, err := s.userRepository.FindByUsername(username)
 	if err != nil {
 		return model.TokenResponse{}, ErrInvalidUsernameOrPassword
 	}
@@ -91,4 +111,25 @@ func (s userService) GenerateToken(username string, password string) (model.Toke
 	}
 	tokenResponse := model.TokenResponse{AccessToken: jwtToken}
 	return tokenResponse, nil
+}
+
+func (s userService) FindByID(id uuid.UUID) (model.UserResponse, error) {
+	user, err := s.userRepository.FindByID(id)
+	if err != nil {
+		return model.UserResponse{}, err
+	}
+	return model.UserResponse{
+		ID:           user.ID,
+		Username:     user.Username,
+		FirstName:    user.FirstName,
+		LastName:     user.LastName,
+		Email:        user.Email,
+		Document:     user.Document,
+		Enabled:      user.Enabled,
+		CreationDate: user.CreationDate,
+	}, nil
+}
+
+func (s userService) AddUserRole(userID uuid.UUID, roleID uuid.UUID) error {
+	return s.userRoleRepository.AddUserRole(userID, roleID)
 }

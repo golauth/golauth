@@ -32,8 +32,8 @@ func (s *RoutesSuite) SetupTest() {
 	var err error
 	s.db, s.mockDB, err = sqlmock.New()
 	s.NoError(err)
-	s.r = NewRouter("/golauth", s.db)
-	s.router = mux.NewRouter()
+	s.r = NewRouter(s.db)
+	s.router = s.r.Config()
 	s.recorder = httptest.NewRecorder()
 }
 
@@ -42,73 +42,75 @@ func (s *RoutesSuite) TearDownTest() {
 }
 
 func (s *RoutesSuite) TestRouteSignupRegistered() {
-	s.r.RegisterRoutes(s.router)
 	r := s.router.GetRoute("signup")
 	s.NotNil(r)
 	tpl, err := r.GetPathTemplate()
 	s.validateMethods(r, "POST", "OPTIONS")
 	s.NoError(err)
-	s.Equal("/signup", tpl)
+	s.Equal("/auth/signup", tpl)
 }
 
 func (s *RoutesSuite) TestRouteTokenRegistered() {
-	s.r.RegisterRoutes(s.router)
 	r := s.router.GetRoute("token")
 	s.NotNil(r)
 	tpl, err := r.GetPathTemplate()
 	s.validateMethods(r, "POST", "OPTIONS")
 	s.NoError(err)
-	s.Equal("/token", tpl)
+	s.Equal("/auth/token", tpl)
 }
 
 func (s *RoutesSuite) TestRouteCheckTokenRegistered() {
-	s.r.RegisterRoutes(s.router)
 	r := s.router.GetRoute("checkToken")
 	s.NotNil(r)
 	tpl, err := r.GetPathTemplate()
 	s.validateMethods(r, "GET", "OPTIONS")
 	s.NoError(err)
-	s.Equal("/check_token", tpl)
+	s.Equal("/auth/check_token", tpl)
 }
 
 func (s *RoutesSuite) TestRouteGetUserRegistered() {
-	s.r.RegisterRoutes(s.router)
 	r := s.router.GetRoute("getUser")
 	s.NotNil(r)
 	tpl, err := r.GetPathTemplate()
 	s.validateMethods(r, "GET", "OPTIONS")
 	s.NoError(err)
-	s.Equal("/users/{username}", tpl)
+	s.Equal("/auth/users/{id}", tpl)
 }
 
 func (s *RoutesSuite) TestRouteAddRoleToUserRegistered() {
-	s.r.RegisterRoutes(s.router)
 	r := s.router.GetRoute("addRoleToUser")
 	s.NotNil(r)
 	tpl, err := r.GetPathTemplate()
 	s.validateMethods(r, "POST", "OPTIONS")
 	s.NoError(err)
-	s.Equal("/users/{username}/add-role", tpl)
+	s.Equal("/auth/users/{id}/add-role", tpl)
 }
 
 func (s *RoutesSuite) TestRouteAddRoleRegistered() {
-	s.r.RegisterRoutes(s.router)
 	r := s.router.GetRoute("addRole")
 	s.NotNil(r)
 	tpl, err := r.GetPathTemplate()
 	s.validateMethods(r, "POST", "OPTIONS")
 	s.NoError(err)
-	s.Equal("/roles", tpl)
+	s.Equal("/auth/roles", tpl)
+}
+
+func (s *RoutesSuite) TestRouteFindRoleByNameRegistered() {
+	r := s.router.GetRoute("findRoleByName")
+	s.NotNil(r)
+	tpl, err := r.GetPathTemplate()
+	s.validateMethods(r, "GET", "OPTIONS")
+	s.NoError(err)
+	s.Equal("/auth/roles/{name}", tpl)
 }
 
 func (s *RoutesSuite) TestRouteEditRoleRegistered() {
-	s.r.RegisterRoutes(s.router)
 	r := s.router.GetRoute("editRole")
 	s.NotNil(r)
 	tpl, err := r.GetPathTemplate()
 	s.validateMethods(r, "PUT", "OPTIONS")
 	s.NoError(err)
-	s.Equal("/roles/{id}", tpl)
+	s.Equal("/auth/roles/{id}", tpl)
 }
 
 func (s *RoutesSuite) validateMethods(r *mux.Route, args ...string) {

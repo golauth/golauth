@@ -7,8 +7,8 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
+	repoMock "golauth/infrastructure/repository/mock"
 	"golauth/model"
-	repoMock "golauth/repository/mock"
 	svcMock "golauth/usecase/mock"
 	"net/http"
 	"net/http/httptest"
@@ -71,7 +71,7 @@ func (s TokenControllerSuite) TestTokenFormOk() {
 func (s TokenControllerSuite) TestTokenJsonOk() {
 	username := "admin"
 	password := "123456"
-	login := model.UserLogin{
+	login := model.UserLoginRequest{
 		Username: username,
 		Password: password,
 	}

@@ -3,39 +3,32 @@ package main
 import (
 	"fmt"
 	"golauth/api"
-	"golauth/config/datasource"
+	datasource2 "golauth/infrastructure/datasource"
 	"log"
 	"net/http"
 	"os"
 
-	"github.com/gorilla/mux"
 	"github.com/subosito/gotenv"
 )
 
-func getServerEnv() (string, string) {
+func getServerEnv() string {
 	_ = gotenv.Load()
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
 	}
 
-	pathPrefix := os.Getenv("PATH_PREFIX")
-	if pathPrefix == "" {
-		pathPrefix = "/auth"
-	}
-	return port, pathPrefix
+	return port
 }
 
 func main() {
-	port, pathPrefix := getServerEnv()
+	port := getServerEnv()
 	addr := fmt.Sprint(":", port)
-	router := mux.NewRouter().PathPrefix(pathPrefix).Subrouter()
-	ds, err := datasource.NewDatasource()
+	ds, err := datasource2.NewDatasource()
 	if err != nil {
 		log.Fatalf("error when creating database connection: %s", err.Error())
 	}
-	r := api.NewRouter(pathPrefix, ds.GetDB())
-	r.RegisterRoutes(router)
+	r := api.NewRouter(ds.GetDB())
 	fmt.Println("Server listening on port: ", port)
-	log.Fatal(http.ListenAndServe(addr, router))
+	log.Fatal(http.ListenAndServe(addr, r.Config()))
 }

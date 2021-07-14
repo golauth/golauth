@@ -1,6 +1,6 @@
 create table golauth_user
 (
-    id            serial,
+    id            uuid PRIMARY KEY       DEFAULT gen_random_uuid(),
     username      varchar(255)  not null,
     first_name    varchar(255)  not null,
     last_name     varchar(255)  not null,
@@ -19,7 +19,7 @@ create unique index ui_golauth_user_email
 
 create table golauth_role
 (
-    id            serial,
+    id            uuid PRIMARY KEY       DEFAULT gen_random_uuid(),
     name          varchar(255)  not null,
     description   varchar(1000) not null,
     enabled       boolean       not null default true,
@@ -31,7 +31,7 @@ create unique index ui_golauth_role_name
 
 create table golauth_authority
 (
-    id            serial,
+    id            uuid PRIMARY KEY       DEFAULT gen_random_uuid(),
     name          varchar(255)  not null,
     description   varchar(1000) not null,
     enabled       boolean       not null default true,
@@ -43,15 +43,15 @@ create unique index ui_golauth_authority_name
 
 create table golauth_role_authority
 (
-    role_id      integer not null,
-    authority_id integer not null,
+    role_id      uuid not null,
+    authority_id uuid not null,
     constraint pk_golauth_role_authority primary key (role_id, authority_id)
 );
 
 create table golauth_user_role
 (
-    user_id       integer   not null,
-    role_id       integer   not null,
+    user_id       uuid      not null,
+    role_id       uuid      not null,
     creation_date timestamp not null default current_timestamp,
     constraint pk_golauth_user_role primary key (user_id, role_id)
 );

@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"golauth/infrastructure/repository"
 	"golauth/model"
-	"golauth/repository"
 	"golauth/usecase"
 	"net/http"
 )
@@ -64,7 +64,7 @@ func (s tokenController) Token(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s tokenController) extractUserPasswordFromJson(r *http.Request, username string, password string) (string, string, error) {
-	var userLogin model.UserLogin
+	var userLogin model.UserLoginRequest
 	err := json.NewDecoder(r.Body).Decode(&userLogin)
 	if err != nil {
 		return "", "", fmt.Errorf("json decoder error: %s", err.Error())

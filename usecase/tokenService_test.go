@@ -5,9 +5,10 @@ import (
 	"fmt"
 	"github.com/cristalhq/jwt/v3"
 	"github.com/golang/mock/gomock"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
-	"golauth/model"
+	"golauth/entity"
 	"net/http"
 	"strings"
 	"testing"
@@ -21,7 +22,7 @@ type TokenServiceSuite struct {
 
 	svc TokenService
 
-	user model.User
+	user entity.User
 }
 
 func TestTokenService(t *testing.T) {
@@ -34,8 +35,8 @@ func (s *TokenServiceSuite) SetupTest() {
 
 	s.svc = NewTokenService()
 
-	s.user = model.User{
-		ID:           1,
+	s.user = entity.User{
+		ID:           uuid.New(),
 		Username:     "user",
 		FirstName:    "User",
 		LastName:     "Name",

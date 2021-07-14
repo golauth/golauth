@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
-	"golauth/postgrescontainer"
+	"golauth/ops"
 	"testing"
 )
 
@@ -21,11 +21,11 @@ type DatasourceSuite struct {
 }
 
 func TestDatasource(t *testing.T) {
-	ctxContainer, err := postgrescontainer.ContainerDBStart("./../..")
+	ctxContainer, err := ops.ContainerDBStart("./../..")
 	assert.NoError(t, err)
 	s := new(DatasourceSuite)
 	suite.Run(t, s)
-	postgrescontainer.ContainerDBStop(ctxContainer)
+	ops.ContainerDBStop(ctxContainer)
 }
 
 func (s *DatasourceSuite) SetupTest() {
@@ -65,15 +65,15 @@ func (s *DatasourceSuite) findTable(db *sql.DB, table string) (result int, err e
 // =====================================================================================
 
 func TestDatasourceWithoutMigrations(t *testing.T) {
-	ctxContainer, err := postgrescontainer.ContainerDBStart("./..")
+	ctxContainer, err := ops.ContainerDBStart("./..")
 	assert.NoError(t, err)
 	_, err = NewDatasource()
 	assert.NoError(t, err)
-	postgrescontainer.ContainerDBStop(ctxContainer)
+	ops.ContainerDBStop(ctxContainer)
 }
 
 func TestDatasourceMigrationsTwice(t *testing.T) {
-	ctxContainer, err := postgrescontainer.ContainerDBStart("./../..")
+	ctxContainer, err := ops.ContainerDBStart("./../..")
 	assert.NoError(t, err)
 
 	_, err = NewDatasource()
@@ -81,7 +81,7 @@ func TestDatasourceMigrationsTwice(t *testing.T) {
 	_, err = NewDatasource()
 	assert.NoError(t, err)
 
-	postgrescontainer.ContainerDBStop(ctxContainer)
+	ops.ContainerDBStop(ctxContainer)
 }
 
 func TestDatasourceConnectionCouldNotEstablished(t *testing.T) {
