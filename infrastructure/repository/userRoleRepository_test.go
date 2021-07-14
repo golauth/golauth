@@ -113,7 +113,7 @@ func (s *UserRoleRepositoryDBMockSuite) TearDownTest() {
 	s.mockCtrl.Finish()
 }
 
-func (s UserRoleRepositoryDBMockSuite) TestRoleRepositoryWithMockFindScanError() {
+func (s UserRoleRepositoryDBMockSuite) TestRoleRepositoryWithMockAddUserRoleScanError() {
 	s.mockDB.ExpectQuery("INSERT INTO golauth_user_role").
 		WithArgs(sqlmock.AnyArg()).
 		WillReturnError(ops.ErrMockScan)

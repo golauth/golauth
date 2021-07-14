@@ -12,20 +12,20 @@ type CheckTokenController interface {
 }
 
 type checkTokenController struct {
-	service usecase.TokenService
+	svc usecase.TokenService
 }
 
-func NewCheckTokenController(service usecase.TokenService) CheckTokenController {
-	return checkTokenController{service: service}
+func NewCheckTokenController(s usecase.TokenService) CheckTokenController {
+	return checkTokenController{svc: s}
 }
 
 func (c checkTokenController) CheckToken(w http.ResponseWriter, r *http.Request) {
-	token, err := c.service.ExtractToken(r)
+	token, err := c.svc.ExtractToken(r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	err = c.service.ValidateToken(token)
+	err = c.svc.ValidateToken(token)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return

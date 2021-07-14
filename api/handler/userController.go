@@ -10,11 +10,11 @@ import (
 )
 
 type UserController struct {
-	userSvc usecase.UserService
+	svc usecase.UserService
 }
 
-func NewUserController(uSvc usecase.UserService) UserController {
-	return UserController{userSvc: uSvc}
+func NewUserController(s usecase.UserService) UserController {
+	return UserController{svc: s}
 }
 
 func (u UserController) FindById(w http.ResponseWriter, r *http.Request) {
@@ -24,7 +24,7 @@ func (u UserController) FindById(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	data, err := u.userSvc.FindByID(id)
+	data, err := u.svc.FindByID(id)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -35,7 +35,7 @@ func (u UserController) FindById(w http.ResponseWriter, r *http.Request) {
 func (u UserController) AddRole(w http.ResponseWriter, r *http.Request) {
 	var userRole model.UserRoleRequest
 	_ = json.NewDecoder(r.Body).Decode(&userRole)
-	err := u.userSvc.AddUserRole(userRole.UserID, userRole.RoleID)
+	err := u.svc.AddUserRole(userRole.UserID, userRole.RoleID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

@@ -137,6 +137,33 @@ func (s RoleRepositorySuite) TestRoleRepositoryCreateDuplicatedRole() {
 	s.ErrorAs(err, &expectedErr)
 }
 
+func (s RoleRepositorySuite) TestRoleRepositoryChangeStatusOk() {
+	s.prepareDatabase(true, "add-users.sql")
+	id, _ := uuid.Parse("c12b415b-c3ad-487f-9800-f548aa18cc58")
+	err := s.repo.ChangeStatus(id, false)
+	s.NoError(err)
+
+	edited, err := s.repo.FindByName("USER")
+	s.NoError(err)
+	s.NotNil(edited)
+	s.False(edited.Enabled)
+}
+
+func (s RoleRepositorySuite) TestRoleRepositoryExistsByID() {
+	s.prepareDatabase(true, "add-users.sql")
+	id, _ := uuid.Parse("c12b415b-c3ad-487f-9800-f548aa18cc58")
+	exists, err := s.repo.ExistsById(id)
+	s.NoError(err)
+	s.True(exists)
+}
+
+func (s RoleRepositorySuite) TestRoleRepositoryNotExistsByID() {
+	s.prepareDatabase(true, "add-users.sql")
+	exists, err := s.repo.ExistsById(uuid.New())
+	s.NoError(err)
+	s.False(exists)
+}
+
 // =====================================================================================
 
 type RoleRepositoryDBMockSuite struct {
@@ -207,4 +234,35 @@ func (s RoleRepositoryDBMockSuite) TestRoleRepositoryWithMockEditNoRowsAffected(
 	err := s.repo.Edit(s.roleMock)
 	s.NotNil(err)
 	s.ErrorAs(err, &sql.ErrNoRows)
+}
+
+func (s RoleRepositoryDBMockSuite) TestRoleRepositoryWithMockChangeStatusExecError() {
+	id := uuid.New()
+	s.mockDB.ExpectExec("UPDATE").
+		WithArgs(id, false).
+		WillReturnError(ops.ErrMockUpdate)
+	err := s.repo.ChangeStatus(id, false)
+	s.NotNil(err)
+	s.ErrorAs(err, &ops.ErrMockUpdate)
+}
+
+func (s RoleRepositoryDBMockSuite) TestRoleRepositoryWithMockChangeNoRowsAffected() {
+	id := uuid.New()
+	s.mockDB.ExpectExec("UPDATE").
+		WithArgs(id, false).
+		WillReturnResult(sqlmock.NewResult(0, 0))
+	err := s.repo.ChangeStatus(id, false)
+	s.NotNil(err)
+	s.ErrorAs(err, &sql.ErrNoRows)
+}
+
+func (s RoleRepositoryDBMockSuite) TestRoleRepositoryWithMockExistsByIDScanError() {
+	id := uuid.New()
+	s.mockDB.ExpectQuery("SELECT EXISTS").
+		WithArgs(id).
+		WillReturnError(ops.ErrMockScan)
+	result, err := s.repo.ExistsById(id)
+	s.Empty(result)
+	s.NotNil(err)
+	s.ErrorAs(err, &ops.ErrMockScan)
 }

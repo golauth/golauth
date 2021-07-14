@@ -81,7 +81,7 @@ func (r roleRepository) ChangeStatus(id uuid.UUID, enabled bool) error {
 
 func (r roleRepository) ExistsById(id uuid.UUID) (bool, error) {
 	var exists bool
-	query := "SELECT EXISTS (SELECT 1 FROM golauth_role WHERE id $1)"
+	query := "SELECT EXISTS (SELECT 1 FROM golauth_role WHERE id = $1)"
 	row := r.db.QueryRow(query, id)
 	err := row.Scan(&exists)
 	if err != nil {

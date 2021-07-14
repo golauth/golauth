@@ -134,11 +134,10 @@ func (s *UserRepositoryDBMockSuite) TearDownTest() {
 }
 
 func (s *UserRepositoryDBMockSuite) TestFindByUsernameScanError() {
-	id, _ := uuid.Parse("cb8a8b90-332a-4ae6-8c77-2d9e39f674a4")
 	s.mockDB.ExpectQuery("SELECT").
 		WithArgs("username").
 		WillReturnError(ops.ErrMockScan)
-	result, err := s.repo.FindByID(id)
+	result, err := s.repo.FindByUsername("username")
 	s.Empty(result)
 	s.NotNil(err)
 	s.ErrorAs(err, &ops.ErrMockScan)

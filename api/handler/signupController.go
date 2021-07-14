@@ -12,17 +12,17 @@ type SignupController interface {
 }
 
 type signupController struct {
-	service usecase.UserService
+	svc usecase.UserService
 }
 
-func NewSignupController(service usecase.UserService) SignupController {
-	return signupController{service: service}
+func NewSignupController(s usecase.UserService) SignupController {
+	return signupController{svc: s}
 }
 
 func (s signupController) CreateUser(w http.ResponseWriter, r *http.Request) {
 	var decodedUser model.UserRequest
 	_ = json.NewDecoder(r.Body).Decode(&decodedUser)
-	data, err := s.service.CreateUser(decodedUser)
+	data, err := s.svc.CreateUser(decodedUser)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
