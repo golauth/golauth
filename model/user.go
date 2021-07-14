@@ -31,3 +31,8 @@ type UserLoginRequest struct {
 	Username string `json:"username"`
 	Password string `json:"password"`
 }
+
+type UserRoleRequest struct {
+	UserID uuid.UUID `json:"userId"`
+	RoleID uuid.UUID `json:"roleId"`
+}

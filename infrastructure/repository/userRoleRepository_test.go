@@ -73,10 +73,8 @@ func (s *UserRoleRepositorySuite) TestAddUserRole() {
 	s.NoError(err)
 	s.NotNil(role)
 
-	userRole, err := s.repo.AddUserRole(user.ID, role.ID)
+	err = s.repo.AddUserRole(user.ID, role.ID)
 	s.NoError(err)
-	s.NotNil(userRole)
-	s.NotNil(userRole.CreationDate)
 }
 
 // =====================================================================================
@@ -119,8 +117,7 @@ func (s UserRoleRepositoryDBMockSuite) TestRoleRepositoryWithMockFindScanError()
 	s.mockDB.ExpectQuery("INSERT INTO golauth_user_role").
 		WithArgs(sqlmock.AnyArg()).
 		WillReturnError(ops.ErrMockScan)
-	result, err := s.repo.AddUserRole(s.userAdmin2Id, s.roleAdminId)
-	s.Empty(result)
+	err := s.repo.AddUserRole(s.userAdmin2Id, s.roleAdminId)
 	s.NotNil(err)
 	s.ErrorAs(err, &ops.ErrMockScan)
 }

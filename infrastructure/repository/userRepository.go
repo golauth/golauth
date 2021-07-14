@@ -10,7 +10,6 @@ import (
 
 type UserRepository interface {
 	FindByUsername(username string) (entity.User, error)
-	FindByUsernameWithPassword(username string) (entity.User, error)
 	FindByID(id uuid.UUID) (entity.User, error)
 	Create(user entity.User) (entity.User, error)
 }
@@ -24,22 +23,11 @@ func NewUserRepository(db *sql.DB) UserRepository {
 }
 
 func (ur userRepository) FindByUsername(username string) (entity.User, error) {
-	return ur.findByUsername(username, true)
-}
-
-func (ur userRepository) FindByUsernameWithPassword(username string) (entity.User, error) {
-	return ur.findByUsername(username, false)
-}
-
-func (ur userRepository) findByUsername(username string, omitPassword bool) (entity.User, error) {
 	user := entity.User{}
 	row := ur.db.QueryRow("SELECT * FROM golauth_user WHERE username = $1", username)
 	err := row.Scan(&user.ID, &user.Username, &user.FirstName, &user.LastName, &user.Email, &user.Document, &user.Password, &user.Enabled, &user.CreationDate)
 	if err != nil {
 		return entity.User{}, fmt.Errorf("could not find user by username [%s]: %w", username, err)
-	}
-	if omitPassword {
-		user.Password = ""
 	}
 	return user, nil
 }

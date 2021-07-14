@@ -5,11 +5,10 @@ import (
 	"database/sql"
 	"fmt"
 	"github.com/google/uuid"
-	"golauth/entity"
 )
 
 type UserRoleRepository interface {
-	AddUserRole(userId uuid.UUID, roleId uuid.UUID) (entity.UserRole, error)
+	AddUserRole(userId uuid.UUID, roleId uuid.UUID) error
 }
 
 type userRoleRepository struct {
@@ -20,12 +19,11 @@ func NewUserRoleRepository(db *sql.DB) UserRoleRepository {
 	return userRoleRepository{db: db}
 }
 
-func (urr userRoleRepository) AddUserRole(userId uuid.UUID, roleId uuid.UUID) (entity.UserRole, error) {
-	userRole := entity.UserRole{UserID: userId, RoleID: roleId}
-	err := urr.db.QueryRow("INSERT INTO golauth_user_role (user_id,role_id) VALUES ($1, $2) RETURNING creation_date;",
-		userRole.UserID, userRole.RoleID).Scan(&userRole.CreationDate)
+func (urr userRoleRepository) AddUserRole(userId uuid.UUID, roleId uuid.UUID) error {
+	_, err := urr.db.Query("INSERT INTO golauth_user_role (user_id,role_id) VALUES ($1, $2) RETURNING creation_date;",
+		userId, roleId)
 	if err != nil {
-		return entity.UserRole{}, fmt.Errorf("could not add userrole [user:%d:role:%d]: %w", userId, roleId, err)
+		return fmt.Errorf("could not add userrole [%s;%s]: %w", userId, roleId, err)
 	}
-	return userRole, err
+	return nil
 }

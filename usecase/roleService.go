@@ -13,6 +13,7 @@ type RoleService interface {
 	Create(req model.RoleRequest) (model.RoleResponse, error)
 	Edit(id uuid.UUID, req model.RoleRequest) error
 	ChangeStatus(id uuid.UUID, enabled bool) error
+	FindByName(name string) (model.RoleResponse, error)
 }
 
 type roleService struct {
@@ -69,4 +70,18 @@ func (s roleService) ChangeStatus(id uuid.UUID, enabled bool) error {
 		return fmt.Errorf("role with id %s does not exists", id)
 	}
 	return s.repo.ChangeStatus(id, enabled)
+}
+
+func (s roleService) FindByName(name string) (model.RoleResponse, error) {
+	role, err := s.repo.FindByName(name)
+	if err != nil {
+		return model.RoleResponse{}, err
+	}
+	return model.RoleResponse{
+		ID:           role.ID,
+		Name:         role.Name,
+		Description:  role.Description,
+		Enabled:      role.Enabled,
+		CreationDate: role.CreationDate,
+	}, nil
 }

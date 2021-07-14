@@ -2,28 +2,29 @@ package handler
 
 import (
 	"encoding/json"
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
-	"golauth/entity"
-	repository2 "golauth/infrastructure/repository"
+	"golauth/model"
+	"golauth/usecase"
 	"net/http"
 )
 
 type UserController struct {
-	userRepository     repository2.UserRepository
-	userRoleRepository repository2.UserRoleRepository
+	userSvc usecase.UserService
 }
 
-func NewUserController(uRepo repository2.UserRepository, urRepo repository2.UserRoleRepository) UserController {
-	return UserController{
-		userRepository:     uRepo,
-		userRoleRepository: urRepo,
-	}
+func NewUserController(uSvc usecase.UserService) UserController {
+	return UserController{userSvc: uSvc}
 }
 
-func (u UserController) FindByUsername(w http.ResponseWriter, r *http.Request) {
+func (u UserController) FindById(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
-	username, _ := params["username"]
-	data, err := u.userRepository.FindByUsername(username)
+	id, err := uuid.Parse(params["id"])
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	data, err := u.userSvc.FindByID(id)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -32,13 +33,12 @@ func (u UserController) FindByUsername(w http.ResponseWriter, r *http.Request) {
 }
 
 func (u UserController) AddRole(w http.ResponseWriter, r *http.Request) {
-	var userRole entity.UserRole
+	var userRole model.UserRoleRequest
 	_ = json.NewDecoder(r.Body).Decode(&userRole)
-	data, err := u.userRoleRepository.AddUserRole(userRole.UserID, userRole.RoleID)
+	err := u.userSvc.AddUserRole(userRole.UserID, userRole.RoleID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	w.WriteHeader(http.StatusCreated)
-	_ = json.NewEncoder(w).Encode(data)
 }

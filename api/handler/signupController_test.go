@@ -4,14 +4,16 @@ import (
 	"bytes"
 	"encoding/json"
 	"github.com/golang/mock/gomock"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
-	"golauth/entity"
+	"golauth/model"
 	"golauth/usecase/mock"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 )
 
 type SignupControllerSuite struct {
@@ -40,7 +42,7 @@ func (s *SignupControllerSuite) TearDownTest() {
 }
 
 func (s SignupControllerSuite) TestCreateUser() {
-	user := entity.User{
+	user := model.UserRequest{
 		Username:  "admin",
 		FirstName: "User",
 		LastName:  "Name",
@@ -49,14 +51,15 @@ func (s SignupControllerSuite) TestCreateUser() {
 		Password:  "4567",
 		Enabled:   true,
 	}
-	savedUser := entity.User{
-		Username:  "admin",
-		FirstName: "User",
-		LastName:  "Name",
-		Email:     "em@il.com",
-		Document:  "1234",
-		Password:  "4567",
-		Enabled:   true,
+	savedUser := model.UserResponse{
+		ID:           uuid.New(),
+		Username:     "admin",
+		FirstName:    "User",
+		LastName:     "Name",
+		Email:        "em@il.com",
+		Document:     "1234",
+		Enabled:      true,
+		CreationDate: time.Now().Add(-5 * time.Second),
 	}
 	s.svc.EXPECT().CreateUser(user).Return(savedUser, nil).Times(1)
 

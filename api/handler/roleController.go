@@ -62,3 +62,14 @@ func (c RoleController) ChangeStatus(w http.ResponseWriter, r *http.Request) {
 	}
 	_ = json.NewEncoder(w).Encode(data)
 }
+
+func (c RoleController) FindByName(w http.ResponseWriter, r *http.Request) {
+	params := mux.Vars(r)
+	name := params["name"]
+	data, err := c.svc.FindByName(name)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	_ = json.NewEncoder(w).Encode(data)
+}

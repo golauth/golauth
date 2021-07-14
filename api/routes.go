@@ -40,7 +40,7 @@ func NewRouter(db *sql.DB) Router {
 		signupController:     handler.NewSignupController(userService),
 		tokenController:      handler.NewTokenController(uRepo, uaRepo, tokenService, userService),
 		checkTokenController: handler.NewCheckTokenController(tokenService),
-		userController:       handler.NewUserController(uRepo, urRepo),
+		userController:       handler.NewUserController(userService),
 		roleController:       handler.NewRoleController(roleSvc),
 		tokenService:         tokenService,
 	}
@@ -53,10 +53,11 @@ func (r *router) Config() *mux.Router {
 	rt.HandleFunc("/token", r.tokenController.Token).Methods(http.MethodPost, http.MethodOptions).Name("token")
 	rt.HandleFunc("/check_token", r.checkTokenController.CheckToken).Methods(http.MethodGet, http.MethodOptions).Name("checkToken")
 
-	rt.HandleFunc("/users/{username}", r.userController.FindByUsername).Methods(http.MethodGet, http.MethodOptions).Name("getUser")
-	rt.HandleFunc("/users/{username}/add-role", r.userController.AddRole).Methods(http.MethodPost, http.MethodOptions).Name("addRoleToUser")
+	rt.HandleFunc("/users/{id}", r.userController.FindById).Methods(http.MethodGet, http.MethodOptions).Name("getUser")
+	rt.HandleFunc("/users/{id}/add-role", r.userController.AddRole).Methods(http.MethodPost, http.MethodOptions).Name("addRoleToUser")
 
 	rt.HandleFunc("/roles", r.roleController.Create).Methods(http.MethodPost, http.MethodOptions).Name("addRole")
+	rt.HandleFunc("/roles/{name}", r.roleController.FindByName).Methods(http.MethodGet, http.MethodOptions).Name("findRoleByName")
 	rt.HandleFunc("/roles/{id}", r.roleController.Edit).Methods(http.MethodPut, http.MethodOptions).Name("editRole")
 	rt.HandleFunc("/roles/{id}/change-status", r.roleController.ChangeStatus).Methods(http.MethodPatch, http.MethodOptions).Name("changeStatus")
 

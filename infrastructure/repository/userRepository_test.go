@@ -58,7 +58,8 @@ func (s UserRepositorySuite) prepareDatabase(clean bool, scripts ...string) {
 
 func (s *UserRepositorySuite) TestFindUserWithoutPassword() {
 	s.prepareDatabase(true, "add-users.sql")
-	u, err := s.repo.FindByUsername("admin")
+	id, _ := uuid.Parse("8c61f220-8bb8-48b9-b225-d54dfa6503db")
+	u, err := s.repo.FindByID(id)
 	s.NoError(err)
 	s.NotNil(u)
 	s.Equal("admin", u.Username)
@@ -67,7 +68,7 @@ func (s *UserRepositorySuite) TestFindUserWithoutPassword() {
 
 func (s *UserRepositorySuite) TestFindUserWithPassword() {
 	s.prepareDatabase(true, "add-users.sql")
-	u, err := s.repo.FindByUsernameWithPassword("admin")
+	u, err := s.repo.FindByUsername("admin")
 	s.NoError(err)
 	s.NotNil(u)
 	s.Equal("admin", u.Username)
@@ -133,10 +134,11 @@ func (s *UserRepositoryDBMockSuite) TearDownTest() {
 }
 
 func (s *UserRepositoryDBMockSuite) TestFindByUsernameScanError() {
+	id, _ := uuid.Parse("cb8a8b90-332a-4ae6-8c77-2d9e39f674a4")
 	s.mockDB.ExpectQuery("SELECT").
 		WithArgs("username").
 		WillReturnError(ops.ErrMockScan)
-	result, err := s.repo.FindByUsername("username")
+	result, err := s.repo.FindByID(id)
 	s.Empty(result)
 	s.NotNil(err)
 	s.ErrorAs(err, &ops.ErrMockScan)

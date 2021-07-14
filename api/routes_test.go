@@ -74,7 +74,7 @@ func (s *RoutesSuite) TestRouteGetUserRegistered() {
 	tpl, err := r.GetPathTemplate()
 	s.validateMethods(r, "GET", "OPTIONS")
 	s.NoError(err)
-	s.Equal("/auth/users/{username}", tpl)
+	s.Equal("/auth/users/{id}", tpl)
 }
 
 func (s *RoutesSuite) TestRouteAddRoleToUserRegistered() {
@@ -83,7 +83,7 @@ func (s *RoutesSuite) TestRouteAddRoleToUserRegistered() {
 	tpl, err := r.GetPathTemplate()
 	s.validateMethods(r, "POST", "OPTIONS")
 	s.NoError(err)
-	s.Equal("/auth/users/{username}/add-role", tpl)
+	s.Equal("/auth/users/{id}/add-role", tpl)
 }
 
 func (s *RoutesSuite) TestRouteAddRoleRegistered() {
@@ -93,6 +93,15 @@ func (s *RoutesSuite) TestRouteAddRoleRegistered() {
 	s.validateMethods(r, "POST", "OPTIONS")
 	s.NoError(err)
 	s.Equal("/auth/roles", tpl)
+}
+
+func (s *RoutesSuite) TestRouteFindRoleByNameRegistered() {
+	r := s.router.GetRoute("findRoleByName")
+	s.NotNil(r)
+	tpl, err := r.GetPathTemplate()
+	s.validateMethods(r, "GET", "OPTIONS")
+	s.NoError(err)
+	s.Equal("/auth/roles/{name}", tpl)
 }
 
 func (s *RoutesSuite) TestRouteEditRoleRegistered() {
