@@ -73,6 +73,23 @@ func (s *RoleControllerSuite) TestCreateOk() {
 	s.Equal(bf, w.Body)
 }
 
+func (s *RoleControllerSuite) TestCreateErrSvc() {
+	req := model.RoleRequest{
+		Name:        "Role",
+		Description: "Description",
+	}
+	errMessage := "could not create new role"
+	s.roleSvc.EXPECT().Create(req).Return(model.RoleResponse{}, fmt.Errorf(errMessage)).Times(1)
+
+	body, _ := json.Marshal(req)
+	w := httptest.NewRecorder()
+	r, _ := http.NewRequest("POST", "/roles", strings.NewReader(string(body)))
+
+	s.rc.Create(w, r)
+	s.Equal(http.StatusInternalServerError, w.Code)
+	s.Contains(w.Body.String(), errMessage)
+}
+
 func (s RoleControllerSuite) TestEditRoleOk() {
 	role := model.RoleRequest{
 		ID:          uuid.New(),
@@ -99,7 +116,7 @@ func (s RoleControllerSuite) TestEditRoleOk() {
 	s.Equal("Description Edited", result.Description)
 }
 
-func (s RoleControllerSuite) TestEditRoleNotOk() {
+func (s RoleControllerSuite) TestEditRoleErrParseUUID() {
 
 	role := model.RoleRequest{
 		ID:          uuid.New(),
@@ -119,4 +136,125 @@ func (s RoleControllerSuite) TestEditRoleNotOk() {
 	s.Equal(http.StatusInternalServerError, w.Code)
 	expected := errors.New("cannot cast [id] to [uuid]")
 	s.ErrorAs(errors.New(w.Body.String()), &expected)
+}
+
+func (s RoleControllerSuite) TestEditRoleNotOk() {
+	roleId := uuid.New()
+	role := model.RoleRequest{
+		ID:          roleId,
+		Name:        "Role Edited",
+		Description: "Description Edited",
+	}
+	errMessage := "could not edit role"
+	s.roleSvc.EXPECT().Edit(role.ID, role).Return(fmt.Errorf(errMessage)).Times(1)
+
+	body, _ := json.Marshal(role)
+	w := httptest.NewRecorder()
+	r, _ := http.NewRequest("PUT", fmt.Sprintf("/roles/%s", roleId), strings.NewReader(string(body)))
+	vars := map[string]string{
+		"id": roleId.String(),
+	}
+	r = mux.SetURLVars(r, vars)
+
+	s.rc.Edit(w, r)
+	s.Equal(http.StatusInternalServerError, w.Code)
+	s.Contains(w.Body.String(), errMessage)
+}
+
+func (s RoleControllerSuite) TestChangeStatusOk() {
+	roleId := uuid.New()
+	changeStatus := model.RoleChangeStatus{Enabled: false}
+	s.roleSvc.EXPECT().ChangeStatus(roleId, changeStatus.Enabled).Return(nil).Times(1)
+
+	body, _ := json.Marshal(changeStatus)
+	w := httptest.NewRecorder()
+	r, _ := http.NewRequest("PATCH", fmt.Sprintf("/roles/%s/change-status", roleId), strings.NewReader(string(body)))
+	vars := map[string]string{
+		"id": roleId.String(),
+	}
+	r = mux.SetURLVars(r, vars)
+
+	s.rc.ChangeStatus(w, r)
+	s.Equal(http.StatusOK, w.Code)
+}
+
+func (s RoleControllerSuite) TestChangeStatusErrParseUUID() {
+	changeStatus := model.RoleChangeStatus{Enabled: false}
+	body, _ := json.Marshal(changeStatus)
+	w := httptest.NewRecorder()
+	r, _ := http.NewRequest("PATCH", "/roles/abc/change-status", strings.NewReader(string(body)))
+	vars := map[string]string{
+		"id": "abc",
+	}
+	r = mux.SetURLVars(r, vars)
+
+	s.rc.ChangeStatus(w, r)
+	s.Equal(http.StatusBadRequest, w.Code)
+}
+
+func (s RoleControllerSuite) TestChangeStatusErrSvc() {
+	roleId := uuid.New()
+	changeStatus := model.RoleChangeStatus{Enabled: false}
+	errMessage := "could not change status for role"
+	s.roleSvc.EXPECT().ChangeStatus(roleId, changeStatus.Enabled).Return(fmt.Errorf(errMessage)).Times(1)
+
+	body, _ := json.Marshal(changeStatus)
+	w := httptest.NewRecorder()
+	r, _ := http.NewRequest("PATCH", fmt.Sprintf("/roles/%s/change-status", roleId), strings.NewReader(string(body)))
+	vars := map[string]string{
+		"id": roleId.String(),
+	}
+	r = mux.SetURLVars(r, vars)
+
+	s.rc.ChangeStatus(w, r)
+	s.Equal(http.StatusInternalServerError, w.Code)
+	s.Contains(w.Body.String(), errMessage)
+}
+
+func (s RoleControllerSuite) TestFindByNameOk() {
+	roleId := uuid.New()
+	roleName := "ROLE_NAME"
+	resp := model.RoleResponse{
+		ID:           roleId,
+		Name:         roleName,
+		Description:  "Role description",
+		Enabled:      true,
+		CreationDate: time.Now(),
+	}
+	s.roleSvc.EXPECT().FindByName(roleName).Return(resp, nil).Times(1)
+
+	w := httptest.NewRecorder()
+	r, _ := http.NewRequest("GET", fmt.Sprintf("/roles/%s", roleName), nil)
+	vars := map[string]string{
+		"name": roleName,
+	}
+	r = mux.SetURLVars(r, vars)
+
+	s.rc.FindByName(w, r)
+
+	bf := bytes.NewBuffer([]byte{})
+	jsonEncoder := json.NewEncoder(bf)
+	jsonEncoder.SetEscapeHTML(false)
+	_ = jsonEncoder.Encode(resp)
+
+	s.Equal(http.StatusOK, w.Code)
+	s.Equal(bf, w.Body)
+}
+
+func (s RoleControllerSuite) TestFindByNameErrSvc() {
+	roleName := "ROLE_NAME"
+	errMessage := "could not find role by name"
+	s.roleSvc.EXPECT().FindByName(roleName).Return(model.RoleResponse{}, fmt.Errorf(errMessage)).Times(1)
+
+	w := httptest.NewRecorder()
+	r, _ := http.NewRequest("GET", fmt.Sprintf("/roles/%s", roleName), nil)
+	vars := map[string]string{
+		"name": roleName,
+	}
+	r = mux.SetURLVars(r, vars)
+
+	s.rc.FindByName(w, r)
+
+	s.Equal(http.StatusInternalServerError, w.Code)
+	s.Contains(w.Body.String(), errMessage)
 }

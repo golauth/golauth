@@ -55,6 +55,7 @@ func (s roleService) Edit(id uuid.UUID, req model.RoleRequest) error {
 		return fmt.Errorf("path id[%s] and object_id[%s] does not match", id, req.ID)
 	}
 	data := entity.Role{
+		ID:          id,
 		Name:        req.Name,
 		Description: req.Description,
 	}

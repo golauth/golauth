@@ -50,7 +50,7 @@ func (c RoleController) ChangeStatus(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
 	id, err := uuid.Parse(params["id"])
 	if err != nil {
-		http.Error(w, "cannot cast [id] to [uuid]", http.StatusInternalServerError)
+		http.Error(w, "cannot cast [id] to [uuid]", http.StatusBadRequest)
 		return
 	}
 	var data model.RoleChangeStatus

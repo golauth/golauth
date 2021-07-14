@@ -3,6 +3,7 @@ package handler
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"github.com/golang/mock/gomock"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
@@ -41,7 +42,7 @@ func (s *SignupControllerSuite) TearDownTest() {
 	s.mockCtrl.Finish()
 }
 
-func (s SignupControllerSuite) TestCreateUser() {
+func (s SignupControllerSuite) TestCreateUserOK() {
 	user := model.UserRequest{
 		Username:  "admin",
 		FirstName: "User",
@@ -75,4 +76,26 @@ func (s SignupControllerSuite) TestCreateUser() {
 	s.ctrl.CreateUser(w, r)
 	s.Equal(http.StatusCreated, w.Code)
 	s.Equal(bf, w.Body)
+}
+
+func (s SignupControllerSuite) TestCreateUserErrSvc() {
+	user := model.UserRequest{
+		Username:  "admin",
+		FirstName: "User",
+		LastName:  "Name",
+		Email:     "em@il.com",
+		Document:  "1234",
+		Password:  "4567",
+		Enabled:   true,
+	}
+	errMessage := "could not create new user"
+	s.svc.EXPECT().CreateUser(user).Return(model.UserResponse{}, fmt.Errorf(errMessage)).Times(1)
+
+	body, _ := json.Marshal(user)
+	w := httptest.NewRecorder()
+	r, _ := http.NewRequest("POST", "/users", strings.NewReader(string(body)))
+
+	s.ctrl.CreateUser(w, r)
+	s.Equal(http.StatusInternalServerError, w.Code)
+	s.Contains(w.Body.String(), errMessage)
 }
