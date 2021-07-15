@@ -113,7 +113,7 @@ func (s TokenControllerSuite) TestTokenMethodNotAllowed() {
 	s.ctrl.Token(w, r)
 	s.Equal(http.StatusMethodNotAllowed, w.Code)
 	errResult := errors.New(w.Body.String())
-	s.ErrorAs(ErrContentTypeNotSuported, &errResult)
+	s.ErrorAs(ErrContentTypeNotSupported, &errResult)
 }
 
 func (s TokenControllerSuite) TestTokenErrParseForm() {

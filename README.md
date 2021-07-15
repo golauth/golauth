@@ -14,12 +14,12 @@ Simple authentication and authorization server with Golang.
 
 Run command with a pre-existing `Postgres` database server:
 ```
-docker run -p 8080:8080 \
+docker run -p 8180:8080 \
     -e DB_HOST=<database_host> \
     -e DB_PORT=<database_port> \
     -e DB_NAME=<database_name> \
     -e DB_USERNAME=<database_username> \
-    -e DB_PASSWORD=<database_password>
+    -e DB_PASSWORD=<database_password> \
     golauth/golauth
 ```
 
@@ -81,7 +81,7 @@ Default user is `admin` and password `admin123`.
 
 ```bash
 $ curl --request POST \
-    --url http://localhost:8080/auth/token \
+    --url http://localhost:8180/auth/token \
     --header 'content-type: application/json' \
     --data '{"username": "admin","password": "admin123"}'
 ```
@@ -90,7 +90,7 @@ or
 
 ```bash
 $ curl --request POST \
-    --url http://localhost:8080/auth/token \
+    --url http://localhost:8180/auth/token \
     --header 'content-type: application/x-www-form-urlencoded' \
     --data username=admin \
     --data password=admin123

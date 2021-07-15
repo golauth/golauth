@@ -10,7 +10,7 @@ import (
 	"net/http"
 )
 
-var ErrContentTypeNotSuported = errors.New("content-type not supported")
+var ErrContentTypeNotSupported = errors.New("content-type not supported")
 
 type TokenController interface {
 	Token(w http.ResponseWriter, r *http.Request)
@@ -46,7 +46,7 @@ func (s tokenController) Token(w http.ResponseWriter, r *http.Request) {
 	} else if r.Header.Get("Content-Type") == "application/json" {
 		username, password, err = s.extractUserPasswordFromJson(r, username, password)
 	} else {
-		http.Error(w, ErrContentTypeNotSuported.Error(), http.StatusMethodNotAllowed)
+		http.Error(w, ErrContentTypeNotSupported.Error(), http.StatusMethodNotAllowed)
 		return
 	}
 
