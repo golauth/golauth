@@ -1,16 +1,16 @@
 package middleware
 
 import (
-	"golauth/usecase"
+	"golauth/usecase/token"
 	"net/http"
 )
 
 type SecurityMiddleware struct {
-	service   usecase.TokenService
+	service   token.UseCase
 	publicURI map[string]bool
 }
 
-func NewSecurityMiddleware(service usecase.TokenService, pathPrefix string) *SecurityMiddleware {
+func NewSecurityMiddleware(service token.UseCase, pathPrefix string) *SecurityMiddleware {
 	return &SecurityMiddleware{
 		service: service,
 		publicURI: map[string]bool{

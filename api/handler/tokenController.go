@@ -7,6 +7,7 @@ import (
 	"golauth/infrastructure/repository"
 	"golauth/model"
 	"golauth/usecase"
+	"golauth/usecase/token"
 	"net/http"
 )
 
@@ -19,14 +20,14 @@ type TokenController interface {
 type tokenController struct {
 	userRepository          repository.UserRepository
 	userAuthorityRepository repository.UserAuthorityRepository
-	tokenService            usecase.TokenService
+	tokenService            token.UseCase
 	userService             usecase.UserService
 }
 
 func NewTokenController(
 	userRepository repository.UserRepository,
 	userAuthorityRepository repository.UserAuthorityRepository,
-	tokenService usecase.TokenService,
+	tokenService token.UseCase,
 	userService usecase.UserService) TokenController {
 	return tokenController{
 		userRepository:          userRepository,

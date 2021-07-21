@@ -1,5 +1,4 @@
-//go:generate mockgen -source tokenService.go -destination mock/tokenService_mock.go -package mock
-package usecase
+package token
 
 import (
 	"crypto/rand"
@@ -23,30 +22,24 @@ var (
 	tokenExpirationTime   = 30
 )
 
-type TokenService interface {
-	ValidateToken(token string) error
-	ExtractToken(r *http.Request) (string, error)
-	GenerateJwtToken(user entity.User, authorities []string) (string, error)
-}
-
-type tokenService struct {
+type Service struct {
 	signer   jwt.Signer
 	verifier jwt.Verifier
 }
 
-func NewTokenService() TokenService {
-	ts := tokenService{}
-	ts.prepare()
-	return ts
+func NewService() UseCase {
+	s := Service{}
+	s.prepare()
+	return s
 }
 
-func (ts *tokenService) prepare() {
-	key := ts.generatePrivateKey()
-	ts.signer = ts.generateSigner(key)
-	ts.verifier = ts.generateVerifier(key)
+func (s *Service) prepare() {
+	key := s.generatePrivateKey()
+	s.signer = s.generateSigner(key)
+	s.verifier = s.generateVerifier(key)
 }
 
-func (ts tokenService) generateSigner(key *rsa.PrivateKey) jwt.Signer {
+func (s Service) generateSigner(key *rsa.PrivateKey) jwt.Signer {
 	signer, err := jwt.NewSignerRS(keyAlgorithm, key)
 	if err != nil {
 		panic(errSignerGenerate)
@@ -54,7 +47,7 @@ func (ts tokenService) generateSigner(key *rsa.PrivateKey) jwt.Signer {
 	return signer
 }
 
-func (ts tokenService) generateVerifier(key *rsa.PrivateKey) jwt.Verifier {
+func (s Service) generateVerifier(key *rsa.PrivateKey) jwt.Verifier {
 	verifier, err := jwt.NewVerifierRS(keyAlgorithm, &key.PublicKey)
 	if err != nil {
 		panic(errVerifierGenerate)
@@ -62,7 +55,7 @@ func (ts tokenService) generateVerifier(key *rsa.PrivateKey) jwt.Verifier {
 	return verifier
 }
 
-func (ts *tokenService) generatePrivateKey() *rsa.PrivateKey {
+func (s *Service) generatePrivateKey() *rsa.PrivateKey {
 	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
 		panic(fmt.Errorf("could not generate private key: %w", err))
@@ -70,8 +63,8 @@ func (ts *tokenService) generatePrivateKey() *rsa.PrivateKey {
 	return privateKey
 }
 
-func (ts tokenService) ValidateToken(strToken string) error {
-	token, err := jwt.ParseAndVerifyString(strToken, ts.verifier)
+func (s Service) ValidateToken(strToken string) error {
+	token, err := jwt.ParseAndVerifyString(strToken, s.verifier)
 	if err != nil {
 		return fmt.Errorf("could not parse and verify strToken: %w", err)
 	}
@@ -88,7 +81,7 @@ func (ts tokenService) ValidateToken(strToken string) error {
 	return nil
 }
 
-func (ts tokenService) ExtractToken(r *http.Request) (string, error) {
+func (s Service) ExtractToken(r *http.Request) (string, error) {
 	authorization := r.Header.Get("Authorization")
 	if len(authorization) > len("Bearer ") {
 		return authorization[7:], nil
@@ -96,7 +89,7 @@ func (ts tokenService) ExtractToken(r *http.Request) (string, error) {
 	return "", ErrBearerTokenExtract
 }
 
-func (ts tokenService) GenerateJwtToken(user entity.User, authorities []string) (string, error) {
+func (s Service) GenerateJwtToken(user entity.User, authorities []string) (string, error) {
 	expirationTime := time.Now().Add(time.Duration(tokenExpirationTime) * time.Minute)
 	claims := &model.Claims{
 		Username:    user.Username,
@@ -107,7 +100,7 @@ func (ts tokenService) GenerateJwtToken(user entity.User, authorities []string) 
 			ExpiresAt: jwt.NewNumericDate(expirationTime),
 		},
 	}
-	builder := jwt.NewBuilder(ts.signer)
+	builder := jwt.NewBuilder(s.signer)
 	token, err := builder.Build(claims)
 	if err != nil {
 		return "", fmt.Errorf("could not build token with claims: %w", err)

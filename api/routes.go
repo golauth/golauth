@@ -6,6 +6,7 @@ import (
 	"golauth/api/middleware"
 	"golauth/infrastructure/repository"
 	"golauth/usecase"
+	"golauth/usecase/token"
 	"net/http"
 
 	"github.com/gorilla/mux"
@@ -23,7 +24,7 @@ type router struct {
 	checkTokenController handler.CheckTokenController
 	userController       handler.UserController
 	roleController       handler.RoleController
-	tokenService         usecase.TokenService
+	tokenService         token.UseCase
 }
 
 func NewRouter(db *sql.DB) Router {
@@ -31,7 +32,7 @@ func NewRouter(db *sql.DB) Router {
 	rRepo := repository.NewRoleRepository(db)
 	urRepo := repository.NewUserRoleRepository(db)
 	uaRepo := repository.NewUserAuthorityRepository(db)
-	tokenService := usecase.NewTokenService()
+	tokenService := token.NewService()
 	userService := usecase.NewUserService(uRepo, rRepo, urRepo, uaRepo, tokenService)
 
 	roleSvc := usecase.NewRoleService(rRepo)

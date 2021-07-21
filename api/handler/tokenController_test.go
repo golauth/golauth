@@ -10,6 +10,7 @@ import (
 	repoMock "golauth/infrastructure/repository/mock"
 	"golauth/model"
 	svcMock "golauth/usecase/mock"
+	tkMock "golauth/usecase/token/mock"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -23,7 +24,7 @@ type TokenControllerSuite struct {
 
 	uRepo  *repoMock.MockUserRepository
 	uaRepo *repoMock.MockUserAuthorityRepository
-	tkSvc  *svcMock.MockTokenService
+	tkSvc  *tkMock.MockUseCase
 	uSvc   *svcMock.MockUserService
 
 	ctrl TokenController
@@ -39,7 +40,7 @@ func (s *TokenControllerSuite) SetupTest() {
 
 	s.uRepo = repoMock.NewMockUserRepository(s.mockCtrl)
 	s.uaRepo = repoMock.NewMockUserAuthorityRepository(s.mockCtrl)
-	s.tkSvc = svcMock.NewMockTokenService(s.mockCtrl)
+	s.tkSvc = tkMock.NewMockUseCase(s.mockCtrl)
 	s.uSvc = svcMock.NewMockUserService(s.mockCtrl)
 
 	s.ctrl = NewTokenController(s.uRepo, s.uaRepo, s.tkSvc, s.uSvc)
