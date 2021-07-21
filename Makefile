@@ -21,8 +21,7 @@ run:
 fmt:
 	go fmt ./...
 
-test:
-	make mock
+test: mock
 	go test ./... -coverprofile=coverage.out
 
 build:

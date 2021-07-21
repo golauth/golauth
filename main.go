@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 	"golauth/api"
-	datasource2 "golauth/infrastructure/datasource"
+	"golauth/infrastructure/datasource"
 	"log"
 	"net/http"
 	"os"
@@ -11,7 +11,7 @@ import (
 	"github.com/subosito/gotenv"
 )
 
-func getServerEnv() string {
+func getPortEnv() string {
 	_ = gotenv.Load()
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -22,9 +22,9 @@ func getServerEnv() string {
 }
 
 func main() {
-	port := getServerEnv()
+	port := getPortEnv()
 	addr := fmt.Sprint(":", port)
-	ds, err := datasource2.NewDatasource()
+	ds, err := datasource.NewDatasource()
 	if err != nil {
 		log.Fatalf("error when creating database connection: %s", err.Error())
 	}
