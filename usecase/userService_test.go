@@ -10,7 +10,7 @@ import (
 	"golauth/entity"
 	"golauth/infrastructure/repository/mock"
 	"golauth/model"
-	mockSvc "golauth/usecase/mock"
+	tkSvc "golauth/usecase/token/mock"
 	"testing"
 	"time"
 )
@@ -24,7 +24,7 @@ type UserServiceSuite struct {
 	roleRepository          *mock.MockRoleRepository
 	userRoleRepository      *mock.MockUserRoleRepository
 	userAuthorityRepository *mock.MockUserAuthorityRepository
-	tokenService            *mockSvc.MockTokenService
+	tokenService            *tkSvc.MockUseCase
 
 	svc UserService
 
@@ -44,7 +44,7 @@ func (s *UserServiceSuite) SetupTest() {
 	s.roleRepository = mock.NewMockRoleRepository(s.mockCtrl)
 	s.userRoleRepository = mock.NewMockUserRoleRepository(s.mockCtrl)
 	s.userAuthorityRepository = mock.NewMockUserAuthorityRepository(s.mockCtrl)
-	s.tokenService = mockSvc.NewMockTokenService(s.mockCtrl)
+	s.tokenService = tkSvc.NewMockUseCase(s.mockCtrl)
 
 	s.svc = NewUserService(s.userRepository, s.roleRepository, s.userRoleRepository, s.userAuthorityRepository, s.tokenService)
 

@@ -3,7 +3,7 @@ package handler
 
 import (
 	"encoding/json"
-	"golauth/usecase"
+	"golauth/usecase/token"
 	"net/http"
 )
 
@@ -12,10 +12,10 @@ type CheckTokenController interface {
 }
 
 type checkTokenController struct {
-	svc usecase.TokenService
+	svc token.UseCase
 }
 
-func NewCheckTokenController(s usecase.TokenService) CheckTokenController {
+func NewCheckTokenController(s token.UseCase) CheckTokenController {
 	return checkTokenController{svc: s}
 }
 

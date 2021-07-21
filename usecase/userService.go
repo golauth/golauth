@@ -9,6 +9,7 @@ import (
 	"golauth/entity"
 	"golauth/infrastructure/repository"
 	"golauth/model"
+	"golauth/usecase/token"
 )
 
 const defaultRoleName = "USER"
@@ -31,7 +32,7 @@ type userService struct {
 	roleRepository          repository.RoleRepository
 	userRoleRepository      repository.UserRoleRepository
 	userAuthorityRepository repository.UserAuthorityRepository
-	tokenService            TokenService
+	tokenService            token.UseCase
 }
 
 func NewUserService(
@@ -39,7 +40,7 @@ func NewUserService(
 	roleRepository repository.RoleRepository,
 	userRoleRepository repository.UserRoleRepository,
 	userAuthorityRepository repository.UserAuthorityRepository,
-	tokenService TokenService) UserService {
+	tokenService token.UseCase) UserService {
 	return userService{
 		userRepository:          userRepository,
 		roleRepository:          roleRepository,
