@@ -2,6 +2,9 @@ STACK_NAME=golauth
 
 prepare:
 	cp .env.example .env
+	go get -u github.com/ory/go-acc
+	go mod download
+	go mod tidy
 
 start-db:
 	docker-compose -p ${STACK_NAME} up -d
@@ -22,13 +25,13 @@ fmt:
 	go fmt ./...
 
 test: mock
-	go test ./... -coverprofile=coverage.out
+	go-acc ./...
 
 build:
 	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-w -s" -o golauth
 
 cover:
-	go tool cover -html coverage.out
+	go tool cover -html coverage.txt
 
 mock:
 	go generate -v ./...

@@ -2,6 +2,6 @@ vendor/
 .env
 .idea/
 *.iml
-coverage.out
+coverage*
 golauth
 **/mock/*_mock.go
