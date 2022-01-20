@@ -1,30 +1,22 @@
-//go:generate mockgen -source roleRepository.go -destination mock/roleRepository_mock.go -package mock
-package repository
+package postgres
 
 import (
 	"database/sql"
 	"fmt"
 	"github.com/google/uuid"
 	"golauth/domain/entity"
+	"golauth/domain/repository"
 )
 
-type RoleRepository interface {
-	FindByName(name string) (entity.Role, error)
-	Create(role entity.Role) (entity.Role, error)
-	Edit(role entity.Role) error
-	ChangeStatus(id uuid.UUID, enabled bool) error
-	ExistsById(id uuid.UUID) (bool, error)
-}
-
-type roleRepository struct {
+type RoleRepositoryPostgres struct {
 	db *sql.DB
 }
 
-func NewRoleRepository(db *sql.DB) RoleRepository {
-	return roleRepository{db: db}
+func NewRoleRepository(db *sql.DB) repository.RoleRepository {
+	return &RoleRepositoryPostgres{db: db}
 }
 
-func (r roleRepository) FindByName(name string) (entity.Role, error) {
+func (r RoleRepositoryPostgres) FindByName(name string) (entity.Role, error) {
 	role := entity.Role{}
 	row := r.db.QueryRow("SELECT * FROM golauth_role WHERE name = $1", name)
 	err := row.Scan(&role.ID, &role.Name, &role.Description, &role.Enabled, &role.CreationDate)
@@ -34,7 +26,7 @@ func (r roleRepository) FindByName(name string) (entity.Role, error) {
 	return role, nil
 }
 
-func (r roleRepository) Create(role entity.Role) (entity.Role, error) {
+func (r RoleRepositoryPostgres) Create(role entity.Role) (entity.Role, error) {
 	err := r.db.QueryRow("INSERT INTO golauth_role (name,description,enabled) VALUES ($1, $2, $3) RETURNING id, creation_date;",
 		role.Name, role.Description, role.Enabled).Scan(&role.ID, &role.CreationDate)
 	if err != nil {
@@ -43,7 +35,7 @@ func (r roleRepository) Create(role entity.Role) (entity.Role, error) {
 	return role, nil
 }
 
-func (r roleRepository) Edit(role entity.Role) error {
+func (r RoleRepositoryPostgres) Edit(role entity.Role) error {
 	updateStatement := `
 		UPDATE golauth_role
 		SET name = $2, description = $3
@@ -61,7 +53,7 @@ func (r roleRepository) Edit(role entity.Role) error {
 	return nil
 }
 
-func (r roleRepository) ChangeStatus(id uuid.UUID, enabled bool) error {
+func (r RoleRepositoryPostgres) ChangeStatus(id uuid.UUID, enabled bool) error {
 	updateStatement := `
 		UPDATE golauth_role
 		SET enabled = $2
@@ -79,7 +71,7 @@ func (r roleRepository) ChangeStatus(id uuid.UUID, enabled bool) error {
 	return nil
 }
 
-func (r roleRepository) ExistsById(id uuid.UUID) (bool, error) {
+func (r RoleRepositoryPostgres) ExistsById(id uuid.UUID) (bool, error) {
 	var exists bool
 	query := "SELECT EXISTS (SELECT 1 FROM golauth_role WHERE id = $1)"
 	row := r.db.QueryRow(query, id)

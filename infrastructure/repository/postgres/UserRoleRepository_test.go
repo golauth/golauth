@@ -1,4 +1,4 @@
-package repository
+package postgres
 
 import (
 	"database/sql"
@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 	"golauth/domain/entity"
+	"golauth/domain/repository"
 	"golauth/infrastructure/datasource"
 	"golauth/ops"
 	"testing"
@@ -20,11 +21,11 @@ type UserRoleRepositorySuite struct {
 	mockCtrl *gomock.Controller
 	db       *sql.DB
 
-	repo UserRoleRepository
+	repo repository.UserRoleRepository
 }
 
 func TestUserRoleRepository(t *testing.T) {
-	ctxContainer, err := ops.ContainerDBStart("./../..")
+	ctxContainer, err := ops.ContainerDBStart("./../../..")
 	assert.NoError(t, err)
 	s := new(UserRoleRepositorySuite)
 	suite.Run(t, s)
@@ -51,7 +52,7 @@ func (s UserRoleRepositorySuite) prepareDatabase(clean bool, scripts ...string) 
 	if clean {
 		cleanScript = "clear-data.sql"
 	}
-	err := ops.DatasetTest(s.db, "./../..", cleanScript, scripts...)
+	err := ops.DatasetTest(s.db, "./../../..", cleanScript, scripts...)
 	s.NoError(err)
 }
 
@@ -85,7 +86,7 @@ type UserRoleRepositoryDBMockSuite struct {
 	mockCtrl     *gomock.Controller
 	db           *sql.DB
 	mockDB       sqlmock.Sqlmock
-	repo         UserRoleRepository
+	repo         repository.UserRoleRepository
 	roleMock     entity.Role
 	userAdmin2Id uuid.UUID
 	roleAdminId  uuid.UUID

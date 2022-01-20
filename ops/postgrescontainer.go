@@ -32,7 +32,7 @@ const (
 func ContainerDBStart(basePath string) (context.Context, error) {
 	ctx := context.Background()
 	req := testcontainers.ContainerRequest{
-		Image:        "postgres:13-alpine",
+		Image:        "postgres:14-alpine",
 		ExposedPorts: []string{testPostgresSvcPort},
 		Env: map[string]string{
 			"POSTGRES_DB":       testDbName,

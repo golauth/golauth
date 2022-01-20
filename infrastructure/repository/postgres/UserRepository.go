@@ -1,28 +1,22 @@
-//go:generate mockgen -source userRepository.go -destination mock/userRepository_mock.go -package mock
-package repository
+package postgres
 
 import (
 	"database/sql"
 	"fmt"
 	"github.com/google/uuid"
 	"golauth/domain/entity"
+	"golauth/domain/repository"
 )
 
-type UserRepository interface {
-	FindByUsername(username string) (entity.User, error)
-	FindByID(id uuid.UUID) (entity.User, error)
-	Create(user entity.User) (entity.User, error)
-}
-
-type userRepository struct {
+type UserRepositoryPostgres struct {
 	db *sql.DB
 }
 
-func NewUserRepository(db *sql.DB) UserRepository {
-	return userRepository{db: db}
+func NewUserRepository(db *sql.DB) repository.UserRepository {
+	return &UserRepositoryPostgres{db: db}
 }
 
-func (ur userRepository) FindByUsername(username string) (entity.User, error) {
+func (ur UserRepositoryPostgres) FindByUsername(username string) (entity.User, error) {
 	user := entity.User{}
 	row := ur.db.QueryRow("SELECT * FROM golauth_user WHERE username = $1", username)
 	err := row.Scan(&user.ID, &user.Username, &user.FirstName, &user.LastName, &user.Email, &user.Document, &user.Password, &user.Enabled, &user.CreationDate)
@@ -32,7 +26,7 @@ func (ur userRepository) FindByUsername(username string) (entity.User, error) {
 	return user, nil
 }
 
-func (ur userRepository) FindByID(id uuid.UUID) (entity.User, error) {
+func (ur UserRepositoryPostgres) FindByID(id uuid.UUID) (entity.User, error) {
 	user := entity.User{}
 	var phantomZone string
 	row := ur.db.QueryRow("SELECT * FROM golauth_user WHERE id = $1", id)
@@ -43,7 +37,7 @@ func (ur userRepository) FindByID(id uuid.UUID) (entity.User, error) {
 	return user, nil
 }
 
-func (ur userRepository) Create(user entity.User) (entity.User, error) {
+func (ur UserRepositoryPostgres) Create(user entity.User) (entity.User, error) {
 	err := ur.db.QueryRow("INSERT INTO golauth_user (username, first_name, last_name, email, document, password) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id;",
 		user.Username, user.FirstName, user.LastName, user.Email, user.Document, user.Password).Scan(&user.ID)
 	if err != nil {

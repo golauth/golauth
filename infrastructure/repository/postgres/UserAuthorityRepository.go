@@ -1,25 +1,21 @@
-//go:generate mockgen -source userAuthorityRepository.go -destination mock/userAuthorityRepository_mock.go -package mock
-package repository
+package postgres
 
 import (
 	"database/sql"
 	"fmt"
 	"github.com/google/uuid"
+	"golauth/domain/repository"
 )
 
-type UserAuthorityRepository interface {
-	FindAuthoritiesByUserID(userId uuid.UUID) ([]string, error)
-}
-
-type userAuthorityRepository struct {
+type UserAuthorityRepositoryPostgres struct {
 	db *sql.DB
 }
 
-func NewUserAuthorityRepository(db *sql.DB) UserAuthorityRepository {
-	return userAuthorityRepository{db: db}
+func NewUserAuthorityRepository(db *sql.DB) repository.UserAuthorityRepository {
+	return &UserAuthorityRepositoryPostgres{db: db}
 }
 
-func (u userAuthorityRepository) FindAuthoritiesByUserID(userId uuid.UUID) ([]string, error) {
+func (u UserAuthorityRepositoryPostgres) FindAuthoritiesByUserID(userId uuid.UUID) ([]string, error) {
 	var authorities []string
 	var err error
 	var query = `

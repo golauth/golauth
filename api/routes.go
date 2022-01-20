@@ -6,7 +6,7 @@ import (
 	"golauth/api/middleware"
 	"golauth/domain/usecase"
 	"golauth/domain/usecase/token"
-	"golauth/infrastructure/repository"
+	"golauth/infrastructure/repository/postgres"
 	"net/http"
 
 	"github.com/gorilla/mux"
@@ -28,10 +28,10 @@ type router struct {
 }
 
 func NewRouter(db *sql.DB) Router {
-	uRepo := repository.NewUserRepository(db)
-	rRepo := repository.NewRoleRepository(db)
-	urRepo := repository.NewUserRoleRepository(db)
-	uaRepo := repository.NewUserAuthorityRepository(db)
+	uRepo := postgres.NewUserRepository(db)
+	rRepo := postgres.NewRoleRepository(db)
+	urRepo := postgres.NewUserRoleRepository(db)
+	uaRepo := postgres.NewUserAuthorityRepository(db)
 	tokenService := token.NewService()
 	userService := usecase.NewUserService(uRepo, rRepo, urRepo, uaRepo, tokenService)
 
