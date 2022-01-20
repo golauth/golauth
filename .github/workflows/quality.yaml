@@ -13,7 +13,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v2
         with:
-          go-version: '1.16'
+          go-version: '1.17'
 
       - name: Checkout
         uses: actions/checkout@v2
@@ -22,7 +22,9 @@ jobs:
 
       - name: test
         run: |
+          go get -u github.com/ory/go-acc
           go install github.com/golang/mock/mockgen@v1.6.0
+          go mod download
           make test
 
       - name: sonar
