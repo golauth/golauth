@@ -1,7 +1,7 @@
 package middleware
 
 import (
-	"golauth/domain/usecase/token"
+	"github.com/golauth/golauth/domain/usecase/token"
 	"net/http"
 )
 
@@ -25,12 +25,12 @@ func (s *SecurityMiddleware) Apply(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		requestURI := r.RequestURI
 		if s.isPrivateURI(requestURI) {
-			token, err := s.service.ExtractToken(r)
+			t, err := s.service.ExtractToken(r)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
 			}
-			err = s.service.ValidateToken(token)
+			err = s.service.ValidateToken(t)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusUnauthorized)
 				return

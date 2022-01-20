@@ -4,10 +4,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"golauth/api/handler/model"
-	"golauth/domain/repository"
-	"golauth/domain/usecase"
-	"golauth/domain/usecase/token"
+	"github.com/golauth/golauth/api/handler/model"
+	"github.com/golauth/golauth/domain/repository"
+	"github.com/golauth/golauth/domain/usecase"
+	"github.com/golauth/golauth/domain/usecase/token"
 	"net/http"
 )
 

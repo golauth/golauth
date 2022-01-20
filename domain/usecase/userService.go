@@ -4,12 +4,12 @@ package usecase
 import (
 	"errors"
 	"fmt"
+	"github.com/golauth/golauth/api/handler/model"
+	"github.com/golauth/golauth/domain/entity"
+	"github.com/golauth/golauth/domain/repository"
+	"github.com/golauth/golauth/domain/usecase/token"
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
-	"golauth/api/handler/model"
-	"golauth/domain/entity"
-	"golauth/domain/repository"
-	"golauth/domain/usecase/token"
 )
 
 const defaultRoleName = "USER"

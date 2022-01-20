@@ -3,10 +3,10 @@ package usecase
 
 import (
 	"fmt"
+	"github.com/golauth/golauth/api/handler/model"
+	"github.com/golauth/golauth/domain/entity"
+	"github.com/golauth/golauth/domain/repository"
 	"github.com/google/uuid"
-	"golauth/api/handler/model"
-	"golauth/domain/entity"
-	"golauth/domain/repository"
 )
 
 type RoleService interface {

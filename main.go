@@ -2,8 +2,8 @@ package main
 
 import (
 	"fmt"
-	"golauth/api"
-	"golauth/infrastructure/datasource"
+	"github.com/golauth/golauth/api"
+	"github.com/golauth/golauth/infra/datasource"
 	"log"
 	"net/http"
 	"os"

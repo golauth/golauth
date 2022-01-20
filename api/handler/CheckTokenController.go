@@ -2,7 +2,7 @@ package handler
 
 import (
 	"encoding/json"
-	"golauth/domain/usecase/token"
+	"github.com/golauth/golauth/domain/usecase/token"
 	"net/http"
 )
 

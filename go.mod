@@ -1,4 +1,4 @@
-module golauth
+module github.com/golauth/golauth
 
 go 1.17
 

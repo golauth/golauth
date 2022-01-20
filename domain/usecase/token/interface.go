@@ -2,7 +2,7 @@
 package token
 
 import (
-	"golauth/domain/entity"
+	"github.com/golauth/golauth/domain/entity"
 	"net/http"
 )
 

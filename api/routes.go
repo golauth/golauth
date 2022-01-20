@@ -2,11 +2,11 @@ package api
 
 import (
 	"database/sql"
-	"golauth/api/handler"
-	"golauth/api/middleware"
-	"golauth/domain/usecase"
-	"golauth/domain/usecase/token"
-	"golauth/infrastructure/repository/postgres"
+	"github.com/golauth/golauth/api/handler"
+	"github.com/golauth/golauth/api/middleware"
+	"github.com/golauth/golauth/domain/usecase"
+	"github.com/golauth/golauth/domain/usecase/token"
+	"github.com/golauth/golauth/infra/repository/postgres"
 	"net/http"
 
 	"github.com/gorilla/mux"

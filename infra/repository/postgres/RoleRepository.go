@@ -3,9 +3,9 @@ package postgres
 import (
 	"database/sql"
 	"fmt"
+	"github.com/golauth/golauth/domain/entity"
+	"github.com/golauth/golauth/domain/repository"
 	"github.com/google/uuid"
-	"golauth/domain/entity"
-	"golauth/domain/repository"
 )
 
 type RoleRepositoryPostgres struct {

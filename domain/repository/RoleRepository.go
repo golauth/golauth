@@ -2,8 +2,8 @@
 package repository
 
 import (
+	"github.com/golauth/golauth/domain/entity"
 	"github.com/google/uuid"
-	"golauth/domain/entity"
 )
 
 type RoleRepository interface {

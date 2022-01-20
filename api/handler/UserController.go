@@ -2,10 +2,10 @@ package handler
 
 import (
 	"encoding/json"
+	"github.com/golauth/golauth/api/handler/model"
+	"github.com/golauth/golauth/domain/usecase"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
-	"golauth/api/handler/model"
-	"golauth/domain/usecase"
 	"net/http"
 )
 
