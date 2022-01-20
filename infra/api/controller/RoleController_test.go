@@ -1,4 +1,4 @@
-package handler
+package controller
 
 import (
 	"bytes"
@@ -6,9 +6,9 @@ import (
 	"errors"
 	"fmt"
 	"github.com/golang/mock/gomock"
-	"github.com/golauth/golauth/api/handler/model"
 	"github.com/golauth/golauth/domain/entity"
 	"github.com/golauth/golauth/domain/usecase/mock"
+	"github.com/golauth/golauth/infra/api/controller/model"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/stretchr/testify/require"

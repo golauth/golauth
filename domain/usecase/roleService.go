@@ -3,9 +3,9 @@ package usecase
 
 import (
 	"fmt"
-	"github.com/golauth/golauth/api/handler/model"
 	"github.com/golauth/golauth/domain/entity"
 	"github.com/golauth/golauth/domain/repository"
+	"github.com/golauth/golauth/infra/api/controller/model"
 	"github.com/google/uuid"
 )
 

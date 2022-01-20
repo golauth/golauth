@@ -2,10 +2,10 @@ package api
 
 import (
 	"database/sql"
-	"github.com/golauth/golauth/api/handler"
-	"github.com/golauth/golauth/api/middleware"
 	"github.com/golauth/golauth/domain/usecase"
 	"github.com/golauth/golauth/domain/usecase/token"
+	"github.com/golauth/golauth/infra/api/controller"
+	"github.com/golauth/golauth/infra/api/middleware"
 	"github.com/golauth/golauth/infra/repository/postgres"
 	"net/http"
 
@@ -19,11 +19,11 @@ type Router interface {
 }
 
 type router struct {
-	signupController     handler.SignupController
-	tokenController      handler.TokenController
-	checkTokenController handler.CheckTokenController
-	userController       handler.UserController
-	roleController       handler.RoleController
+	signupController     controller.SignupController
+	tokenController      controller.TokenController
+	checkTokenController controller.CheckTokenController
+	userController       controller.UserController
+	roleController       controller.RoleController
 	tokenService         token.UseCase
 }
 
@@ -38,11 +38,11 @@ func NewRouter(db *sql.DB) Router {
 	roleSvc := usecase.NewRoleService(rRepo)
 
 	return &router{
-		signupController:     handler.NewSignupController(userService),
-		tokenController:      handler.NewTokenController(uRepo, uaRepo, tokenService, userService),
-		checkTokenController: handler.NewCheckTokenController(tokenService),
-		userController:       handler.NewUserController(userService),
-		roleController:       handler.NewRoleController(roleSvc),
+		signupController:     controller.NewSignupController(userService),
+		tokenController:      controller.NewTokenController(uRepo, uaRepo, tokenService, userService),
+		checkTokenController: controller.NewCheckTokenController(tokenService),
+		userController:       controller.NewUserController(userService),
+		roleController:       controller.NewRoleController(roleSvc),
 		tokenService:         tokenService,
 	}
 }

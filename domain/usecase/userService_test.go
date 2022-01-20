@@ -3,10 +3,10 @@ package usecase
 import (
 	"fmt"
 	"github.com/golang/mock/gomock"
-	"github.com/golauth/golauth/api/handler/model"
 	"github.com/golauth/golauth/domain/entity"
 	"github.com/golauth/golauth/domain/repository/mock"
 	tkSvc "github.com/golauth/golauth/domain/usecase/token/mock"
+	"github.com/golauth/golauth/infra/api/controller/model"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"

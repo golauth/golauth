@@ -1,14 +1,14 @@
-package handler
+package controller
 
 import (
 	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/golang/mock/gomock"
-	"github.com/golauth/golauth/api/handler/model"
 	repoMock "github.com/golauth/golauth/domain/repository/mock"
 	svcMock "github.com/golauth/golauth/domain/usecase/mock"
 	tkMock "github.com/golauth/golauth/domain/usecase/token/mock"
+	"github.com/golauth/golauth/infra/api/controller/model"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 	"net/http"

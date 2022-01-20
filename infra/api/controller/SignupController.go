@@ -1,9 +1,9 @@
-package handler
+package controller
 
 import (
 	"encoding/json"
-	"github.com/golauth/golauth/api/handler/model"
 	"github.com/golauth/golauth/domain/usecase"
+	"github.com/golauth/golauth/infra/api/controller/model"
 	"net/http"
 )
 

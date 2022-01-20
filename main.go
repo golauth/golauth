@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"github.com/golauth/golauth/api"
+	"github.com/golauth/golauth/infra/api"
 	"github.com/golauth/golauth/infra/datasource"
 	"log"
 	"net/http"
