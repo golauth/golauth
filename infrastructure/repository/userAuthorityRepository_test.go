@@ -8,8 +8,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
-	"golauth/entity"
-	datasource2 "golauth/infrastructure/datasource"
+	"golauth/domain/entity"
+	"golauth/infrastructure/datasource"
 	"golauth/ops"
 	"testing"
 )
@@ -36,7 +36,7 @@ func TestUserAuthorityRepository(t *testing.T) {
 func (s *UserAuthorityRepositorySuite) SetupTest() {
 	s.Assertions = require.New(s.T())
 	s.mockCtrl = gomock.NewController(s.T())
-	ds, err := datasource2.NewDatasource()
+	ds, err := datasource.NewDatasource()
 	s.NotNil(ds)
 	s.NoError(err)
 	s.db = ds.GetDB()

@@ -7,7 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
-	"golauth/entity"
+	"golauth/domain/entity"
 	"golauth/infrastructure/repository/mock"
 	"golauth/model"
 	"testing"

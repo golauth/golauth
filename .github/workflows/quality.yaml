@@ -40,4 +40,4 @@ jobs:
             -Dsonar.exclusions=**/*_test.go,**/*.sql,**/*_mock.go,**/ops/**
             -Dsonar.tests=.
             -Dsonar.test.inclusions=**/*_test.go
-            -Dsonar.go.coverage.reportPaths=/github/workspace/coverage.out
+            -Dsonar.go.coverage.reportPaths=/github/workspace/coverage.txt

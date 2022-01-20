@@ -7,10 +7,10 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 	"golang.org/x/crypto/bcrypt"
-	"golauth/entity"
+	"golauth/domain/entity"
+	tkSvc "golauth/domain/usecase/token/mock"
 	"golauth/infrastructure/repository/mock"
 	"golauth/model"
-	tkSvc "golauth/usecase/token/mock"
 	"testing"
 	"time"
 )

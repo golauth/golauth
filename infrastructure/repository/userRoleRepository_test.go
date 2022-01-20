@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
-	"golauth/entity"
+	"golauth/domain/entity"
 	"golauth/infrastructure/datasource"
 	"golauth/ops"
 	"testing"

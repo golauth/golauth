@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
-	"golauth/entity"
+	"golauth/domain/entity"
+	"golauth/domain/usecase/token"
 	"golauth/infrastructure/repository"
 	"golauth/model"
-	"golauth/usecase/token"
 )
 
 const defaultRoleName = "USER"

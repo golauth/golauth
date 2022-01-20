@@ -8,7 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
-	"golauth/entity"
+	"golauth/domain/entity"
 	"net/http"
 	"strings"
 	"testing"

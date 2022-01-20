@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"github.com/google/uuid"
-	"golauth/entity"
+	"golauth/domain/entity"
 )
 
 type UserRepository interface {

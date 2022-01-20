@@ -1,7 +1,7 @@
 package middleware
 
 import (
-	"golauth/usecase/token"
+	"golauth/domain/usecase/token"
 	"net/http"
 )
 

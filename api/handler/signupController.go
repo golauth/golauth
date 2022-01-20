@@ -2,8 +2,8 @@ package handler
 
 import (
 	"encoding/json"
+	"golauth/domain/usecase"
 	"golauth/model"
-	"golauth/usecase"
 	"net/http"
 )
 

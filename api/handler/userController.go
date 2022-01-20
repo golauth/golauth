@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
+	"golauth/domain/usecase"
 	"golauth/model"
-	"golauth/usecase"
 	"net/http"
 )
 

@@ -4,9 +4,9 @@ import (
 	"database/sql"
 	"golauth/api/handler"
 	"golauth/api/middleware"
+	"golauth/domain/usecase"
+	"golauth/domain/usecase/token"
 	"golauth/infrastructure/repository"
-	"golauth/usecase"
-	"golauth/usecase/token"
 	"net/http"
 
 	"github.com/gorilla/mux"
@@ -48,7 +48,7 @@ func NewRouter(db *sql.DB) Router {
 }
 
 func (r *router) Config() *mux.Router {
-	rt := mux.NewRouter().PathPrefix("/auth").Subrouter()
+	rt := mux.NewRouter().PathPrefix(pathPrefix).Subrouter()
 
 	rt.HandleFunc("/signup", r.signupController.CreateUser).Methods(http.MethodPost, http.MethodOptions).Name("signup")
 	rt.HandleFunc("/token", r.tokenController.Token).Methods(http.MethodPost, http.MethodOptions).Name("token")
