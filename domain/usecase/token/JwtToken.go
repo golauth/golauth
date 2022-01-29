@@ -1,3 +1,4 @@
+//go:generate mockgen -source JwtToken.go -destination mock/JwtToken_mock.go -package mock
 package token
 
 import (
@@ -19,15 +20,19 @@ var (
 	tokenExpirationTime   = 30
 )
 
-type Service struct {
+type JwtToken interface {
+	Execute(user entity.User, authorities []string) (string, error)
+}
+
+func NewJwtToken(key *rsa.PrivateKey) JwtToken {
+	return jwtToken{signer: generateSigner(key)}
+}
+
+type jwtToken struct {
 	signer jwt.Signer
 }
 
-func NewService(key *rsa.PrivateKey) UseCase {
-	return Service{signer: generateSigner(key)}
-}
-
-func (s Service) GenerateJwtToken(user entity.User, authorities []string) (string, error) {
+func (uc jwtToken) Execute(user entity.User, authorities []string) (string, error) {
 	expirationTime := time.Now().Add(time.Duration(tokenExpirationTime) * time.Minute)
 	claims := &model.Claims{
 		Username:    user.Username,
@@ -38,7 +43,7 @@ func (s Service) GenerateJwtToken(user entity.User, authorities []string) (strin
 			ExpiresAt: jwt.NewNumericDate(expirationTime),
 		},
 	}
-	builder := jwt.NewBuilder(s.signer)
+	builder := jwt.NewBuilder(uc.signer)
 	token, err := builder.Build(claims)
 	if err != nil {
 		return "", fmt.Errorf("could not build token with claims: %w", err)

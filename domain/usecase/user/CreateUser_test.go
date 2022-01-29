@@ -7,7 +7,6 @@ import (
 	"github.com/golauth/golauth/domain/entity"
 	mock2 "github.com/golauth/golauth/domain/factory/mock"
 	"github.com/golauth/golauth/domain/repository/mock"
-	tkSvc "github.com/golauth/golauth/domain/usecase/token/mock"
 	"github.com/golauth/golauth/infra/api/controller/model"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
@@ -26,7 +25,6 @@ type CreateUserSuite struct {
 	userRepository     *mock.MockUserRepository
 	roleRepository     *mock.MockRoleRepository
 	userRoleRepository *mock.MockUserRoleRepository
-	tokenService       *tkSvc.MockUseCase
 
 	ctx        context.Context
 	createUser CreateUser
@@ -47,14 +45,13 @@ func (s *CreateUserSuite) SetupTest() {
 	s.userRepository = mock.NewMockUserRepository(s.mockCtrl)
 	s.roleRepository = mock.NewMockRoleRepository(s.mockCtrl)
 	s.userRoleRepository = mock.NewMockUserRoleRepository(s.mockCtrl)
-	s.tokenService = tkSvc.NewMockUseCase(s.mockCtrl)
 
 	s.repoFactory.EXPECT().NewRoleRepository().AnyTimes().Return(s.roleRepository)
 	s.repoFactory.EXPECT().NewUserRoleRepository().AnyTimes().Return(s.userRoleRepository)
 	s.repoFactory.EXPECT().NewUserRepository().AnyTimes().Return(s.userRepository)
 
 	s.ctx = context.Background()
-	s.createUser = NewCreateUser(s.repoFactory, s.tokenService)
+	s.createUser = NewCreateUser(s.repoFactory)
 
 	s.mockUser = model.UserRequest{
 		Username:  "admin",

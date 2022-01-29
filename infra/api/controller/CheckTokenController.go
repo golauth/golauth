@@ -12,12 +12,11 @@ type CheckTokenController interface {
 }
 
 type checkTokenController struct {
-	svc           token.UseCase
 	validateToken token.ValidateToken
 }
 
-func NewCheckTokenController(s token.UseCase, validateToken token.ValidateToken) CheckTokenController {
-	return checkTokenController{svc: s, validateToken: validateToken}
+func NewCheckTokenController(validateToken token.ValidateToken) CheckTokenController {
+	return checkTokenController{validateToken: validateToken}
 }
 
 func (c checkTokenController) CheckToken(w http.ResponseWriter, r *http.Request) {

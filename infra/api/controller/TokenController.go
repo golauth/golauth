@@ -20,19 +20,16 @@ type tokenController struct {
 	userRepository          repository.UserRepository
 	userAuthorityRepository repository.UserAuthorityRepository
 	generateToken           token.GenerateToken
-	tokenService            token.UseCase
 }
 
 func NewTokenController(
 	userRepository repository.UserRepository,
 	userAuthorityRepository repository.UserAuthorityRepository,
-	tokenService token.UseCase,
 	generateToken token.GenerateToken) TokenController {
 	return tokenController{
 		userRepository:          userRepository,
 		userAuthorityRepository: userAuthorityRepository,
 		generateToken:           generateToken,
-		tokenService:            tokenService,
 	}
 }
 

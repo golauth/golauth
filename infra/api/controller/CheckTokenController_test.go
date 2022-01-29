@@ -17,7 +17,6 @@ type CheckTokenControllerSuite struct {
 	suite.Suite
 	*require.Assertions
 	ctrl          *gomock.Controller
-	tkSvc         *mock.MockUseCase
 	validateToken *mock.MockValidateToken
 
 	ct CheckTokenController
@@ -30,10 +29,9 @@ func TestCheckTokenControllerSuite(t *testing.T) {
 func (s *CheckTokenControllerSuite) SetupTest() {
 	s.Assertions = require.New(s.T())
 	s.ctrl = gomock.NewController(s.T())
-	s.tkSvc = mock.NewMockUseCase(s.ctrl)
 	s.validateToken = mock.NewMockValidateToken(s.ctrl)
 
-	s.ct = NewCheckTokenController(s.tkSvc, s.validateToken)
+	s.ct = NewCheckTokenController(s.validateToken)
 }
 
 func (s *CheckTokenControllerSuite) TearDownTest() {

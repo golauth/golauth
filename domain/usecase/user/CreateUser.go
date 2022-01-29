@@ -7,7 +7,6 @@ import (
 	"github.com/golauth/golauth/domain/entity"
 	"github.com/golauth/golauth/domain/factory"
 	"github.com/golauth/golauth/domain/repository"
-	"github.com/golauth/golauth/domain/usecase/token"
 	"github.com/golauth/golauth/infra/api/controller/model"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -20,12 +19,11 @@ type CreateUser interface {
 	Execute(ctx context.Context, userReq model.UserRequest) (model.UserResponse, error)
 }
 
-func NewCreateUser(repoFactory factory.RepositoryFactory, tokenService token.UseCase) CreateUser {
+func NewCreateUser(repoFactory factory.RepositoryFactory) CreateUser {
 	return createUser{
 		userRepository:     repoFactory.NewUserRepository(),
 		roleRepository:     repoFactory.NewRoleRepository(),
 		userRoleRepository: repoFactory.NewUserRoleRepository(),
-		tokenService:       tokenService,
 	}
 }
 
@@ -33,7 +31,6 @@ type createUser struct {
 	userRepository     repository.UserRepository
 	roleRepository     repository.RoleRepository
 	userRoleRepository repository.UserRoleRepository
-	tokenService       token.UseCase
 }
 
 func (uc createUser) Execute(ctx context.Context, userReq model.UserRequest) (model.UserResponse, error) {

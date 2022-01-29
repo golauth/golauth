@@ -16,7 +16,7 @@ type ValidateTokenSuite struct {
 	*require.Assertions
 	mockCtrl *gomock.Controller
 
-	svc           UseCase
+	jwtToken      JwtToken
 	validateToken ValidateToken
 	user          entity.User
 }
@@ -29,7 +29,7 @@ func (s *ValidateTokenSuite) SetupTest() {
 	s.Assertions = require.New(s.T())
 	s.mockCtrl = gomock.NewController(s.T())
 	key := GeneratePrivateKey()
-	s.svc = NewService(key)
+	s.jwtToken = NewJwtToken(key)
 	s.validateToken = NewValidateToken(key)
 
 	s.user = entity.User{
@@ -51,7 +51,7 @@ func (s *ValidateTokenSuite) TearDownTest() {
 }
 
 func (s ValidateTokenSuite) TestValidateTokenOk() {
-	token, err := s.svc.GenerateJwtToken(s.user, []string{"ADMIN"})
+	token, err := s.jwtToken.Execute(s.user, []string{"ADMIN"})
 	s.NoError(err)
 	err = s.validateToken.Execute(fmt.Sprintf("%v", token))
 	s.NoError(err)
@@ -65,7 +65,7 @@ func (s ValidateTokenSuite) TestValidateTokenInvalidFormat() {
 
 func (s ValidateTokenSuite) TestValidateTokenErrExpiredToken() {
 	tokenExpirationTime = -1
-	expiredToken, err := s.svc.GenerateJwtToken(s.user, []string{"ADMIN"})
+	expiredToken, err := s.jwtToken.Execute(s.user, []string{"ADMIN"})
 	s.NoError(err)
 	err = s.validateToken.Execute(expiredToken)
 	s.Error(err)

@@ -25,7 +25,6 @@ type TokenControllerSuite struct {
 	ctx           context.Context
 	uRepo         *repoMock.MockUserRepository
 	uaRepo        *repoMock.MockUserAuthorityRepository
-	tkSvc         *tkMock.MockUseCase
 	generateToken *tkMock.MockGenerateToken
 
 	ctrl TokenController
@@ -41,10 +40,9 @@ func (s *TokenControllerSuite) SetupTest() {
 	s.ctx = context.Background()
 	s.uRepo = repoMock.NewMockUserRepository(s.mockCtrl)
 	s.uaRepo = repoMock.NewMockUserAuthorityRepository(s.mockCtrl)
-	s.tkSvc = tkMock.NewMockUseCase(s.mockCtrl)
 	s.generateToken = tkMock.NewMockGenerateToken(s.mockCtrl)
 
-	s.ctrl = NewTokenController(s.uRepo, s.uaRepo, s.tkSvc, s.generateToken)
+	s.ctrl = NewTokenController(s.uRepo, s.uaRepo, s.generateToken)
 }
 
 func (s *TokenControllerSuite) TearDownTest() {

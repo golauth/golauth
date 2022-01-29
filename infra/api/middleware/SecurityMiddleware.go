@@ -7,14 +7,12 @@ import (
 )
 
 type SecurityMiddleware struct {
-	service       token.UseCase
 	validateToken token.ValidateToken
 	publicURI     map[string]bool
 }
 
-func NewSecurityMiddleware(service token.UseCase, validateToken token.ValidateToken, pathPrefix string) *SecurityMiddleware {
+func NewSecurityMiddleware(validateToken token.ValidateToken, pathPrefix string) *SecurityMiddleware {
 	return &SecurityMiddleware{
-		service:       service,
 		validateToken: validateToken,
 		publicURI: map[string]bool{
 			pathPrefix + "/token":       true,
