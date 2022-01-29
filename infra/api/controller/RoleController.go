@@ -31,13 +31,13 @@ func (c RoleController) Create(w http.ResponseWriter, r *http.Request) {
 	var data model.RoleRequest
 	_ = json.NewDecoder(r.Body).Decode(&data)
 	input := entity.NewRole(data.Name, data.Description)
-	response, err := c.addRole.Execute(r.Context(), input)
+	output, err := c.addRole.Execute(r.Context(), input)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	w.WriteHeader(http.StatusCreated)
-	_ = json.NewEncoder(w).Encode(response)
+	_ = json.NewEncoder(w).Encode(model.NewRoleResponseFromEntity(output))
 }
 
 func (c RoleController) Edit(w http.ResponseWriter, r *http.Request) {

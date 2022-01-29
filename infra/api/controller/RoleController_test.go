@@ -1,7 +1,6 @@
 package controller
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -190,7 +189,7 @@ func (s RoleControllerSuite) TestChangeStatusErrSvc() {
 func (s RoleControllerSuite) TestFindByNameOk() {
 	roleId := uuid.New()
 	roleName := "ROLE_NAME"
-	resp := model.RoleResponse{
+	resp := &model.RoleResponse{
 		ID:           roleId,
 		Name:         roleName,
 		Description:  "Role description",
@@ -209,13 +208,11 @@ func (s RoleControllerSuite) TestFindByNameOk() {
 
 	s.rc.FindByName(w, r)
 
-	bf := bytes.NewBuffer([]byte{})
-	jsonEncoder := json.NewEncoder(bf)
-	jsonEncoder.SetEscapeHTML(false)
-	_ = jsonEncoder.Encode(resp)
-
 	s.Equal(http.StatusOK, w.Code)
-	s.Equal(bf, w.Body)
+	var result model.RoleResponse
+	_ = json.Unmarshal(w.Body.Bytes(), &result)
+	s.Equal(roleId, result.ID)
+	s.Equal(roleName, result.Name)
 }
 
 func (s RoleControllerSuite) TestFindByNameErrSvc() {

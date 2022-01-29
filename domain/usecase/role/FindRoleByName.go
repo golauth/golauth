@@ -3,12 +3,12 @@ package role
 
 import (
 	"context"
+	"github.com/golauth/golauth/domain/entity"
 	"github.com/golauth/golauth/domain/repository"
-	"github.com/golauth/golauth/infra/api/controller/model"
 )
 
 type FindRoleByName interface {
-	Execute(ctx context.Context, name string) (model.RoleResponse, error)
+	Execute(ctx context.Context, name string) (*entity.Role, error)
 }
 
 func NewFindRoleByName(repo repository.RoleRepository) FindRoleByName {
@@ -19,16 +19,10 @@ type findRoleByName struct {
 	repo repository.RoleRepository
 }
 
-func (uc findRoleByName) Execute(ctx context.Context, name string) (model.RoleResponse, error) {
+func (uc findRoleByName) Execute(ctx context.Context, name string) (*entity.Role, error) {
 	role, err := uc.repo.FindByName(ctx, name)
 	if err != nil {
-		return model.RoleResponse{}, err
+		return nil, err
 	}
-	return model.RoleResponse{
-		ID:           role.ID,
-		Name:         role.Name,
-		Description:  role.Description,
-		Enabled:      role.Enabled,
-		CreationDate: role.CreationDate,
-	}, nil
+	return role, nil
 }
