@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/golauth/golauth/domain/repository"
-	"github.com/golauth/golauth/domain/usecase"
 	"github.com/golauth/golauth/domain/usecase/token"
 	"github.com/golauth/golauth/infra/api/controller/model"
 	"net/http"
@@ -20,20 +19,17 @@ type TokenController interface {
 type tokenController struct {
 	userRepository          repository.UserRepository
 	userAuthorityRepository repository.UserAuthorityRepository
-	tokenService            token.UseCase
-	userService             usecase.UserService
+	generateToken           token.GenerateToken
 }
 
 func NewTokenController(
 	userRepository repository.UserRepository,
 	userAuthorityRepository repository.UserAuthorityRepository,
-	tokenService token.UseCase,
-	userService usecase.UserService) TokenController {
+	generateToken token.GenerateToken) TokenController {
 	return tokenController{
 		userRepository:          userRepository,
 		userAuthorityRepository: userAuthorityRepository,
-		tokenService:            tokenService,
-		userService:             userService,
+		generateToken:           generateToken,
 	}
 }
 
@@ -55,13 +51,13 @@ func (s tokenController) Token(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	data, err := s.userService.GenerateToken(username, password)
+	output, err := s.generateToken.Execute(r.Context(), username, password)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
 	}
 
-	_ = json.NewEncoder(w).Encode(data)
+	_ = json.NewEncoder(w).Encode(model.NewTokenResponseFromEntity(output))
 }
 
 func (s tokenController) extractUserPasswordFromJson(r *http.Request, username string, password string) (string, string, error) {

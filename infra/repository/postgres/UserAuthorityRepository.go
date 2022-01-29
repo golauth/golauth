@@ -1,21 +1,22 @@
 package postgres
 
 import (
-	"database/sql"
+	"context"
 	"fmt"
 	"github.com/golauth/golauth/domain/repository"
+	"github.com/golauth/golauth/infra/database"
 	"github.com/google/uuid"
 )
 
 type UserAuthorityRepositoryPostgres struct {
-	db *sql.DB
+	db database.Database
 }
 
-func NewUserAuthorityRepository(db *sql.DB) repository.UserAuthorityRepository {
+func NewUserAuthorityRepository(db database.Database) repository.UserAuthorityRepository {
 	return &UserAuthorityRepositoryPostgres{db: db}
 }
 
-func (u UserAuthorityRepositoryPostgres) FindAuthoritiesByUserID(userId uuid.UUID) ([]string, error) {
+func (u UserAuthorityRepositoryPostgres) FindAuthoritiesByUserID(ctx context.Context, userId uuid.UUID) ([]string, error) {
 	var authorities []string
 	var err error
 	var query = `
@@ -25,7 +26,7 @@ func (u UserAuthorityRepositoryPostgres) FindAuthoritiesByUserID(userId uuid.UUI
 		    INNER JOIN golauth_user_role ur ON ur.role_id = ra.role_id 
 		WHERE ur.user_id = $1`
 
-	rows, err := u.db.Query(query, userId)
+	rows, err := u.db.Many(ctx, query, userId)
 	if err != nil {
 		return nil, fmt.Errorf("could not find authorities by user: %w", err)
 	}

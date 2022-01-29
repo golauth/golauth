@@ -1,13 +1,13 @@
 package controller
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/golang/mock/gomock"
 	"github.com/golauth/golauth/domain/entity"
-	"github.com/golauth/golauth/domain/usecase/mock"
+	factoryMock "github.com/golauth/golauth/domain/factory/mock"
+	repoMock "github.com/golauth/golauth/domain/repository/mock"
 	"github.com/golauth/golauth/infra/api/controller/model"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
@@ -23,10 +23,10 @@ import (
 type RoleControllerSuite struct {
 	suite.Suite
 	*require.Assertions
-	ctrl    *gomock.Controller
-	roleSvc *mock.MockRoleService
-
-	rc RoleController
+	ctrl        *gomock.Controller
+	repoFactory *factoryMock.MockRepositoryFactory
+	roleRepo    *repoMock.MockRoleRepository
+	rc          RoleController
 }
 
 func TestRoleControllerSuite(t *testing.T) {
@@ -36,58 +36,29 @@ func TestRoleControllerSuite(t *testing.T) {
 func (s *RoleControllerSuite) SetupTest() {
 	s.Assertions = require.New(s.T())
 	s.ctrl = gomock.NewController(s.T())
-	s.roleSvc = mock.NewMockRoleService(s.ctrl)
+	s.roleRepo = repoMock.NewMockRoleRepository(s.ctrl)
+	s.repoFactory = factoryMock.NewMockRepositoryFactory(s.ctrl)
+	s.repoFactory.EXPECT().NewRoleRepository().AnyTimes().Return(s.roleRepo)
 
-	s.rc = NewRoleController(s.roleSvc)
+	s.rc = NewRoleController(s.repoFactory)
 }
 
 func (s *RoleControllerSuite) TearDownTest() {
 	s.ctrl.Finish()
 }
 
-func (s *RoleControllerSuite) TestCreateOk() {
-	role := model.RoleRequest{
-		Name:        "Role",
-		Description: "Description",
-	}
-	savedRole := model.RoleResponse{
-		ID:           uuid.New(),
-		Name:         "Role",
-		Description:  "Description",
-		Enabled:      true,
-		CreationDate: time.Now(),
-	}
-	s.roleSvc.EXPECT().Create(role).Return(savedRole, nil).Times(1)
-
-	body, _ := json.Marshal(role)
+func (s RoleControllerSuite) TestCreateRoleOk() {
+	input := model.RoleRequest{Name: "New Role", Description: "New Role Description"}
+	body, _ := json.Marshal(input)
 	w := httptest.NewRecorder()
 	r, _ := http.NewRequest("POST", "/roles", strings.NewReader(string(body)))
-
-	bf := bytes.NewBuffer([]byte{})
-	jsonEncoder := json.NewEncoder(bf)
-	jsonEncoder.SetEscapeHTML(false)
-	_ = jsonEncoder.Encode(savedRole)
+	s.roleRepo.EXPECT().Create(r.Context(), gomock.Any()).Return(&entity.Role{ID: uuid.New(), Name: input.Name, Description: input.Description}, nil)
 
 	s.rc.Create(w, r)
 	s.Equal(http.StatusCreated, w.Code)
-	s.Equal(bf, w.Body)
-}
-
-func (s *RoleControllerSuite) TestCreateErrSvc() {
-	req := model.RoleRequest{
-		Name:        "Role",
-		Description: "Description",
-	}
-	errMessage := "could not create new role"
-	s.roleSvc.EXPECT().Create(req).Return(model.RoleResponse{}, fmt.Errorf(errMessage)).Times(1)
-
-	body, _ := json.Marshal(req)
-	w := httptest.NewRecorder()
-	r, _ := http.NewRequest("POST", "/roles", strings.NewReader(string(body)))
-
-	s.rc.Create(w, r)
-	s.Equal(http.StatusInternalServerError, w.Code)
-	s.Contains(w.Body.String(), errMessage)
+	var result model.RoleResponse
+	_ = json.NewDecoder(w.Body).Decode(&result)
+	s.NotZero(result.ID)
 }
 
 func (s RoleControllerSuite) TestEditRoleOk() {
@@ -96,7 +67,6 @@ func (s RoleControllerSuite) TestEditRoleOk() {
 		Name:        "Role Edited",
 		Description: "Description Edited",
 	}
-	s.roleSvc.EXPECT().Edit(role.ID, role).Return(nil).Times(1)
 
 	body, _ := json.Marshal(role)
 	w := httptest.NewRecorder()
@@ -105,6 +75,8 @@ func (s RoleControllerSuite) TestEditRoleOk() {
 		"id": role.ID.String(),
 	}
 	r = mux.SetURLVars(r, vars)
+	s.roleRepo.EXPECT().ExistsById(r.Context(), role.ID).Return(true, nil).Times(1)
+	s.roleRepo.EXPECT().Edit(r.Context(), gomock.Any()).Return(nil).Times(1)
 
 	s.rc.Edit(w, r)
 	s.Equal(http.StatusOK, w.Code)
@@ -146,7 +118,6 @@ func (s RoleControllerSuite) TestEditRoleNotOk() {
 		Description: "Description Edited",
 	}
 	errMessage := "could not edit role"
-	s.roleSvc.EXPECT().Edit(role.ID, role).Return(fmt.Errorf(errMessage)).Times(1)
 
 	body, _ := json.Marshal(role)
 	w := httptest.NewRecorder()
@@ -155,6 +126,8 @@ func (s RoleControllerSuite) TestEditRoleNotOk() {
 		"id": roleId.String(),
 	}
 	r = mux.SetURLVars(r, vars)
+	s.roleRepo.EXPECT().ExistsById(r.Context(), roleId).Return(true, nil).Times(1)
+	s.roleRepo.EXPECT().Edit(r.Context(), gomock.Any()).Return(fmt.Errorf(errMessage)).Times(1)
 
 	s.rc.Edit(w, r)
 	s.Equal(http.StatusInternalServerError, w.Code)
@@ -164,7 +137,6 @@ func (s RoleControllerSuite) TestEditRoleNotOk() {
 func (s RoleControllerSuite) TestChangeStatusOk() {
 	roleId := uuid.New()
 	changeStatus := model.RoleChangeStatus{Enabled: false}
-	s.roleSvc.EXPECT().ChangeStatus(roleId, changeStatus.Enabled).Return(nil).Times(1)
 
 	body, _ := json.Marshal(changeStatus)
 	w := httptest.NewRecorder()
@@ -173,6 +145,8 @@ func (s RoleControllerSuite) TestChangeStatusOk() {
 		"id": roleId.String(),
 	}
 	r = mux.SetURLVars(r, vars)
+	s.roleRepo.EXPECT().ExistsById(r.Context(), roleId).Return(true, nil).Times(1)
+	s.roleRepo.EXPECT().ChangeStatus(r.Context(), roleId, changeStatus.Enabled).Return(nil).Times(1)
 
 	s.rc.ChangeStatus(w, r)
 	s.Equal(http.StatusOK, w.Code)
@@ -196,7 +170,6 @@ func (s RoleControllerSuite) TestChangeStatusErrSvc() {
 	roleId := uuid.New()
 	changeStatus := model.RoleChangeStatus{Enabled: false}
 	errMessage := "could not change status for role"
-	s.roleSvc.EXPECT().ChangeStatus(roleId, changeStatus.Enabled).Return(fmt.Errorf(errMessage)).Times(1)
 
 	body, _ := json.Marshal(changeStatus)
 	w := httptest.NewRecorder()
@@ -205,6 +178,8 @@ func (s RoleControllerSuite) TestChangeStatusErrSvc() {
 		"id": roleId.String(),
 	}
 	r = mux.SetURLVars(r, vars)
+	s.roleRepo.EXPECT().ExistsById(r.Context(), roleId).Return(true, nil).Times(1)
+	s.roleRepo.EXPECT().ChangeStatus(r.Context(), roleId, changeStatus.Enabled).Return(fmt.Errorf(errMessage)).Times(1)
 
 	s.rc.ChangeStatus(w, r)
 	s.Equal(http.StatusInternalServerError, w.Code)
@@ -214,14 +189,13 @@ func (s RoleControllerSuite) TestChangeStatusErrSvc() {
 func (s RoleControllerSuite) TestFindByNameOk() {
 	roleId := uuid.New()
 	roleName := "ROLE_NAME"
-	resp := model.RoleResponse{
+	resp := &model.RoleResponse{
 		ID:           roleId,
 		Name:         roleName,
 		Description:  "Role description",
 		Enabled:      true,
 		CreationDate: time.Now(),
 	}
-	s.roleSvc.EXPECT().FindByName(roleName).Return(resp, nil).Times(1)
 
 	w := httptest.NewRecorder()
 	r, _ := http.NewRequest("GET", fmt.Sprintf("/roles/%s", roleName), nil)
@@ -229,22 +203,21 @@ func (s RoleControllerSuite) TestFindByNameOk() {
 		"name": roleName,
 	}
 	r = mux.SetURLVars(r, vars)
+	roleEntity := entity.Role{ID: roleId, Name: roleName, Description: resp.Description, Enabled: resp.Enabled, CreationDate: resp.CreationDate}
+	s.roleRepo.EXPECT().FindByName(r.Context(), roleName).Return(&roleEntity, nil).Times(1)
 
 	s.rc.FindByName(w, r)
 
-	bf := bytes.NewBuffer([]byte{})
-	jsonEncoder := json.NewEncoder(bf)
-	jsonEncoder.SetEscapeHTML(false)
-	_ = jsonEncoder.Encode(resp)
-
 	s.Equal(http.StatusOK, w.Code)
-	s.Equal(bf, w.Body)
+	var result model.RoleResponse
+	_ = json.Unmarshal(w.Body.Bytes(), &result)
+	s.Equal(roleId, result.ID)
+	s.Equal(roleName, result.Name)
 }
 
 func (s RoleControllerSuite) TestFindByNameErrSvc() {
 	roleName := "ROLE_NAME"
 	errMessage := "could not find role by name"
-	s.roleSvc.EXPECT().FindByName(roleName).Return(model.RoleResponse{}, fmt.Errorf(errMessage)).Times(1)
 
 	w := httptest.NewRecorder()
 	r, _ := http.NewRequest("GET", fmt.Sprintf("/roles/%s", roleName), nil)
@@ -252,6 +225,7 @@ func (s RoleControllerSuite) TestFindByNameErrSvc() {
 		"name": roleName,
 	}
 	r = mux.SetURLVars(r, vars)
+	s.roleRepo.EXPECT().FindByName(r.Context(), roleName).Return(nil, fmt.Errorf(errMessage)).Times(1)
 
 	s.rc.FindByName(w, r)
 

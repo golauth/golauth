@@ -1,12 +1,12 @@
 package api
 
 import (
-	"database/sql"
-	"github.com/golauth/golauth/domain/usecase"
+	"github.com/golauth/golauth/core/util"
+	"github.com/golauth/golauth/domain/factory"
 	"github.com/golauth/golauth/domain/usecase/token"
+	"github.com/golauth/golauth/domain/usecase/user"
 	"github.com/golauth/golauth/infra/api/controller"
 	"github.com/golauth/golauth/infra/api/middleware"
-	"github.com/golauth/golauth/infra/repository/postgres"
 	"net/http"
 
 	"github.com/gorilla/mux"
@@ -24,26 +24,29 @@ type router struct {
 	checkTokenController controller.CheckTokenController
 	userController       controller.UserController
 	roleController       controller.RoleController
-	tokenService         token.UseCase
+	validateToken        token.ValidateToken
 }
 
-func NewRouter(db *sql.DB) Router {
-	uRepo := postgres.NewUserRepository(db)
-	rRepo := postgres.NewRoleRepository(db)
-	urRepo := postgres.NewUserRoleRepository(db)
-	uaRepo := postgres.NewUserAuthorityRepository(db)
-	tokenService := token.NewService()
-	userService := usecase.NewUserService(uRepo, rRepo, urRepo, uaRepo, tokenService)
+func NewRouter(repoFactory factory.RepositoryFactory) Router {
+	uRepo := repoFactory.NewUserRepository()
+	urRepo := repoFactory.NewUserRoleRepository()
+	uaRepo := repoFactory.NewUserAuthorityRepository()
+	key := util.GeneratePrivateKey()
+	jwtToken := util.NewGenerateJwtToken(key)
 
-	roleSvc := usecase.NewRoleService(rRepo)
+	createUser := user.NewCreateUser(repoFactory)
+	findUserById := user.NewFindUserById(uRepo)
+	addUserRole := user.NewAddUserRole(urRepo)
+	generateToken := token.NewGenerateToken(repoFactory, jwtToken)
+	validateToken := token.NewValidateToken(key)
 
 	return &router{
-		signupController:     controller.NewSignupController(userService),
-		tokenController:      controller.NewTokenController(uRepo, uaRepo, tokenService, userService),
-		checkTokenController: controller.NewCheckTokenController(tokenService),
-		userController:       controller.NewUserController(userService),
-		roleController:       controller.NewRoleController(roleSvc),
-		tokenService:         tokenService,
+		signupController:     controller.NewSignupController(createUser),
+		tokenController:      controller.NewTokenController(uRepo, uaRepo, generateToken),
+		checkTokenController: controller.NewCheckTokenController(validateToken),
+		userController:       controller.NewUserController(findUserById, addUserRole),
+		roleController:       controller.NewRoleController(repoFactory),
+		validateToken:        validateToken,
 	}
 }
 
@@ -63,7 +66,7 @@ func (r *router) Config() *mux.Router {
 	rt.HandleFunc("/roles/{id}/change-status", r.roleController.ChangeStatus).Methods(http.MethodPatch, http.MethodOptions).Name("changeStatus")
 
 	rt.Use(middleware.NewCorsMiddleware("*").Apply)
-	rt.Use(middleware.NewSecurityMiddleware(r.tokenService, pathPrefix).Apply)
+	rt.Use(middleware.NewSecurityMiddleware(r.validateToken, pathPrefix).Apply)
 	rt.Use(middleware.NewCommonMiddleware().Apply)
 
 	return rt

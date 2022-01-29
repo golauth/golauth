@@ -2,10 +2,10 @@ package ops
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
 	"github.com/docker/go-connections/nat"
+	"github.com/golauth/golauth/infra/database"
 	"github.com/sirupsen/logrus"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
@@ -88,7 +88,7 @@ func ContainerDBStop(ctx context.Context) {
 	}
 }
 
-func DatasetTest(db *sql.DB, basePath string, clearDataFileName string, scripts ...string) error {
+func DatasetTest(db database.Database, basePath string, clearDataFileName string, scripts ...string) error {
 	if clearDataFileName != "" {
 		err := cleanDatabase(db, basePath, clearDataFileName)
 		if err != nil {
@@ -111,7 +111,7 @@ func DatasetTest(db *sql.DB, basePath string, clearDataFileName string, scripts 
 	return nil
 }
 
-func cleanDatabase(db *sql.DB, basePath string, clearDataFileName string) error {
+func cleanDatabase(db database.Database, basePath string, clearDataFileName string) error {
 	logrus.Info("cleaning database")
 	script, err := clearDataScript(basePath, clearDataFileName)
 	if err != nil {
@@ -125,8 +125,8 @@ func cleanDatabase(db *sql.DB, basePath string, clearDataFileName string) error 
 	return nil
 }
 
-func execScript(db *sql.DB, script string) error {
-	_, err := db.Exec(script)
+func execScript(db database.Database, script string) error {
+	_, err := db.Exec(context.Background(), script)
 	if err != nil {
 		return err
 	}

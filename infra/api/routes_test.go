@@ -1,9 +1,10 @@
 package api
 
 import (
-	"database/sql"
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/golang/mock/gomock"
+	factoryMock "github.com/golauth/golauth/domain/factory/mock"
+	repoMock "github.com/golauth/golauth/domain/repository/mock"
 	"github.com/gorilla/mux"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -14,12 +15,12 @@ import (
 type RoutesSuite struct {
 	suite.Suite
 	*require.Assertions
-	mockCtrl *gomock.Controller
-	db       *sql.DB
-	mockDB   sqlmock.Sqlmock
-	r        Router
-	router   *mux.Router
-	recorder *httptest.ResponseRecorder
+	ctrl        *gomock.Controller
+	repoFactory *factoryMock.MockRepositoryFactory
+	mockDB      sqlmock.Sqlmock
+	r           Router
+	router      *mux.Router
+	recorder    *httptest.ResponseRecorder
 }
 
 func TestRoutes(t *testing.T) {
@@ -28,17 +29,21 @@ func TestRoutes(t *testing.T) {
 
 func (s *RoutesSuite) SetupTest() {
 	s.Assertions = require.New(s.T())
-	s.mockCtrl = gomock.NewController(s.T())
+	s.ctrl = gomock.NewController(s.T())
 	var err error
-	s.db, s.mockDB, err = sqlmock.New()
+	s.repoFactory = factoryMock.NewMockRepositoryFactory(s.ctrl)
+	s.repoFactory.EXPECT().NewUserRepository().AnyTimes().Return(repoMock.NewMockUserRepository(s.ctrl))
+	s.repoFactory.EXPECT().NewRoleRepository().AnyTimes().Return(repoMock.NewMockRoleRepository(s.ctrl))
+	s.repoFactory.EXPECT().NewUserRoleRepository().AnyTimes().Return(repoMock.NewMockUserRoleRepository(s.ctrl))
+	s.repoFactory.EXPECT().NewUserAuthorityRepository().AnyTimes().Return(repoMock.NewMockUserAuthorityRepository(s.ctrl))
 	s.NoError(err)
-	s.r = NewRouter(s.db)
+	s.r = NewRouter(s.repoFactory)
 	s.router = s.r.Config()
 	s.recorder = httptest.NewRecorder()
 }
 
 func (s *RoutesSuite) TearDownTest() {
-	s.mockCtrl.Finish()
+	s.ctrl.Finish()
 }
 
 func (s *RoutesSuite) TestRouteSignupRegistered() {

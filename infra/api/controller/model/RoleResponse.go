@@ -1,15 +1,10 @@
 package model
 
 import (
+	"github.com/golauth/golauth/domain/entity"
 	"github.com/google/uuid"
 	"time"
 )
-
-type RoleRequest struct {
-	ID          uuid.UUID `json:"id"`
-	Name        string    `json:"name"`
-	Description string    `json:"description"`
-}
 
 type RoleResponse struct {
 	ID           uuid.UUID `json:"id"`
@@ -19,6 +14,12 @@ type RoleResponse struct {
 	CreationDate time.Time `json:"creationDate"`
 }
 
-type RoleChangeStatus struct {
-	Enabled bool `json:"enabled"`
+func NewRoleResponseFromEntity(e *entity.Role) *RoleResponse {
+	return &RoleResponse{
+		ID:           e.ID,
+		Name:         e.Name,
+		Description:  e.Description,
+		Enabled:      e.Enabled,
+		CreationDate: e.CreationDate,
+	}
 }

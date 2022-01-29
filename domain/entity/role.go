@@ -12,3 +12,11 @@ type Role struct {
 	Enabled      bool
 	CreationDate time.Time
 }
+
+func NewRole(name string, description string) *Role {
+	return &Role{
+		Name:        name,
+		Description: description,
+		Enabled:     true,
+	}
+}

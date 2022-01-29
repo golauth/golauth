@@ -2,7 +2,9 @@ package controller
 
 import (
 	"encoding/json"
-	"github.com/golauth/golauth/domain/usecase"
+	"github.com/golauth/golauth/domain/entity"
+	"github.com/golauth/golauth/domain/factory"
+	"github.com/golauth/golauth/domain/usecase/role"
 	"github.com/golauth/golauth/infra/api/controller/model"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
@@ -10,23 +12,32 @@ import (
 )
 
 type RoleController struct {
-	svc usecase.RoleService
+	addRole          role.AddRole
+	editRole         role.EditRole
+	changeRoleStatus role.ChangeRoleStatus
+	findByName       role.FindRoleByName
 }
 
-func NewRoleController(s usecase.RoleService) RoleController {
-	return RoleController{svc: s}
+func NewRoleController(repoFactory factory.RepositoryFactory) RoleController {
+	return RoleController{
+		addRole:          role.NewAddRole(repoFactory),
+		editRole:         role.NewEditRole(repoFactory.NewRoleRepository()),
+		changeRoleStatus: role.NewChangeRoleStatus(repoFactory.NewRoleRepository()),
+		findByName:       role.NewFindRoleByName(repoFactory.NewRoleRepository()),
+	}
 }
 
 func (c RoleController) Create(w http.ResponseWriter, r *http.Request) {
-	var role model.RoleRequest
-	_ = json.NewDecoder(r.Body).Decode(&role)
-	data, err := c.svc.Create(role)
+	var data model.RoleRequest
+	_ = json.NewDecoder(r.Body).Decode(&data)
+	input := entity.NewRole(data.Name, data.Description)
+	output, err := c.addRole.Execute(r.Context(), input)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	w.WriteHeader(http.StatusCreated)
-	_ = json.NewEncoder(w).Encode(data)
+	_ = json.NewEncoder(w).Encode(model.NewRoleResponseFromEntity(output))
 }
 
 func (c RoleController) Edit(w http.ResponseWriter, r *http.Request) {
@@ -38,7 +49,7 @@ func (c RoleController) Edit(w http.ResponseWriter, r *http.Request) {
 	}
 	var data model.RoleRequest
 	_ = json.NewDecoder(r.Body).Decode(&data)
-	err = c.svc.Edit(id, data)
+	err = c.editRole.Execute(r.Context(), id, data.ToEntity())
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -55,7 +66,7 @@ func (c RoleController) ChangeStatus(w http.ResponseWriter, r *http.Request) {
 	}
 	var data model.RoleChangeStatus
 	_ = json.NewDecoder(r.Body).Decode(&data)
-	err = c.svc.ChangeStatus(id, data.Enabled)
+	err = c.changeRoleStatus.Execute(r.Context(), id, data.Enabled)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -66,7 +77,7 @@ func (c RoleController) ChangeStatus(w http.ResponseWriter, r *http.Request) {
 func (c RoleController) FindByName(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
 	name := params["name"]
-	data, err := c.svc.FindByName(name)
+	data, err := c.findByName.Execute(r.Context(), name)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

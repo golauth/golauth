@@ -2,7 +2,7 @@ package controller
 
 import (
 	"encoding/json"
-	"github.com/golauth/golauth/domain/usecase"
+	"github.com/golauth/golauth/domain/usecase/user"
 	"github.com/golauth/golauth/infra/api/controller/model"
 	"net/http"
 )
@@ -12,21 +12,21 @@ type SignupController interface {
 }
 
 type signupController struct {
-	svc usecase.UserService
+	createUser user.CreateUser
 }
 
-func NewSignupController(s usecase.UserService) SignupController {
-	return signupController{svc: s}
+func NewSignupController(createUser user.CreateUser) SignupController {
+	return signupController{createUser: createUser}
 }
 
 func (s signupController) CreateUser(w http.ResponseWriter, r *http.Request) {
 	var decodedUser model.UserRequest
 	_ = json.NewDecoder(r.Body).Decode(&decodedUser)
-	data, err := s.svc.CreateUser(decodedUser)
+	output, err := s.createUser.Execute(r.Context(), decodedUser.ToEntity())
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	w.WriteHeader(http.StatusCreated)
-	_ = json.NewEncoder(w).Encode(data)
+	_ = json.NewEncoder(w).Encode(model.NewUserResponseFromEntity(output))
 }

@@ -1,12 +1,12 @@
 package controller
 
 import (
-	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/golang/mock/gomock"
-	"github.com/golauth/golauth/domain/usecase/mock"
-	"github.com/golauth/golauth/infra/api/controller/model"
+	"github.com/golauth/golauth/domain/entity"
+	userMock "github.com/golauth/golauth/domain/usecase/user/mock"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -20,8 +20,9 @@ import (
 type SignupControllerSuite struct {
 	suite.Suite
 	*require.Assertions
-	mockCtrl *gomock.Controller
-	svc      *mock.MockUserService
+	mockCtrl   *gomock.Controller
+	ctx        context.Context
+	createUser *userMock.MockCreateUser
 
 	ctrl SignupController
 }
@@ -33,9 +34,10 @@ func TestSignupController(t *testing.T) {
 func (s *SignupControllerSuite) SetupTest() {
 	s.Assertions = require.New(s.T())
 	s.mockCtrl = gomock.NewController(s.T())
-	s.svc = mock.NewMockUserService(s.mockCtrl)
+	s.ctx = context.Background()
+	s.createUser = userMock.NewMockCreateUser(s.mockCtrl)
 
-	s.ctrl = NewSignupController(s.svc)
+	s.ctrl = NewSignupController(s.createUser)
 }
 
 func (s *SignupControllerSuite) TearDownTest() {
@@ -43,7 +45,7 @@ func (s *SignupControllerSuite) TearDownTest() {
 }
 
 func (s SignupControllerSuite) TestCreateUserOK() {
-	user := model.UserRequest{
+	input := &entity.User{
 		Username:  "admin",
 		FirstName: "User",
 		LastName:  "Name",
@@ -52,7 +54,7 @@ func (s SignupControllerSuite) TestCreateUserOK() {
 		Password:  "4567",
 		Enabled:   true,
 	}
-	savedUser := model.UserResponse{
+	savedUser := &entity.User{
 		ID:           uuid.New(),
 		Username:     "admin",
 		FirstName:    "User",
@@ -62,24 +64,21 @@ func (s SignupControllerSuite) TestCreateUserOK() {
 		Enabled:      true,
 		CreationDate: time.Now().Add(-5 * time.Second),
 	}
-	s.svc.EXPECT().CreateUser(user).Return(savedUser, nil).Times(1)
+	s.createUser.EXPECT().Execute(s.ctx, input).Return(savedUser, nil).Times(1)
 
-	body, _ := json.Marshal(user)
+	body, _ := json.Marshal(input)
 	w := httptest.NewRecorder()
 	r, _ := http.NewRequest("POST", "/users", strings.NewReader(string(body)))
 
-	bf := bytes.NewBuffer([]byte{})
-	jsonEncoder := json.NewEncoder(bf)
-	jsonEncoder.SetEscapeHTML(false)
-	_ = jsonEncoder.Encode(savedUser)
-
 	s.ctrl.CreateUser(w, r)
 	s.Equal(http.StatusCreated, w.Code)
-	s.Equal(bf, w.Body)
+	var output entity.User
+	_ = json.Unmarshal(w.Body.Bytes(), &output)
+	s.Equal(savedUser.ID, output.ID)
 }
 
 func (s SignupControllerSuite) TestCreateUserErrSvc() {
-	user := model.UserRequest{
+	user := &entity.User{
 		Username:  "admin",
 		FirstName: "User",
 		LastName:  "Name",
@@ -89,7 +88,7 @@ func (s SignupControllerSuite) TestCreateUserErrSvc() {
 		Enabled:   true,
 	}
 	errMessage := "could not create new user"
-	s.svc.EXPECT().CreateUser(user).Return(model.UserResponse{}, fmt.Errorf(errMessage)).Times(1)
+	s.createUser.EXPECT().Execute(s.ctx, user).Return(nil, fmt.Errorf(errMessage)).Times(1)
 
 	body, _ := json.Marshal(user)
 	w := httptest.NewRecorder()
