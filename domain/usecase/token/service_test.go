@@ -1,9 +1,7 @@
 package token
 
 import (
-	"errors"
 	"fmt"
-	"github.com/cristalhq/jwt/v3"
 	"github.com/golang/mock/gomock"
 	"github.com/golauth/golauth/domain/entity"
 	"github.com/google/uuid"
@@ -33,7 +31,8 @@ func (s *ServiceSuite) SetupTest() {
 	s.Assertions = require.New(s.T())
 	s.mockCtrl = gomock.NewController(s.T())
 
-	s.svc = NewService()
+	key := GeneratePrivateKey()
+	s.svc = NewService(key)
 
 	s.user = entity.User{
 		ID:           uuid.New(),
@@ -75,71 +74,4 @@ func (s ServiceSuite) TestExtractTokenNotOk() {
 	s.Error(err)
 	s.Empty(extracted)
 	s.ErrorAs(err, &ErrBearerTokenExtract)
-}
-
-func (s ServiceSuite) TestValidateTokenOk() {
-	token, err := s.svc.GenerateJwtToken(s.user, []string{"ADMIN"})
-	s.NoError(err)
-	err = s.svc.ValidateToken(fmt.Sprintf("%v", token))
-	s.NoError(err)
-}
-
-func (s ServiceSuite) TestValidateTokenInvalidFormat() {
-	err := s.svc.ValidateToken("invalidTokenFormat")
-	s.Error(err)
-	s.EqualError(err, "could not parse and verify strToken: jwt: token format is not valid")
-}
-
-func (s ServiceSuite) TestValidateTokenErrExpiredToken() {
-	tokenExpirationTime = -1
-	expiredToken, err := s.svc.GenerateJwtToken(s.user, []string{"ADMIN"})
-	s.NoError(err)
-	err = s.svc.ValidateToken(expiredToken)
-	s.Error(err)
-	s.ErrorIs(err, errExpiredToken)
-}
-
-// ===================================================================================
-
-type TokenServiceInvalidKeysSuite struct {
-	suite.Suite
-	*require.Assertions
-	mockCtrl *gomock.Controller
-}
-
-func TestTokenServiceInvalidKeys(t *testing.T) {
-	suite.Run(t, new(TokenServiceInvalidKeysSuite))
-}
-
-func (s *TokenServiceInvalidKeysSuite) SetupTest() {
-	s.Assertions = require.New(s.T())
-	s.mockCtrl = gomock.NewController(s.T())
-}
-
-func (s *TokenServiceInvalidKeysSuite) TearDownTest() {
-	keyAlgorithm = jwt.RS512
-	s.mockCtrl.Finish()
-}
-
-func (s *TokenServiceInvalidKeysSuite) TestNewTokenServicePrivateKeyInvalid() {
-	keyAlgorithm = "ABC"
-	errChan := make(chan error, 1)
-	expected := errors.New("could not generate signer from private key")
-	getPanic(errChan, NewService)
-	err := <-errChan
-	s.Error(err)
-	s.Equal(expected.Error(), err.Error())
-}
-
-type funcNewService func() UseCase
-
-func getPanic(errChan chan error, fn funcNewService) {
-	defer func() {
-		if r := recover(); r == nil {
-			errChan <- nil
-		} else {
-			errChan <- r.(error)
-		}
-	}()
-	fn()
 }

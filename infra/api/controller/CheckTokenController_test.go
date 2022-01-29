@@ -16,8 +16,9 @@ import (
 type CheckTokenControllerSuite struct {
 	suite.Suite
 	*require.Assertions
-	ctrl  *gomock.Controller
-	tkSvc *mock.MockUseCase
+	ctrl          *gomock.Controller
+	tkSvc         *mock.MockUseCase
+	validateToken *mock.MockValidateToken
 
 	ct CheckTokenController
 }
@@ -30,8 +31,9 @@ func (s *CheckTokenControllerSuite) SetupTest() {
 	s.Assertions = require.New(s.T())
 	s.ctrl = gomock.NewController(s.T())
 	s.tkSvc = mock.NewMockUseCase(s.ctrl)
+	s.validateToken = mock.NewMockValidateToken(s.ctrl)
 
-	s.ct = NewCheckTokenController(s.tkSvc)
+	s.ct = NewCheckTokenController(s.tkSvc, s.validateToken)
 }
 
 func (s *CheckTokenControllerSuite) TearDownTest() {
@@ -53,7 +55,7 @@ func (s CheckTokenControllerSuite) TestCheckTokenInvalidToken() {
 	w := httptest.NewRecorder()
 	r, _ := http.NewRequest("GET", "/check_token", nil)
 	s.tkSvc.EXPECT().ExtractToken(r).Return(tk, nil).Times(1)
-	s.tkSvc.EXPECT().ValidateToken(tk).Return(fmt.Errorf("parsed token invalid")).Times(1)
+	s.validateToken.EXPECT().Execute(tk).Return(fmt.Errorf("parsed token invalid")).Times(1)
 
 	s.ct.CheckToken(w, r)
 	s.Equal(http.StatusUnauthorized, w.Code)
@@ -66,7 +68,7 @@ func (s CheckTokenControllerSuite) TestCheckTokenOk() {
 	w := httptest.NewRecorder()
 	r, _ := http.NewRequest("GET", "/check_token", nil)
 	s.tkSvc.EXPECT().ExtractToken(r).Return(tk, nil).Times(1)
-	s.tkSvc.EXPECT().ValidateToken(tk).Return(nil).Times(1)
+	s.validateToken.EXPECT().Execute(tk).Return(nil).Times(1)
 
 	s.ct.CheckToken(w, r)
 	s.Equal(http.StatusOK, w.Code)

@@ -6,13 +6,15 @@ import (
 )
 
 type SecurityMiddleware struct {
-	service   token.UseCase
-	publicURI map[string]bool
+	service       token.UseCase
+	validateToken token.ValidateToken
+	publicURI     map[string]bool
 }
 
-func NewSecurityMiddleware(service token.UseCase, pathPrefix string) *SecurityMiddleware {
+func NewSecurityMiddleware(service token.UseCase, validateToken token.ValidateToken, pathPrefix string) *SecurityMiddleware {
 	return &SecurityMiddleware{
-		service: service,
+		service:       service,
+		validateToken: validateToken,
 		publicURI: map[string]bool{
 			pathPrefix + "/token":       true,
 			pathPrefix + "/check_token": true,
@@ -30,7 +32,7 @@ func (s *SecurityMiddleware) Apply(next http.Handler) http.Handler {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
 			}
-			err = s.service.ValidateToken(t)
+			err = s.validateToken.Execute(t)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusUnauthorized)
 				return

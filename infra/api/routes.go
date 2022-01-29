@@ -24,26 +24,30 @@ type router struct {
 	userController       controller.UserController
 	roleController       controller.RoleController
 	tokenService         token.UseCase
+	validateToken        token.ValidateToken
 }
 
 func NewRouter(repoFactory factory.RepositoryFactory) Router {
 	uRepo := repoFactory.NewUserRepository()
 	urRepo := repoFactory.NewUserRoleRepository()
 	uaRepo := repoFactory.NewUserAuthorityRepository()
-	tokenService := token.NewService()
+	key := token.GeneratePrivateKey()
+	tokenService := token.NewService(key)
 
-	createUser := user.NewCreateUser(repoFactory)
+	createUser := user.NewCreateUser(repoFactory, tokenService)
 	findUserById := user.NewFindUserById(uRepo)
 	addUserRole := user.NewAddUserRole(urRepo)
 	generateToken := token.NewGenerateToken(repoFactory, tokenService)
+	validateToken := token.NewValidateToken(key)
 
 	return &router{
 		signupController:     controller.NewSignupController(createUser),
 		tokenController:      controller.NewTokenController(uRepo, uaRepo, tokenService, generateToken),
-		checkTokenController: controller.NewCheckTokenController(tokenService),
+		checkTokenController: controller.NewCheckTokenController(tokenService, validateToken),
 		userController:       controller.NewUserController(findUserById, addUserRole),
 		roleController:       controller.NewRoleController(repoFactory),
 		tokenService:         tokenService,
+		validateToken:        validateToken,
 	}
 }
 
@@ -63,7 +67,7 @@ func (r *router) Config() *mux.Router {
 	rt.HandleFunc("/roles/{id}/change-status", r.roleController.ChangeStatus).Methods(http.MethodPatch, http.MethodOptions).Name("changeStatus")
 
 	rt.Use(middleware.NewCorsMiddleware("*").Apply)
-	rt.Use(middleware.NewSecurityMiddleware(r.tokenService, pathPrefix).Apply)
+	rt.Use(middleware.NewSecurityMiddleware(r.tokenService, r.validateToken, pathPrefix).Apply)
 	rt.Use(middleware.NewCommonMiddleware().Apply)
 
 	return rt

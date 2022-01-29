@@ -1,9 +1,7 @@
 package token
 
 import (
-	"crypto/rand"
 	"crypto/rsa"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/cristalhq/jwt/v3"
@@ -23,62 +21,11 @@ var (
 )
 
 type Service struct {
-	signer   jwt.Signer
-	verifier jwt.Verifier
+	signer jwt.Signer
 }
 
-func NewService() UseCase {
-	s := Service{}
-	s.prepare()
-	return s
-}
-
-func (s *Service) prepare() {
-	key := s.generatePrivateKey()
-	s.signer = s.generateSigner(key)
-	s.verifier = s.generateVerifier(key)
-}
-
-func (s Service) generateSigner(key *rsa.PrivateKey) jwt.Signer {
-	signer, err := jwt.NewSignerRS(keyAlgorithm, key)
-	if err != nil {
-		panic(errSignerGenerate)
-	}
-	return signer
-}
-
-func (s Service) generateVerifier(key *rsa.PrivateKey) jwt.Verifier {
-	verifier, err := jwt.NewVerifierRS(keyAlgorithm, &key.PublicKey)
-	if err != nil {
-		panic(errVerifierGenerate)
-	}
-	return verifier
-}
-
-func (s *Service) generatePrivateKey() *rsa.PrivateKey {
-	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
-	if err != nil {
-		panic(fmt.Errorf("could not generate private key: %w", err))
-	}
-	return privateKey
-}
-
-func (s Service) ValidateToken(strToken string) error {
-	token, err := jwt.ParseAndVerifyString(strToken, s.verifier)
-	if err != nil {
-		return fmt.Errorf("could not parse and verify strToken: %w", err)
-	}
-
-	claims := &model.Claims{}
-	err = json.Unmarshal(token.RawClaims(), &claims)
-	if err != nil {
-		return fmt.Errorf("could not unmarshal claims: %w", err)
-	}
-	if !claims.IsValidAt(time.Now()) {
-		return errExpiredToken
-	}
-
-	return nil
+func NewService(key *rsa.PrivateKey) UseCase {
+	return Service{signer: generateSigner(key)}
 }
 
 func (s Service) ExtractToken(r *http.Request) (string, error) {

@@ -7,7 +7,6 @@ import (
 )
 
 type UseCase interface {
-	ValidateToken(token string) error
 	ExtractToken(r *http.Request) (string, error)
 	GenerateJwtToken(user entity.User, authorities []string) (string, error)
 }

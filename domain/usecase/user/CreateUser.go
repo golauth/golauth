@@ -20,12 +20,12 @@ type CreateUser interface {
 	Execute(ctx context.Context, userReq model.UserRequest) (model.UserResponse, error)
 }
 
-func NewCreateUser(repoFactory factory.RepositoryFactory) CreateUser {
+func NewCreateUser(repoFactory factory.RepositoryFactory, tokenService token.UseCase) CreateUser {
 	return createUser{
 		userRepository:     repoFactory.NewUserRepository(),
 		roleRepository:     repoFactory.NewRoleRepository(),
 		userRoleRepository: repoFactory.NewUserRoleRepository(),
-		tokenService:       token.NewService(),
+		tokenService:       tokenService,
 	}
 }
 

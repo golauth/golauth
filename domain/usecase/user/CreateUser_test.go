@@ -54,7 +54,7 @@ func (s *CreateUserSuite) SetupTest() {
 	s.repoFactory.EXPECT().NewUserRepository().AnyTimes().Return(s.userRepository)
 
 	s.ctx = context.Background()
-	s.createUser = NewCreateUser(s.repoFactory)
+	s.createUser = NewCreateUser(s.repoFactory, s.tokenService)
 
 	s.mockUser = model.UserRequest{
 		Username:  "admin",
