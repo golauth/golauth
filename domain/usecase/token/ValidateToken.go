@@ -4,18 +4,22 @@ package token
 import (
 	"crypto/rsa"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/cristalhq/jwt/v3"
 	"github.com/golauth/golauth/infra/api/controller/model"
+	"github.com/golauth/golauth/infra/api/util"
 	"time"
 )
+
+var errExpiredToken = errors.New("expired token")
 
 type ValidateToken interface {
 	Execute(token string) error
 }
 
 func NewValidateToken(key *rsa.PrivateKey) ValidateToken {
-	return validateToken{verifier: generateVerifier(key)}
+	return validateToken{verifier: util.GenerateVerifier(key)}
 }
 
 type validateToken struct {

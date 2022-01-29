@@ -8,6 +8,7 @@ import (
 	"github.com/golauth/golauth/domain/entity"
 	"github.com/golauth/golauth/domain/factory"
 	"github.com/golauth/golauth/domain/repository"
+	"github.com/golauth/golauth/infra/api/util"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -20,7 +21,7 @@ type GenerateToken interface {
 	Execute(ctx context.Context, username string, password string) (*entity.Token, error)
 }
 
-func NewGenerateToken(repoFactory factory.RepositoryFactory, jwtToken JwtToken) GenerateToken {
+func NewGenerateToken(repoFactory factory.RepositoryFactory, jwtToken util.GenerateJwtToken) GenerateToken {
 	return generateToken{
 		userRepository:          repoFactory.NewUserRepository(),
 		roleRepository:          repoFactory.NewRoleRepository(),
@@ -35,7 +36,7 @@ type generateToken struct {
 	roleRepository          repository.RoleRepository
 	userRoleRepository      repository.UserRoleRepository
 	userAuthorityRepository repository.UserAuthorityRepository
-	jwtToken                JwtToken
+	jwtToken                util.GenerateJwtToken
 }
 
 func (uc generateToken) Execute(ctx context.Context, username string, password string) (*entity.Token, error) {

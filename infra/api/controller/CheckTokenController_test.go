@@ -4,8 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"github.com/golang/mock/gomock"
-	"github.com/golauth/golauth/domain/usecase/token"
 	"github.com/golauth/golauth/domain/usecase/token/mock"
+	"github.com/golauth/golauth/infra/api/util"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 	"net/http"
@@ -44,7 +44,7 @@ func (s CheckTokenControllerSuite) TestCheckTokenErrExtractToken() {
 
 	s.ct.CheckToken(w, r)
 	s.Equal(http.StatusBadRequest, w.Code)
-	s.ErrorAs(errors.New(w.Body.String()), &token.ErrBearerTokenExtract)
+	s.ErrorAs(errors.New(w.Body.String()), &util.ErrBearerTokenExtract)
 }
 
 func (s CheckTokenControllerSuite) TestCheckTokenInvalidToken() {

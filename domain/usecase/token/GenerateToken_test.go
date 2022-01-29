@@ -7,8 +7,8 @@ import (
 	"github.com/golauth/golauth/domain/entity"
 	mock2 "github.com/golauth/golauth/domain/factory/mock"
 	"github.com/golauth/golauth/domain/repository/mock"
-	tkSvc "github.com/golauth/golauth/domain/usecase/token/mock"
 	"github.com/golauth/golauth/infra/api/controller/model"
+	mock3 "github.com/golauth/golauth/infra/api/util/mock"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -26,7 +26,7 @@ type GenerateTokenSuite struct {
 	roleRepository          *mock.MockRoleRepository
 	userRoleRepository      *mock.MockUserRoleRepository
 	userAuthorityRepository *mock.MockUserAuthorityRepository
-	jwtToken                *tkSvc.MockJwtToken
+	jwtToken                *mock3.MockGenerateJwtToken
 
 	repoFactory *mock2.MockRepositoryFactory
 
@@ -49,7 +49,7 @@ func (s *GenerateTokenSuite) SetupTest() {
 	s.roleRepository = mock.NewMockRoleRepository(s.mockCtrl)
 	s.userRoleRepository = mock.NewMockUserRoleRepository(s.mockCtrl)
 	s.userAuthorityRepository = mock.NewMockUserAuthorityRepository(s.mockCtrl)
-	s.jwtToken = tkSvc.NewMockJwtToken(s.mockCtrl)
+	s.jwtToken = mock3.NewMockGenerateJwtToken(s.mockCtrl)
 	s.repoFactory = mock2.NewMockRepositoryFactory(s.mockCtrl)
 	s.repoFactory.EXPECT().NewRoleRepository().AnyTimes().Return(s.roleRepository)
 	s.repoFactory.EXPECT().NewUserRoleRepository().AnyTimes().Return(s.userRoleRepository)
@@ -89,7 +89,7 @@ func (s GenerateTokenSuite) TestGenerateTokenOk() {
 	username := "admin"
 	password := "123456"
 	encodedPassword, _ := bcrypt.GenerateFromPassword([]byte("123456"), bcrypt.DefaultCost)
-	user := entity.User{
+	user := &entity.User{
 		ID:           uuid.New(),
 		Username:     username,
 		FirstName:    "User",
@@ -116,7 +116,7 @@ func (s GenerateTokenSuite) TestGenerateTokenUserNotFound() {
 	username := "admin"
 	password := "123456"
 
-	s.userRepository.EXPECT().FindByUsername(s.ctx, username).Return(entity.User{}, fmt.Errorf("could not find user by username admin")).Times(1)
+	s.userRepository.EXPECT().FindByUsername(s.ctx, username).Return(nil, fmt.Errorf("could not find user by username admin")).Times(1)
 
 	tokenResponse, err := s.generateToken.Execute(s.ctx, username, password)
 	s.ErrorIs(err, ErrInvalidUsernameOrPassword)
@@ -127,7 +127,7 @@ func (s GenerateTokenSuite) TestGenerateTokenInvalidPassword() {
 	username := "admin"
 	password := "123456"
 	encodedPassword, _ := bcrypt.GenerateFromPassword([]byte("1234567"), bcrypt.DefaultCost)
-	user := entity.User{
+	user := &entity.User{
 		ID:           uuid.New(),
 		Username:     username,
 		FirstName:    "User",
@@ -149,7 +149,7 @@ func (s GenerateTokenSuite) TestGenerateTokenErrFetchAuthorities() {
 	username := "admin"
 	password := "123456"
 	encodedPassword, _ := bcrypt.GenerateFromPassword([]byte("123456"), bcrypt.DefaultCost)
-	user := entity.User{
+	user := &entity.User{
 		ID:           uuid.New(),
 		Username:     username,
 		FirstName:    "User",
@@ -173,7 +173,7 @@ func (s GenerateTokenSuite) TestGenerateTokenErrGeneratingToken() {
 	username := "admin"
 	password := "123456"
 	encodedPassword, _ := bcrypt.GenerateFromPassword([]byte("123456"), bcrypt.DefaultCost)
-	user := entity.User{
+	user := &entity.User{
 		ID:           uuid.New(),
 		Username:     username,
 		FirstName:    "User",

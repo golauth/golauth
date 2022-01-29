@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/golang/mock/gomock"
 	"github.com/golauth/golauth/domain/entity"
+	"github.com/golauth/golauth/infra/api/util"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -16,9 +17,9 @@ type ValidateTokenSuite struct {
 	*require.Assertions
 	mockCtrl *gomock.Controller
 
-	jwtToken      JwtToken
+	jwtToken      util.GenerateJwtToken
 	validateToken ValidateToken
-	user          entity.User
+	user          *entity.User
 }
 
 func TestValidateToken(t *testing.T) {
@@ -28,11 +29,11 @@ func TestValidateToken(t *testing.T) {
 func (s *ValidateTokenSuite) SetupTest() {
 	s.Assertions = require.New(s.T())
 	s.mockCtrl = gomock.NewController(s.T())
-	key := GeneratePrivateKey()
-	s.jwtToken = NewJwtToken(key)
+	key := util.GeneratePrivateKey()
+	s.jwtToken = util.NewGenerateJwtToken(key)
 	s.validateToken = NewValidateToken(key)
 
-	s.user = entity.User{
+	s.user = &entity.User{
 		ID:           uuid.New(),
 		Username:     "user",
 		FirstName:    "User",
@@ -46,7 +47,7 @@ func (s *ValidateTokenSuite) SetupTest() {
 }
 
 func (s *ValidateTokenSuite) TearDownTest() {
-	tokenExpirationTime = 30
+	util.TokenExpirationTime = 30
 	s.mockCtrl.Finish()
 }
 
@@ -64,7 +65,7 @@ func (s ValidateTokenSuite) TestValidateTokenInvalidFormat() {
 }
 
 func (s ValidateTokenSuite) TestValidateTokenErrExpiredToken() {
-	tokenExpirationTime = -1
+	util.TokenExpirationTime = -1
 	expiredToken, err := s.jwtToken.Execute(s.user, []string{"ADMIN"})
 	s.NoError(err)
 	err = s.validateToken.Execute(expiredToken)

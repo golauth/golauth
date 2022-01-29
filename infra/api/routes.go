@@ -6,6 +6,7 @@ import (
 	"github.com/golauth/golauth/domain/usecase/user"
 	"github.com/golauth/golauth/infra/api/controller"
 	"github.com/golauth/golauth/infra/api/middleware"
+	"github.com/golauth/golauth/infra/api/util"
 	"net/http"
 
 	"github.com/gorilla/mux"
@@ -30,8 +31,8 @@ func NewRouter(repoFactory factory.RepositoryFactory) Router {
 	uRepo := repoFactory.NewUserRepository()
 	urRepo := repoFactory.NewUserRoleRepository()
 	uaRepo := repoFactory.NewUserAuthorityRepository()
-	key := token.GeneratePrivateKey()
-	jwtToken := token.NewJwtToken(key)
+	key := util.GeneratePrivateKey()
+	jwtToken := util.NewGenerateJwtToken(key)
 
 	createUser := user.NewCreateUser(repoFactory)
 	findUserById := user.NewFindUserById(uRepo)

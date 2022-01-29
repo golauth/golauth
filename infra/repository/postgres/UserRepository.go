@@ -17,14 +17,14 @@ func NewUserRepository(db database.Database) repository.UserRepository {
 	return &UserRepositoryPostgres{db: db}
 }
 
-func (ur UserRepositoryPostgres) FindByUsername(ctx context.Context, username string) (entity.User, error) {
+func (ur UserRepositoryPostgres) FindByUsername(ctx context.Context, username string) (*entity.User, error) {
 	user := entity.User{}
 	row := ur.db.One(ctx, "SELECT * FROM golauth_user WHERE username = $1", username)
 	err := row.Scan(&user.ID, &user.Username, &user.FirstName, &user.LastName, &user.Email, &user.Document, &user.Password, &user.Enabled, &user.CreationDate)
 	if err != nil {
-		return entity.User{}, fmt.Errorf("could not find user by username [%s]: %w", username, err)
+		return nil, fmt.Errorf("could not find user by username [%s]: %w", username, err)
 	}
-	return user, nil
+	return &user, nil
 }
 
 func (ur UserRepositoryPostgres) FindByID(ctx context.Context, id uuid.UUID) (entity.User, error) {

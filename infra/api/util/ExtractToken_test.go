@@ -3,7 +3,6 @@ package util
 import (
 	"fmt"
 	"github.com/golang/mock/gomock"
-	"github.com/golauth/golauth/domain/usecase/token"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 	"net/http"
@@ -50,5 +49,5 @@ func (s ExtractTokenSuite) TestExtractTokenNotOk() {
 	extracted, err := ExtractToken(req)
 	s.Error(err)
 	s.Empty(extracted)
-	s.ErrorAs(err, &token.ErrBearerTokenExtract)
+	s.ErrorAs(err, &ErrBearerTokenExtract)
 }
