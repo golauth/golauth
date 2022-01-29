@@ -2,7 +2,6 @@ package api
 
 import (
 	"github.com/golauth/golauth/domain/factory"
-	"github.com/golauth/golauth/domain/usecase"
 	"github.com/golauth/golauth/domain/usecase/token"
 	"github.com/golauth/golauth/domain/usecase/user"
 	"github.com/golauth/golauth/infra/api/controller"
@@ -29,21 +28,20 @@ type router struct {
 
 func NewRouter(repoFactory factory.RepositoryFactory) Router {
 	uRepo := repoFactory.NewUserRepository()
-	rRepo := repoFactory.NewRoleRepository()
 	urRepo := repoFactory.NewUserRoleRepository()
 	uaRepo := repoFactory.NewUserAuthorityRepository()
 	tokenService := token.NewService()
-	userService := usecase.NewUserService(uRepo, rRepo, urRepo, uaRepo, tokenService)
 
 	createUser := user.NewCreateUser(repoFactory)
 	findUserById := user.NewFindUserById(uRepo)
 	addUserRole := user.NewAddUserRole(urRepo)
+	generateToken := token.NewGenerateToken(repoFactory, tokenService)
 
 	return &router{
 		signupController:     controller.NewSignupController(createUser),
-		tokenController:      controller.NewTokenController(uRepo, uaRepo, tokenService, userService),
+		tokenController:      controller.NewTokenController(uRepo, uaRepo, tokenService, generateToken),
 		checkTokenController: controller.NewCheckTokenController(tokenService),
-		userController:       controller.NewUserController(userService, findUserById, addUserRole),
+		userController:       controller.NewUserController(findUserById, addUserRole),
 		roleController:       controller.NewRoleController(repoFactory),
 		tokenService:         tokenService,
 	}

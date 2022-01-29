@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"github.com/golang/mock/gomock"
 	"github.com/golauth/golauth/domain/entity"
-	mockSvc "github.com/golauth/golauth/domain/usecase/mock"
 	"github.com/golauth/golauth/domain/usecase/user/mock"
 	"github.com/golauth/golauth/infra/api/controller/model"
 	"github.com/google/uuid"
@@ -24,7 +23,6 @@ type UserControllerSuite struct {
 	suite.Suite
 	*require.Assertions
 	ctrl         *gomock.Controller
-	userSvc      *mockSvc.MockUserService
 	findUserById *mock.MockFindUserById
 	addUserRole  *mock.MockAddUserRole
 	uc           UserController
@@ -38,11 +36,10 @@ func (s *UserControllerSuite) SetupTest() {
 	s.Assertions = require.New(s.T())
 
 	s.ctrl = gomock.NewController(s.T())
-	s.userSvc = mockSvc.NewMockUserService(s.ctrl)
 	s.findUserById = mock.NewMockFindUserById(s.ctrl)
 	s.addUserRole = mock.NewMockAddUserRole(s.ctrl)
 
-	s.uc = NewUserController(s.userSvc, s.findUserById, s.addUserRole)
+	s.uc = NewUserController(s.findUserById, s.addUserRole)
 }
 
 func (s *UserControllerSuite) TearDownTest() {

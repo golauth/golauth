@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/golauth/golauth/domain/repository"
-	"github.com/golauth/golauth/domain/usecase"
 	"github.com/golauth/golauth/domain/usecase/token"
 	"github.com/golauth/golauth/infra/api/controller/model"
 	"net/http"
@@ -20,20 +19,20 @@ type TokenController interface {
 type tokenController struct {
 	userRepository          repository.UserRepository
 	userAuthorityRepository repository.UserAuthorityRepository
+	generateToken           token.GenerateToken
 	tokenService            token.UseCase
-	userService             usecase.UserService
 }
 
 func NewTokenController(
 	userRepository repository.UserRepository,
 	userAuthorityRepository repository.UserAuthorityRepository,
 	tokenService token.UseCase,
-	userService usecase.UserService) TokenController {
+	generateToken token.GenerateToken) TokenController {
 	return tokenController{
 		userRepository:          userRepository,
 		userAuthorityRepository: userAuthorityRepository,
+		generateToken:           generateToken,
 		tokenService:            tokenService,
-		userService:             userService,
 	}
 }
 
@@ -55,7 +54,7 @@ func (s tokenController) Token(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	data, err := s.userService.GenerateToken(r.Context(), username, password)
+	data, err := s.generateToken.Execute(r.Context(), username, password)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return

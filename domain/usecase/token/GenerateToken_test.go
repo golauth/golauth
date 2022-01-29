@@ -1,10 +1,11 @@
-package usecase
+package token
 
 import (
 	"context"
 	"fmt"
 	"github.com/golang/mock/gomock"
 	"github.com/golauth/golauth/domain/entity"
+	mock2 "github.com/golauth/golauth/domain/factory/mock"
 	"github.com/golauth/golauth/domain/repository/mock"
 	tkSvc "github.com/golauth/golauth/domain/usecase/token/mock"
 	"github.com/golauth/golauth/infra/api/controller/model"
@@ -16,7 +17,7 @@ import (
 	"time"
 )
 
-type UserServiceSuite struct {
+type GenerateTokenSuite struct {
 	suite.Suite
 	*require.Assertions
 	mockCtrl *gomock.Controller
@@ -27,18 +28,20 @@ type UserServiceSuite struct {
 	userAuthorityRepository *mock.MockUserAuthorityRepository
 	tokenService            *tkSvc.MockUseCase
 
-	ctx context.Context
-	svc UserService
+	repoFactory *mock2.MockRepositoryFactory
+
+	ctx           context.Context
+	generateToken GenerateToken
 
 	mockUser      model.UserRequest
 	mockSavedUser entity.User
 }
 
-func TestUserService(t *testing.T) {
-	suite.Run(t, new(UserServiceSuite))
+func TestGenerateToken(t *testing.T) {
+	suite.Run(t, new(GenerateTokenSuite))
 }
 
-func (s *UserServiceSuite) SetupTest() {
+func (s *GenerateTokenSuite) SetupTest() {
 	s.Assertions = require.New(s.T())
 	s.mockCtrl = gomock.NewController(s.T())
 
@@ -47,9 +50,14 @@ func (s *UserServiceSuite) SetupTest() {
 	s.userRoleRepository = mock.NewMockUserRoleRepository(s.mockCtrl)
 	s.userAuthorityRepository = mock.NewMockUserAuthorityRepository(s.mockCtrl)
 	s.tokenService = tkSvc.NewMockUseCase(s.mockCtrl)
+	s.repoFactory = mock2.NewMockRepositoryFactory(s.mockCtrl)
+	s.repoFactory.EXPECT().NewRoleRepository().AnyTimes().Return(s.roleRepository)
+	s.repoFactory.EXPECT().NewUserRoleRepository().AnyTimes().Return(s.userRoleRepository)
+	s.repoFactory.EXPECT().NewUserAuthorityRepository().AnyTimes().Return(s.userAuthorityRepository)
+	s.repoFactory.EXPECT().NewUserRepository().AnyTimes().Return(s.userRepository)
 
 	s.ctx = context.Background()
-	s.svc = NewUserService(s.userRepository, s.roleRepository, s.userRoleRepository, s.userAuthorityRepository, s.tokenService)
+	s.generateToken = NewGenerateToken(s.repoFactory, s.tokenService)
 
 	s.mockUser = model.UserRequest{
 		Username:  "admin",
@@ -73,11 +81,11 @@ func (s *UserServiceSuite) SetupTest() {
 	}
 }
 
-func (s *UserServiceSuite) TearDownTest() {
+func (s *GenerateTokenSuite) TearDownTest() {
 	s.mockCtrl.Finish()
 }
 
-func (s UserServiceSuite) TestGenerateTokenOk() {
+func (s GenerateTokenSuite) TestGenerateTokenOk() {
 	username := "admin"
 	password := "123456"
 	encodedPassword, _ := bcrypt.GenerateFromPassword([]byte("123456"), bcrypt.DefaultCost)
@@ -98,25 +106,25 @@ func (s UserServiceSuite) TestGenerateTokenOk() {
 	s.userAuthorityRepository.EXPECT().FindAuthoritiesByUserID(s.ctx, user.ID).Return(authorities, nil).Times(1)
 	s.tokenService.EXPECT().GenerateJwtToken(user, authorities).Return(token, nil).Times(1)
 
-	tokenResponse, err := s.svc.GenerateToken(s.ctx, username, password)
+	tokenResponse, err := s.generateToken.Execute(s.ctx, username, password)
 	s.NoError(err)
 	s.NotEmpty(tokenResponse)
 	s.Zero(tokenResponse.RefreshToken)
 	s.Equal(token, tokenResponse.AccessToken)
 }
 
-func (s UserServiceSuite) TestGenerateTokenUserNotFound() {
+func (s GenerateTokenSuite) TestGenerateTokenUserNotFound() {
 	username := "admin"
 	password := "123456"
 
 	s.userRepository.EXPECT().FindByUsername(s.ctx, username).Return(entity.User{}, fmt.Errorf("could not find user by username admin")).Times(1)
 
-	tokenResponse, err := s.svc.GenerateToken(s.ctx, username, password)
+	tokenResponse, err := s.generateToken.Execute(s.ctx, username, password)
 	s.ErrorIs(err, ErrInvalidUsernameOrPassword)
 	s.Empty(tokenResponse)
 }
 
-func (s UserServiceSuite) TestGenerateTokenInvalidPassword() {
+func (s GenerateTokenSuite) TestGenerateTokenInvalidPassword() {
 	username := "admin"
 	password := "123456"
 	encodedPassword, _ := bcrypt.GenerateFromPassword([]byte("1234567"), bcrypt.DefaultCost)
@@ -133,12 +141,12 @@ func (s UserServiceSuite) TestGenerateTokenInvalidPassword() {
 	}
 	s.userRepository.EXPECT().FindByUsername(s.ctx, username).Return(user, nil).Times(1)
 
-	tokenResponse, err := s.svc.GenerateToken(s.ctx, username, password)
+	tokenResponse, err := s.generateToken.Execute(s.ctx, username, password)
 	s.ErrorIs(err, ErrInvalidUsernameOrPassword)
 	s.Empty(tokenResponse)
 }
 
-func (s UserServiceSuite) TestGenerateTokenErrFetchAuthorities() {
+func (s GenerateTokenSuite) TestGenerateTokenErrFetchAuthorities() {
 	username := "admin"
 	password := "123456"
 	encodedPassword, _ := bcrypt.GenerateFromPassword([]byte("123456"), bcrypt.DefaultCost)
@@ -156,13 +164,13 @@ func (s UserServiceSuite) TestGenerateTokenErrFetchAuthorities() {
 	s.userRepository.EXPECT().FindByUsername(s.ctx, username).Return(user, nil).Times(1)
 	s.userAuthorityRepository.EXPECT().FindAuthoritiesByUserID(s.ctx, user.ID).Return([]string{}, fmt.Errorf("could not find authorities by user admin")).Times(1)
 
-	tokenResponse, err := s.svc.GenerateToken(s.ctx, username, password)
+	tokenResponse, err := s.generateToken.Execute(s.ctx, username, password)
 	s.Error(err)
 	s.Equal(err.Error(), "error when fetch authorities: could not find authorities by user admin")
 	s.Empty(tokenResponse)
 }
 
-func (s UserServiceSuite) TestGenerateTokenErrGeneratingToken() {
+func (s GenerateTokenSuite) TestGenerateTokenErrGeneratingToken() {
 	username := "admin"
 	password := "123456"
 	encodedPassword, _ := bcrypt.GenerateFromPassword([]byte("123456"), bcrypt.DefaultCost)
@@ -180,9 +188,12 @@ func (s UserServiceSuite) TestGenerateTokenErrGeneratingToken() {
 	authorities := []string{"PANEL_EDIT", "PANEL_READ"}
 	s.userRepository.EXPECT().FindByUsername(s.ctx, username).Return(user, nil).Times(1)
 	s.userAuthorityRepository.EXPECT().FindAuthoritiesByUserID(s.ctx, user.ID).Return(authorities, nil).Times(1)
-	s.tokenService.EXPECT().GenerateJwtToken(user, authorities).Return("", fmt.Errorf("could not generate token")).Times(1)
+	s.tokenService.EXPECT().
+		GenerateJwtToken(user, authorities).
+		Return("", fmt.Errorf("could not generate token")).
+		Times(1)
 
-	tokenResponse, err := s.svc.GenerateToken(s.ctx, username, password)
+	tokenResponse, err := s.generateToken.Execute(s.ctx, username, password)
 	s.ErrorIs(err, ErrGeneratingToken)
 	s.Empty(tokenResponse)
 }

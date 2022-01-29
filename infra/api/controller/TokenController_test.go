@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"github.com/golang/mock/gomock"
 	repoMock "github.com/golauth/golauth/domain/repository/mock"
-	svcMock "github.com/golauth/golauth/domain/usecase/mock"
 	tkMock "github.com/golauth/golauth/domain/usecase/token/mock"
 	"github.com/golauth/golauth/infra/api/controller/model"
 	"github.com/stretchr/testify/require"
@@ -23,11 +22,11 @@ type TokenControllerSuite struct {
 	*require.Assertions
 	mockCtrl *gomock.Controller
 
-	ctx    context.Context
-	uRepo  *repoMock.MockUserRepository
-	uaRepo *repoMock.MockUserAuthorityRepository
-	tkSvc  *tkMock.MockUseCase
-	uSvc   *svcMock.MockUserService
+	ctx           context.Context
+	uRepo         *repoMock.MockUserRepository
+	uaRepo        *repoMock.MockUserAuthorityRepository
+	tkSvc         *tkMock.MockUseCase
+	generateToken *tkMock.MockGenerateToken
 
 	ctrl TokenController
 }
@@ -43,9 +42,9 @@ func (s *TokenControllerSuite) SetupTest() {
 	s.uRepo = repoMock.NewMockUserRepository(s.mockCtrl)
 	s.uaRepo = repoMock.NewMockUserAuthorityRepository(s.mockCtrl)
 	s.tkSvc = tkMock.NewMockUseCase(s.mockCtrl)
-	s.uSvc = svcMock.NewMockUserService(s.mockCtrl)
+	s.generateToken = tkMock.NewMockGenerateToken(s.mockCtrl)
 
-	s.ctrl = NewTokenController(s.uRepo, s.uaRepo, s.tkSvc, s.uSvc)
+	s.ctrl = NewTokenController(s.uRepo, s.uaRepo, s.tkSvc, s.generateToken)
 }
 
 func (s *TokenControllerSuite) TearDownTest() {
@@ -61,7 +60,7 @@ func (s TokenControllerSuite) TestTokenFormOk() {
 	r, _ := http.NewRequest("POST", "/token", strings.NewReader(fmt.Sprintf("username=%s&password=%s", username, password)))
 	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-	s.uSvc.EXPECT().GenerateToken(s.ctx, username, password).Return(model.TokenResponse{AccessToken: token}, nil).Times(1)
+	s.generateToken.EXPECT().Execute(s.ctx, username, password).Return(model.TokenResponse{AccessToken: token}, nil).Times(1)
 
 	s.ctrl.Token(w, r)
 	s.Equal(http.StatusOK, w.Code)
@@ -85,7 +84,7 @@ func (s TokenControllerSuite) TestTokenJsonOk() {
 	r, _ := http.NewRequest("POST", "/token", strings.NewReader(string(body)))
 	r.Header.Set("Content-Type", "application/json")
 
-	s.uSvc.EXPECT().GenerateToken(s.ctx, username, password).Return(model.TokenResponse{AccessToken: token}, nil).Times(1)
+	s.generateToken.EXPECT().Execute(s.ctx, username, password).Return(model.TokenResponse{AccessToken: token}, nil).Times(1)
 
 	s.ctrl.Token(w, r)
 	s.Equal(http.StatusOK, w.Code)
@@ -137,7 +136,7 @@ func (s TokenControllerSuite) TestTokenErrGenerateToken() {
 	r, _ := http.NewRequest("POST", "/token", strings.NewReader(fmt.Sprintf("username=%s&password=%s", username, password)))
 	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-	s.uSvc.EXPECT().GenerateToken(s.ctx, username, password).Return(model.TokenResponse{}, fmt.Errorf("could not find user by username admin")).Times(1)
+	s.generateToken.EXPECT().Execute(s.ctx, username, password).Return(model.TokenResponse{}, fmt.Errorf("could not find user by username admin")).Times(1)
 
 	s.ctrl.Token(w, r)
 	s.Equal(http.StatusUnauthorized, w.Code)
