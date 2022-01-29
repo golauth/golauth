@@ -19,7 +19,6 @@ var (
 
 type UserService interface {
 	GenerateToken(ctx context.Context, username string, password string) (model.TokenResponse, error)
-	FindByID(ctx context.Context, id uuid.UUID) (model.UserResponse, error)
 	AddUserRole(ctx context.Context, id uuid.UUID, id2 uuid.UUID) error
 }
 
@@ -68,23 +67,6 @@ func (s userService) GenerateToken(ctx context.Context, username string, passwor
 	}
 	tokenResponse := model.TokenResponse{AccessToken: jwtToken}
 	return tokenResponse, nil
-}
-
-func (s userService) FindByID(ctx context.Context, id uuid.UUID) (model.UserResponse, error) {
-	user, err := s.userRepository.FindByID(ctx, id)
-	if err != nil {
-		return model.UserResponse{}, err
-	}
-	return model.UserResponse{
-		ID:           user.ID,
-		Username:     user.Username,
-		FirstName:    user.FirstName,
-		LastName:     user.LastName,
-		Email:        user.Email,
-		Document:     user.Document,
-		Enabled:      user.Enabled,
-		CreationDate: user.CreationDate,
-	}, nil
 }
 
 func (s userService) AddUserRole(ctx context.Context, userID uuid.UUID, roleID uuid.UUID) error {

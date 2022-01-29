@@ -3,6 +3,7 @@ package controller
 import (
 	"encoding/json"
 	"github.com/golauth/golauth/domain/usecase"
+	"github.com/golauth/golauth/domain/usecase/user"
 	"github.com/golauth/golauth/infra/api/controller/model"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
@@ -10,11 +11,12 @@ import (
 )
 
 type UserController struct {
-	svc usecase.UserService
+	svc      usecase.UserService
+	findById user.FindUserById
 }
 
-func NewUserController(s usecase.UserService) UserController {
-	return UserController{svc: s}
+func NewUserController(s usecase.UserService, findById user.FindUserById) UserController {
+	return UserController{svc: s, findById: findById}
 }
 
 func (u UserController) FindById(w http.ResponseWriter, r *http.Request) {
@@ -24,7 +26,7 @@ func (u UserController) FindById(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	data, err := u.svc.FindByID(r.Context(), id)
+	data, err := u.findById.Execute(r.Context(), id)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

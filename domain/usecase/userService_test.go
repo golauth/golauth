@@ -187,46 +187,6 @@ func (s UserServiceSuite) TestGenerateTokenErrGeneratingToken() {
 	s.Empty(tokenResponse)
 }
 
-func (s UserServiceSuite) TestFindByIDOK() {
-	id := uuid.New()
-	user := entity.User{
-		ID:           id,
-		Username:     "admin",
-		FirstName:    "User",
-		LastName:     "Name",
-		Email:        "em@ail.com",
-		Document:     "1234",
-		Password:     "1234c",
-		Enabled:      true,
-		CreationDate: time.Now().AddDate(-1, 0, 0),
-	}
-	s.userRepository.EXPECT().FindByID(s.ctx, id).Return(user, nil).Times(1)
-
-	ret := model.UserResponse{
-		ID:           user.ID,
-		Username:     user.Username,
-		FirstName:    user.FirstName,
-		LastName:     user.LastName,
-		Email:        user.Email,
-		Document:     user.Document,
-		Enabled:      user.Enabled,
-		CreationDate: user.CreationDate,
-	}
-	resp, err := s.svc.FindByID(s.ctx, id)
-	s.NoError(err)
-	s.Equal(ret, resp)
-}
-
-func (s UserServiceSuite) TestFindByIDErr() {
-	id := uuid.New()
-	s.userRepository.EXPECT().FindByID(s.ctx, id).Return(entity.User{}, fmt.Errorf("could not find user")).Times(1)
-
-	resp, err := s.svc.FindByID(s.ctx, id)
-	s.Zero(resp)
-	s.Error(err)
-	s.ErrorAs(fmt.Errorf("could not find user"), &err)
-}
-
 func (s UserServiceSuite) TestAddUserRoleOK() {
 	userId := uuid.New()
 	roleId := uuid.New()

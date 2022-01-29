@@ -7,6 +7,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/golauth/golauth/domain/entity"
 	mockSvc "github.com/golauth/golauth/domain/usecase/mock"
+	"github.com/golauth/golauth/domain/usecase/user/mock"
 	"github.com/golauth/golauth/infra/api/controller/model"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
@@ -22,9 +23,10 @@ import (
 type UserControllerSuite struct {
 	suite.Suite
 	*require.Assertions
-	ctrl    *gomock.Controller
-	userSvc *mockSvc.MockUserService
-	uc      UserController
+	ctrl         *gomock.Controller
+	userSvc      *mockSvc.MockUserService
+	findUserById *mock.MockFindUserById
+	uc           UserController
 }
 
 func TestUserControllerSuite(t *testing.T) {
@@ -36,8 +38,9 @@ func (s *UserControllerSuite) SetupTest() {
 
 	s.ctrl = gomock.NewController(s.T())
 	s.userSvc = mockSvc.NewMockUserService(s.ctrl)
+	s.findUserById = mock.NewMockFindUserById(s.ctrl)
 
-	s.uc = NewUserController(s.userSvc)
+	s.uc = NewUserController(s.userSvc, s.findUserById)
 }
 
 func (s *UserControllerSuite) TearDownTest() {
@@ -63,7 +66,7 @@ func (s *UserControllerSuite) TestFindByIDOk() {
 		"id": user.ID.String(),
 	}
 	r = mux.SetURLVars(r, vars)
-	s.userSvc.EXPECT().FindByID(r.Context(), user.ID).Return(user, nil).Times(1)
+	s.findUserById.EXPECT().Execute(r.Context(), user.ID).Return(&user, nil).Times(1)
 
 	bf := bytes.NewBuffer([]byte{})
 	jsonEncoder := json.NewEncoder(bf)
@@ -115,7 +118,7 @@ func (s *UserControllerSuite) TestFindByIDErrSvc() {
 		"id": id.String(),
 	}
 	r = mux.SetURLVars(r, vars)
-	s.userSvc.EXPECT().FindByID(r.Context(), id).Return(model.UserResponse{}, fmt.Errorf(errMessage)).Times(1)
+	s.findUserById.EXPECT().Execute(r.Context(), id).Return(nil, fmt.Errorf(errMessage)).Times(1)
 
 	s.uc.FindById(w, r)
 	s.Equal(http.StatusInternalServerError, w.Code)
