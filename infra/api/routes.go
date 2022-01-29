@@ -34,14 +34,12 @@ func NewRouter(repoFactory factory.RepositoryFactory) Router {
 	tokenService := token.NewService()
 	userService := usecase.NewUserService(uRepo, rRepo, urRepo, uaRepo, tokenService)
 
-	roleSvc := usecase.NewRoleService(rRepo)
-
 	return &router{
 		signupController:     controller.NewSignupController(userService),
 		tokenController:      controller.NewTokenController(uRepo, uaRepo, tokenService, userService),
 		checkTokenController: controller.NewCheckTokenController(tokenService),
 		userController:       controller.NewUserController(userService),
-		roleController:       controller.NewRoleController(roleSvc, repoFactory),
+		roleController:       controller.NewRoleController(repoFactory),
 		tokenService:         tokenService,
 	}
 }

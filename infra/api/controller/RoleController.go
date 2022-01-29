@@ -3,7 +3,6 @@ package controller
 import (
 	"encoding/json"
 	"github.com/golauth/golauth/domain/factory"
-	"github.com/golauth/golauth/domain/usecase"
 	"github.com/golauth/golauth/domain/usecase/role"
 	"github.com/golauth/golauth/infra/api/controller/model"
 	"github.com/google/uuid"
@@ -12,18 +11,18 @@ import (
 )
 
 type RoleController struct {
-	svc              usecase.RoleService
 	addRole          role.AddRole
 	editRole         role.EditRole
 	changeRoleStatus role.ChangeRoleStatus
+	findByName       role.FindRoleByName
 }
 
-func NewRoleController(s usecase.RoleService, repoFactory factory.RepositoryFactory) RoleController {
+func NewRoleController(repoFactory factory.RepositoryFactory) RoleController {
 	return RoleController{
-		svc:              s,
 		addRole:          role.NewAddRole(repoFactory),
 		editRole:         role.NewEditRole(repoFactory.NewRoleRepository()),
 		changeRoleStatus: role.NewChangeRoleStatus(repoFactory.NewRoleRepository()),
+		findByName:       role.NewFindRoleByName(repoFactory.NewRoleRepository()),
 	}
 }
 
@@ -76,7 +75,7 @@ func (c RoleController) ChangeStatus(w http.ResponseWriter, r *http.Request) {
 func (c RoleController) FindByName(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
 	name := params["name"]
-	data, err := c.svc.FindByName(r.Context(), name)
+	data, err := c.findByName.Execute(r.Context(), name)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

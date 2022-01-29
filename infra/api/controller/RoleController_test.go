@@ -9,7 +9,6 @@ import (
 	"github.com/golauth/golauth/domain/entity"
 	factoryMock "github.com/golauth/golauth/domain/factory/mock"
 	repoMock "github.com/golauth/golauth/domain/repository/mock"
-	"github.com/golauth/golauth/domain/usecase/mock"
 	"github.com/golauth/golauth/infra/api/controller/model"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
@@ -26,7 +25,6 @@ type RoleControllerSuite struct {
 	suite.Suite
 	*require.Assertions
 	ctrl        *gomock.Controller
-	roleSvc     *mock.MockRoleService
 	repoFactory *factoryMock.MockRepositoryFactory
 	roleRepo    *repoMock.MockRoleRepository
 	rc          RoleController
@@ -39,12 +37,11 @@ func TestRoleControllerSuite(t *testing.T) {
 func (s *RoleControllerSuite) SetupTest() {
 	s.Assertions = require.New(s.T())
 	s.ctrl = gomock.NewController(s.T())
-	s.roleSvc = mock.NewMockRoleService(s.ctrl)
 	s.roleRepo = repoMock.NewMockRoleRepository(s.ctrl)
 	s.repoFactory = factoryMock.NewMockRepositoryFactory(s.ctrl)
 	s.repoFactory.EXPECT().NewRoleRepository().AnyTimes().Return(s.roleRepo)
 
-	s.rc = NewRoleController(s.roleSvc, s.repoFactory)
+	s.rc = NewRoleController(s.repoFactory)
 }
 
 func (s *RoleControllerSuite) TearDownTest() {
@@ -207,7 +204,8 @@ func (s RoleControllerSuite) TestFindByNameOk() {
 		"name": roleName,
 	}
 	r = mux.SetURLVars(r, vars)
-	s.roleSvc.EXPECT().FindByName(r.Context(), roleName).Return(resp, nil).Times(1)
+	roleEntity := entity.Role{ID: roleId, Name: roleName, Description: resp.Description, Enabled: resp.Enabled, CreationDate: resp.CreationDate}
+	s.roleRepo.EXPECT().FindByName(r.Context(), roleName).Return(&roleEntity, nil).Times(1)
 
 	s.rc.FindByName(w, r)
 
@@ -230,7 +228,7 @@ func (s RoleControllerSuite) TestFindByNameErrSvc() {
 		"name": roleName,
 	}
 	r = mux.SetURLVars(r, vars)
-	s.roleSvc.EXPECT().FindByName(r.Context(), roleName).Return(model.RoleResponse{}, fmt.Errorf(errMessage)).Times(1)
+	s.roleRepo.EXPECT().FindByName(r.Context(), roleName).Return(nil, fmt.Errorf(errMessage)).Times(1)
 
 	s.rc.FindByName(w, r)
 
