@@ -10,7 +10,7 @@ import (
 type RoleRepository interface {
 	FindByName(ctx context.Context, name string) (*entity.Role, error)
 	Create(ctx context.Context, role *entity.Role) (*entity.Role, error)
-	Edit(ctx context.Context, role entity.Role) error
+	Edit(ctx context.Context, role *entity.Role) error
 	ChangeStatus(ctx context.Context, id uuid.UUID, enabled bool) error
 	ExistsById(ctx context.Context, id uuid.UUID) (bool, error)
 }

@@ -49,7 +49,7 @@ func (c RoleController) Edit(w http.ResponseWriter, r *http.Request) {
 	}
 	var data model.RoleRequest
 	_ = json.NewDecoder(r.Body).Decode(&data)
-	err = c.editRole.Execute(r.Context(), id, data)
+	err = c.editRole.Execute(r.Context(), id, data.ToEntity())
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

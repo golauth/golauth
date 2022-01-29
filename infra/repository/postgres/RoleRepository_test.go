@@ -86,7 +86,7 @@ func (s RoleRepositorySuite) TestRoleRepositoryEditOk() {
 	s.Equal("Role USER", r.Description)
 
 	r.Description = "Role to common user"
-	err = s.repo.Edit(context.Background(), *r)
+	err = s.repo.Edit(context.Background(), r)
 	s.NoError(err)
 
 	edited, err := s.repo.FindByName(context.Background(), "USER")
@@ -97,7 +97,7 @@ func (s RoleRepositorySuite) TestRoleRepositoryEditOk() {
 
 func (s RoleRepositorySuite) TestRoleRepositoryEditIdNotFound() {
 	s.prepareDatabase(true)
-	r := entity.Role{
+	r := &entity.Role{
 		ID:           uuid.New(),
 		Name:         "CUSTOMER_EDIT",
 		Description:  "Customer edit",

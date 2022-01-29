@@ -36,7 +36,7 @@ func (r RoleRepositoryPostgres) Create(ctx context.Context, role *entity.Role) (
 	return role, nil
 }
 
-func (r RoleRepositoryPostgres) Edit(ctx context.Context, role entity.Role) error {
+func (r RoleRepositoryPostgres) Edit(ctx context.Context, role *entity.Role) error {
 	updateStatement := `
 		UPDATE golauth_role
 		SET name = $2, description = $3

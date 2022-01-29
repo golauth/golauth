@@ -6,12 +6,11 @@ import (
 	"fmt"
 	"github.com/golauth/golauth/domain/entity"
 	"github.com/golauth/golauth/domain/repository"
-	"github.com/golauth/golauth/infra/api/controller/model"
 	"github.com/google/uuid"
 )
 
 type EditRole interface {
-	Execute(ctx context.Context, id uuid.UUID, req model.RoleRequest) error
+	Execute(ctx context.Context, id uuid.UUID, input *entity.Role) error
 }
 
 type editRole struct {
@@ -22,7 +21,7 @@ func NewEditRole(repo repository.RoleRepository) EditRole {
 	return editRole{repo: repo}
 }
 
-func (uc editRole) Execute(ctx context.Context, id uuid.UUID, req model.RoleRequest) error {
+func (uc editRole) Execute(ctx context.Context, id uuid.UUID, input *entity.Role) error {
 	exists, err := uc.repo.ExistsById(ctx, id)
 	if err != nil {
 		return err
@@ -30,13 +29,8 @@ func (uc editRole) Execute(ctx context.Context, id uuid.UUID, req model.RoleRequ
 	if !exists {
 		return fmt.Errorf("role with id %s does not exists", id)
 	}
-	if id != req.ID {
-		return fmt.Errorf("path id[%s] and object_id[%s] does not match", id, req.ID)
+	if id != input.ID {
+		return fmt.Errorf("path id[%s] and object_id[%s] does not match", id, input.ID)
 	}
-	data := entity.Role{
-		ID:          id,
-		Name:        req.Name,
-		Description: req.Description,
-	}
-	return uc.repo.Edit(ctx, data)
+	return uc.repo.Edit(ctx, input)
 }
