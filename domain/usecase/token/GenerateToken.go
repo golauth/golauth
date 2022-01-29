@@ -5,10 +5,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/golauth/golauth/core/util"
 	"github.com/golauth/golauth/domain/entity"
 	"github.com/golauth/golauth/domain/factory"
 	"github.com/golauth/golauth/domain/repository"
-	"github.com/golauth/golauth/infra/api/util"
 	"golang.org/x/crypto/bcrypt"
 )
 

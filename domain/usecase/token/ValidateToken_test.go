@@ -3,8 +3,8 @@ package token
 import (
 	"fmt"
 	"github.com/golang/mock/gomock"
+	"github.com/golauth/golauth/core/util"
 	"github.com/golauth/golauth/domain/entity"
-	"github.com/golauth/golauth/infra/api/util"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"

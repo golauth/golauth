@@ -4,11 +4,11 @@ import (
 	"context"
 	"fmt"
 	"github.com/golang/mock/gomock"
+	utilMock "github.com/golauth/golauth/core/util/mock"
 	"github.com/golauth/golauth/domain/entity"
-	mock2 "github.com/golauth/golauth/domain/factory/mock"
+	factoryMock "github.com/golauth/golauth/domain/factory/mock"
 	"github.com/golauth/golauth/domain/repository/mock"
 	"github.com/golauth/golauth/infra/api/controller/model"
-	mock3 "github.com/golauth/golauth/infra/api/util/mock"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -26,9 +26,9 @@ type GenerateTokenSuite struct {
 	roleRepository          *mock.MockRoleRepository
 	userRoleRepository      *mock.MockUserRoleRepository
 	userAuthorityRepository *mock.MockUserAuthorityRepository
-	jwtToken                *mock3.MockGenerateJwtToken
+	jwtToken                *utilMock.MockGenerateJwtToken
 
-	repoFactory *mock2.MockRepositoryFactory
+	repoFactory *factoryMock.MockRepositoryFactory
 
 	ctx           context.Context
 	generateToken GenerateToken
@@ -49,8 +49,8 @@ func (s *GenerateTokenSuite) SetupTest() {
 	s.roleRepository = mock.NewMockRoleRepository(s.mockCtrl)
 	s.userRoleRepository = mock.NewMockUserRoleRepository(s.mockCtrl)
 	s.userAuthorityRepository = mock.NewMockUserAuthorityRepository(s.mockCtrl)
-	s.jwtToken = mock3.NewMockGenerateJwtToken(s.mockCtrl)
-	s.repoFactory = mock2.NewMockRepositoryFactory(s.mockCtrl)
+	s.jwtToken = utilMock.NewMockGenerateJwtToken(s.mockCtrl)
+	s.repoFactory = factoryMock.NewMockRepositoryFactory(s.mockCtrl)
 	s.repoFactory.EXPECT().NewRoleRepository().AnyTimes().Return(s.roleRepository)
 	s.repoFactory.EXPECT().NewUserRoleRepository().AnyTimes().Return(s.userRoleRepository)
 	s.repoFactory.EXPECT().NewUserAuthorityRepository().AnyTimes().Return(s.userAuthorityRepository)

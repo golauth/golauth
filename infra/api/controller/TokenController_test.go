@@ -8,7 +8,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/golauth/golauth/domain/entity"
 	repoMock "github.com/golauth/golauth/domain/repository/mock"
-	tkMock "github.com/golauth/golauth/domain/usecase/token/mock"
+	"github.com/golauth/golauth/domain/usecase/token/mock"
 	"github.com/golauth/golauth/infra/api/controller/model"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -26,7 +26,7 @@ type TokenControllerSuite struct {
 	ctx           context.Context
 	uRepo         *repoMock.MockUserRepository
 	uaRepo        *repoMock.MockUserAuthorityRepository
-	generateToken *tkMock.MockGenerateToken
+	generateToken *mock.MockGenerateToken
 
 	ctrl TokenController
 }
@@ -41,7 +41,7 @@ func (s *TokenControllerSuite) SetupTest() {
 	s.ctx = context.Background()
 	s.uRepo = repoMock.NewMockUserRepository(s.mockCtrl)
 	s.uaRepo = repoMock.NewMockUserAuthorityRepository(s.mockCtrl)
-	s.generateToken = tkMock.NewMockGenerateToken(s.mockCtrl)
+	s.generateToken = mock.NewMockGenerateToken(s.mockCtrl)
 
 	s.ctrl = NewTokenController(s.uRepo, s.uaRepo, s.generateToken)
 }

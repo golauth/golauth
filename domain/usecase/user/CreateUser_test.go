@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"github.com/golang/mock/gomock"
 	"github.com/golauth/golauth/domain/entity"
-	mock2 "github.com/golauth/golauth/domain/factory/mock"
+	factoryMock "github.com/golauth/golauth/domain/factory/mock"
 	"github.com/golauth/golauth/domain/repository/mock"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
@@ -20,7 +20,7 @@ type CreateUserSuite struct {
 	*require.Assertions
 	mockCtrl *gomock.Controller
 
-	repoFactory        *mock2.MockRepositoryFactory
+	repoFactory        *factoryMock.MockRepositoryFactory
 	userRepository     *mock.MockUserRepository
 	roleRepository     *mock.MockRoleRepository
 	userRoleRepository *mock.MockUserRoleRepository
@@ -40,7 +40,7 @@ func (s *CreateUserSuite) SetupTest() {
 	s.Assertions = require.New(s.T())
 	s.mockCtrl = gomock.NewController(s.T())
 
-	s.repoFactory = mock2.NewMockRepositoryFactory(s.mockCtrl)
+	s.repoFactory = factoryMock.NewMockRepositoryFactory(s.mockCtrl)
 	s.userRepository = mock.NewMockUserRepository(s.mockCtrl)
 	s.roleRepository = mock.NewMockRoleRepository(s.mockCtrl)
 	s.userRoleRepository = mock.NewMockUserRoleRepository(s.mockCtrl)

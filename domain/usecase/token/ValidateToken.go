@@ -7,8 +7,8 @@ import (
 	"errors"
 	"fmt"
 	"github.com/cristalhq/jwt/v3"
+	"github.com/golauth/golauth/core/util"
 	"github.com/golauth/golauth/infra/api/controller/model"
-	"github.com/golauth/golauth/infra/api/util"
 	"time"
 )
 

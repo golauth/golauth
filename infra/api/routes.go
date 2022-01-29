@@ -1,12 +1,12 @@
 package api
 
 import (
+	"github.com/golauth/golauth/core/util"
 	"github.com/golauth/golauth/domain/factory"
 	"github.com/golauth/golauth/domain/usecase/token"
 	"github.com/golauth/golauth/domain/usecase/user"
 	"github.com/golauth/golauth/infra/api/controller"
 	"github.com/golauth/golauth/infra/api/middleware"
-	"github.com/golauth/golauth/infra/api/util"
 	"net/http"
 
 	"github.com/gorilla/mux"

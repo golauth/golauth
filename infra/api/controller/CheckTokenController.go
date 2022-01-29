@@ -2,8 +2,8 @@ package controller
 
 import (
 	"encoding/json"
+	"github.com/golauth/golauth/core/util"
 	"github.com/golauth/golauth/domain/usecase/token"
-	"github.com/golauth/golauth/infra/api/util"
 	"net/http"
 )
 

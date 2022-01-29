@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"github.com/golang/mock/gomock"
 	"github.com/golauth/golauth/domain/entity"
-	mock2 "github.com/golauth/golauth/domain/usecase/user/mock"
+	userMock "github.com/golauth/golauth/domain/usecase/user/mock"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -22,7 +22,7 @@ type SignupControllerSuite struct {
 	*require.Assertions
 	mockCtrl   *gomock.Controller
 	ctx        context.Context
-	createUser *mock2.MockCreateUser
+	createUser *userMock.MockCreateUser
 
 	ctrl SignupController
 }
@@ -35,7 +35,7 @@ func (s *SignupControllerSuite) SetupTest() {
 	s.Assertions = require.New(s.T())
 	s.mockCtrl = gomock.NewController(s.T())
 	s.ctx = context.Background()
-	s.createUser = mock2.NewMockCreateUser(s.mockCtrl)
+	s.createUser = userMock.NewMockCreateUser(s.mockCtrl)
 
 	s.ctrl = NewSignupController(s.createUser)
 }
