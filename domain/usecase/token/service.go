@@ -7,7 +7,6 @@ import (
 	"github.com/cristalhq/jwt/v3"
 	"github.com/golauth/golauth/domain/entity"
 	"github.com/golauth/golauth/infra/api/controller/model"
-	"net/http"
 	"time"
 )
 
@@ -26,14 +25,6 @@ type Service struct {
 
 func NewService(key *rsa.PrivateKey) UseCase {
 	return Service{signer: generateSigner(key)}
-}
-
-func (s Service) ExtractToken(r *http.Request) (string, error) {
-	authorization := r.Header.Get("Authorization")
-	if len(authorization) > len("Bearer ") {
-		return authorization[7:], nil
-	}
-	return "", ErrBearerTokenExtract
 }
 
 func (s Service) GenerateJwtToken(user entity.User, authorities []string) (string, error) {
