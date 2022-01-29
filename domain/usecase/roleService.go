@@ -4,14 +4,12 @@ package usecase
 import (
 	"context"
 	"fmt"
-	"github.com/golauth/golauth/domain/entity"
 	"github.com/golauth/golauth/domain/repository"
 	"github.com/golauth/golauth/infra/api/controller/model"
 	"github.com/google/uuid"
 )
 
 type RoleService interface {
-	Edit(ctx context.Context, id uuid.UUID, req model.RoleRequest) error
 	ChangeStatus(ctx context.Context, id uuid.UUID, enabled bool) error
 	FindByName(ctx context.Context, name string) (model.RoleResponse, error)
 }
@@ -22,25 +20,6 @@ type roleService struct {
 
 func NewRoleService(r repository.RoleRepository) RoleService {
 	return roleService{repo: r}
-}
-
-func (s roleService) Edit(ctx context.Context, id uuid.UUID, req model.RoleRequest) error {
-	exists, err := s.repo.ExistsById(ctx, id)
-	if err != nil {
-		return err
-	}
-	if !exists {
-		return fmt.Errorf("role with id %s does not exists", id)
-	}
-	if id != req.ID {
-		return fmt.Errorf("path id[%s] and object_id[%s] does not match", id, req.ID)
-	}
-	data := entity.Role{
-		ID:          id,
-		Name:        req.Name,
-		Description: req.Description,
-	}
-	return s.repo.Edit(ctx, data)
 }
 
 func (s roleService) ChangeStatus(ctx context.Context, id uuid.UUID, enabled bool) error {

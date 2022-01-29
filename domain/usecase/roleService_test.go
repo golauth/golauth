@@ -7,7 +7,6 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/golauth/golauth/domain/entity"
 	"github.com/golauth/golauth/domain/repository/mock"
-	"github.com/golauth/golauth/infra/api/controller/model"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -42,67 +41,6 @@ func (s *RoleServiceSuite) SetupTest() {
 
 func (s *RoleServiceSuite) TearDownTest() {
 	s.mockCtrl.Finish()
-}
-
-func (s RoleServiceSuite) TestEditOk() {
-	roleId := uuid.New()
-	req := model.RoleRequest{
-		ID:          roleId,
-		Name:        "NEW_ROLE",
-		Description: "Edited Role",
-	}
-	role := entity.Role{
-		ID:          roleId,
-		Name:        req.Name,
-		Description: req.Description,
-	}
-	s.repo.EXPECT().ExistsById(s.ctx, roleId).Return(true, nil).Times(1)
-	s.repo.EXPECT().Edit(s.ctx, role).Return(nil).Times(1)
-	err := s.svc.Edit(s.ctx, roleId, req)
-	s.NoError(err)
-}
-
-func (s RoleServiceSuite) TestEditIDNotExists() {
-	roleId := uuid.New()
-	errMessage := fmt.Sprintf("role with id %s does not exists", roleId)
-	req := model.RoleRequest{
-		ID:          roleId,
-		Name:        "NEW_ROLE",
-		Description: "Edited Role",
-	}
-	s.repo.EXPECT().ExistsById(s.ctx, roleId).Return(false, nil).Times(1)
-	err := s.svc.Edit(s.ctx, roleId, req)
-	s.Error(err)
-	s.EqualError(err, errMessage)
-}
-
-func (s RoleServiceSuite) TestEditExistsErr() {
-	errMessage := "could not check if id exists"
-	roleId := uuid.New()
-	req := model.RoleRequest{
-		ID:          roleId,
-		Name:        "NEW_ROLE",
-		Description: "Edited Role",
-	}
-	s.repo.EXPECT().ExistsById(s.ctx, roleId).Return(false, fmt.Errorf(errMessage)).Times(1)
-	err := s.svc.Edit(s.ctx, roleId, req)
-	s.Error(err)
-	s.EqualError(err, errMessage)
-}
-
-func (s RoleServiceSuite) TestEditErrIdNotMatch() {
-	roleId := uuid.New()
-	pathId := uuid.New()
-	errMessage := fmt.Sprintf("path id[%s] and object_id[%s] does not match", pathId, roleId)
-	req := model.RoleRequest{
-		ID:          roleId,
-		Name:        "NEW_ROLE",
-		Description: "Edited Role",
-	}
-	s.repo.EXPECT().ExistsById(s.ctx, pathId).Return(true, nil).Times(1)
-	err := s.svc.Edit(s.ctx, pathId, req)
-	s.Error(err)
-	s.EqualError(err, errMessage)
 }
 
 func (s RoleServiceSuite) TestChangeStatusOk() {

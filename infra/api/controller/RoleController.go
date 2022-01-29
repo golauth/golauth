@@ -12,12 +12,13 @@ import (
 )
 
 type RoleController struct {
-	svc     usecase.RoleService
-	addRole role.AddRole
+	svc      usecase.RoleService
+	addRole  role.AddRole
+	editRole role.EditRole
 }
 
 func NewRoleController(s usecase.RoleService, repoFactory factory.RepositoryFactory) RoleController {
-	return RoleController{svc: s, addRole: role.NewAddRole(repoFactory)}
+	return RoleController{svc: s, addRole: role.NewAddRole(repoFactory), editRole: role.NewEditRole(repoFactory.NewRoleRepository())}
 }
 
 func (c RoleController) Create(w http.ResponseWriter, r *http.Request) {
@@ -41,7 +42,7 @@ func (c RoleController) Edit(w http.ResponseWriter, r *http.Request) {
 	}
 	var data model.RoleRequest
 	_ = json.NewDecoder(r.Body).Decode(&data)
-	err = c.svc.Edit(r.Context(), id, data)
+	err = c.editRole.Execute(r.Context(), id, data)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

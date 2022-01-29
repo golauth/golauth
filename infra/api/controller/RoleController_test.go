@@ -79,7 +79,8 @@ func (s RoleControllerSuite) TestEditRoleOk() {
 		"id": role.ID.String(),
 	}
 	r = mux.SetURLVars(r, vars)
-	s.roleSvc.EXPECT().Edit(r.Context(), role.ID, role).Return(nil).Times(1)
+	s.roleRepo.EXPECT().ExistsById(r.Context(), role.ID).Return(true, nil).Times(1)
+	s.roleRepo.EXPECT().Edit(r.Context(), gomock.Any()).Return(nil).Times(1)
 
 	s.rc.Edit(w, r)
 	s.Equal(http.StatusOK, w.Code)
@@ -129,7 +130,8 @@ func (s RoleControllerSuite) TestEditRoleNotOk() {
 		"id": roleId.String(),
 	}
 	r = mux.SetURLVars(r, vars)
-	s.roleSvc.EXPECT().Edit(r.Context(), role.ID, role).Return(fmt.Errorf(errMessage)).Times(1)
+	s.roleRepo.EXPECT().ExistsById(r.Context(), roleId).Return(true, nil).Times(1)
+	s.roleRepo.EXPECT().Edit(r.Context(), gomock.Any()).Return(fmt.Errorf(errMessage)).Times(1)
 
 	s.rc.Edit(w, r)
 	s.Equal(http.StatusInternalServerError, w.Code)
