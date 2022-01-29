@@ -22,11 +22,11 @@ func NewSignupController(createUser user.CreateUser) SignupController {
 func (s signupController) CreateUser(w http.ResponseWriter, r *http.Request) {
 	var decodedUser model.UserRequest
 	_ = json.NewDecoder(r.Body).Decode(&decodedUser)
-	data, err := s.createUser.Execute(r.Context(), decodedUser)
+	output, err := s.createUser.Execute(r.Context(), decodedUser.ToEntity())
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	w.WriteHeader(http.StatusCreated)
-	_ = json.NewEncoder(w).Encode(data)
+	_ = json.NewEncoder(w).Encode(model.NewUserResponseFromEntity(output))
 }

@@ -53,7 +53,7 @@ func (s UserRoleRepositorySuite) prepareDatabase(clean bool, scripts ...string) 
 }
 
 func (s *UserRoleRepositorySuite) TestAddUserRole() {
-	u := entity.User{
+	u := &entity.User{
 		Username:  "guest",
 		FirstName: "Guest",
 		LastName:  "None",

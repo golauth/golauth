@@ -27,22 +27,22 @@ func (ur UserRepositoryPostgres) FindByUsername(ctx context.Context, username st
 	return &user, nil
 }
 
-func (ur UserRepositoryPostgres) FindByID(ctx context.Context, id uuid.UUID) (entity.User, error) {
+func (ur UserRepositoryPostgres) FindByID(ctx context.Context, id uuid.UUID) (*entity.User, error) {
 	user := entity.User{}
 	var phantomZone string
 	row := ur.db.One(ctx, "SELECT * FROM golauth_user WHERE id = $1", id)
 	err := row.Scan(&user.ID, &user.Username, &user.FirstName, &user.LastName, &user.Email, &user.Document, &phantomZone, &user.Enabled, &user.CreationDate)
 	if err != nil {
-		return entity.User{}, fmt.Errorf("could not find user by id [%d]: %w", id, err)
+		return nil, fmt.Errorf("could not find user by id [%d]: %w", id, err)
 	}
-	return user, nil
+	return &user, nil
 }
 
-func (ur UserRepositoryPostgres) Create(ctx context.Context, user entity.User) (entity.User, error) {
+func (ur UserRepositoryPostgres) Create(ctx context.Context, user *entity.User) (*entity.User, error) {
 	err := ur.db.One(ctx, "INSERT INTO golauth_user (username, first_name, last_name, email, document, password) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id;",
 		user.Username, user.FirstName, user.LastName, user.Email, user.Document, user.Password).Scan(&user.ID)
 	if err != nil {
-		return entity.User{}, fmt.Errorf("could not create user %s: %w", user.Username, err)
+		return nil, fmt.Errorf("could not create user %s: %w", user.Username, err)
 	}
 	return user, nil
 }

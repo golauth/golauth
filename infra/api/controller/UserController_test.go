@@ -7,7 +7,6 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/golauth/golauth/domain/entity"
 	"github.com/golauth/golauth/domain/usecase/user/mock"
-	"github.com/golauth/golauth/infra/api/controller/model"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/stretchr/testify/require"
@@ -47,7 +46,7 @@ func (s *UserControllerSuite) TearDownTest() {
 }
 
 func (s *UserControllerSuite) TestFindByIDOk() {
-	user := model.UserResponse{
+	user := &entity.User{
 		ID:           uuid.New(),
 		Username:     "admin",
 		FirstName:    "User",
@@ -65,7 +64,7 @@ func (s *UserControllerSuite) TestFindByIDOk() {
 		"id": user.ID.String(),
 	}
 	r = mux.SetURLVars(r, vars)
-	s.findUserById.EXPECT().Execute(r.Context(), user.ID).Return(&user, nil).Times(1)
+	s.findUserById.EXPECT().Execute(r.Context(), user.ID).Return(user, nil).Times(1)
 
 	bf := bytes.NewBuffer([]byte{})
 	jsonEncoder := json.NewEncoder(bf)

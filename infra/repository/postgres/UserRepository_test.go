@@ -85,7 +85,7 @@ func (s *UserRepositorySuite) TestFindUserByIdWithoutPassword() {
 
 func (s *UserRepositorySuite) TestCreateNewUserOk() {
 	s.prepareDatabase(true, "add-users.sql")
-	u := entity.User{
+	u := &entity.User{
 		Username:     "guest",
 		FirstName:    "Guest",
 		LastName:     "None",

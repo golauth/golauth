@@ -3,13 +3,13 @@ package user
 
 import (
 	"context"
+	"github.com/golauth/golauth/domain/entity"
 	"github.com/golauth/golauth/domain/repository"
-	"github.com/golauth/golauth/infra/api/controller/model"
 	"github.com/google/uuid"
 )
 
 type FindUserById interface {
-	Execute(ctx context.Context, id uuid.UUID) (*model.UserResponse, error)
+	Execute(ctx context.Context, id uuid.UUID) (*entity.User, error)
 }
 
 func NewFindUserById(repo repository.UserRepository) FindUserById {
@@ -20,19 +20,10 @@ type findUserById struct {
 	repo repository.UserRepository
 }
 
-func (uc findUserById) Execute(ctx context.Context, id uuid.UUID) (*model.UserResponse, error) {
+func (uc findUserById) Execute(ctx context.Context, id uuid.UUID) (*entity.User, error) {
 	user, err := uc.repo.FindByID(ctx, id)
 	if err != nil {
 		return nil, err
 	}
-	return &model.UserResponse{
-		ID:           user.ID,
-		Username:     user.Username,
-		FirstName:    user.FirstName,
-		LastName:     user.LastName,
-		Email:        user.Email,
-		Document:     user.Document,
-		Enabled:      user.Enabled,
-		CreationDate: user.CreationDate,
-	}, nil
+	return user, nil
 }

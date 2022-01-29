@@ -6,7 +6,6 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/golauth/golauth/domain/entity"
 	"github.com/golauth/golauth/domain/repository/mock"
-	"github.com/golauth/golauth/infra/api/controller/model"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -23,9 +22,6 @@ type FindUserByIdSuite struct {
 
 	ctx     context.Context
 	finding FindUserById
-
-	mockUser      model.UserRequest
-	mockSavedUser entity.User
 }
 
 func TestFindUserById(t *testing.T) {
@@ -40,27 +36,6 @@ func (s *FindUserByIdSuite) SetupTest() {
 
 	s.ctx = context.Background()
 	s.finding = NewFindUserById(s.userRepository)
-
-	s.mockUser = model.UserRequest{
-		Username:  "admin",
-		FirstName: "User",
-		LastName:  "Name",
-		Email:     "em@il.com",
-		Document:  "1234",
-		Password:  "4567",
-		Enabled:   true,
-	}
-	s.mockSavedUser = entity.User{
-		ID:           uuid.New(),
-		Username:     "admin",
-		FirstName:    "User",
-		LastName:     "Name",
-		Email:        "em@il.com",
-		Document:     "1234",
-		Password:     "4567",
-		Enabled:      true,
-		CreationDate: time.Now(),
-	}
 }
 
 func (s *FindUserByIdSuite) TearDownTest() {
@@ -69,7 +44,7 @@ func (s *FindUserByIdSuite) TearDownTest() {
 
 func (s FindUserByIdSuite) TestFindByIdOK() {
 	id := uuid.New()
-	user := entity.User{
+	user := &entity.User{
 		ID:           id,
 		Username:     "admin",
 		FirstName:    "User",
@@ -82,24 +57,14 @@ func (s FindUserByIdSuite) TestFindByIdOK() {
 	}
 	s.userRepository.EXPECT().FindByID(s.ctx, id).Return(user, nil).Times(1)
 
-	ret := &model.UserResponse{
-		ID:           user.ID,
-		Username:     user.Username,
-		FirstName:    user.FirstName,
-		LastName:     user.LastName,
-		Email:        user.Email,
-		Document:     user.Document,
-		Enabled:      user.Enabled,
-		CreationDate: user.CreationDate,
-	}
-	resp, err := s.finding.Execute(s.ctx, id)
+	output, err := s.finding.Execute(s.ctx, id)
 	s.NoError(err)
-	s.Equal(ret, resp)
+	s.Equal(user, output)
 }
 
 func (s FindUserByIdSuite) TestFindByIDErr() {
 	id := uuid.New()
-	s.userRepository.EXPECT().FindByID(s.ctx, id).Return(entity.User{}, fmt.Errorf("could not find user")).Times(1)
+	s.userRepository.EXPECT().FindByID(s.ctx, id).Return(nil, fmt.Errorf("could not find user")).Times(1)
 
 	resp, err := s.finding.Execute(s.ctx, id)
 	s.Zero(resp)
