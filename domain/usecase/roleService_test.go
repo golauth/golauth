@@ -2,7 +2,6 @@ package usecase
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"github.com/golang/mock/gomock"
 	"github.com/golauth/golauth/domain/entity"
@@ -41,32 +40,6 @@ func (s *RoleServiceSuite) SetupTest() {
 
 func (s *RoleServiceSuite) TearDownTest() {
 	s.mockCtrl.Finish()
-}
-
-func (s RoleServiceSuite) TestChangeStatusOk() {
-	roleId := uuid.New()
-	s.repo.EXPECT().ExistsById(s.ctx, roleId).Return(true, nil).Times(1)
-	s.repo.EXPECT().ChangeStatus(s.ctx, roleId, false).Return(nil).Times(1)
-	err := s.svc.ChangeStatus(s.ctx, roleId, false)
-	s.NoError(err)
-}
-
-func (s RoleServiceSuite) TestChangeStatusIdNotExists() {
-	roleId := uuid.New()
-	errMessage := fmt.Sprintf("role with id %s does not exists", roleId)
-	s.repo.EXPECT().ExistsById(s.ctx, roleId).Return(false, nil).Times(1)
-	err := s.svc.ChangeStatus(s.ctx, roleId, false)
-	s.Error(err)
-	s.EqualError(err, errMessage)
-}
-
-func (s RoleServiceSuite) TestChangeStatusExistsErr() {
-	errMessage := "could not check if id exists"
-	roleId := uuid.New()
-	s.repo.EXPECT().ExistsById(s.ctx, roleId).Return(false, errors.New(errMessage)).Times(1)
-	err := s.svc.ChangeStatus(s.ctx, roleId, false)
-	s.Error(err)
-	s.EqualError(err, errMessage)
 }
 
 func (s RoleServiceSuite) TestFindByNameOk() {

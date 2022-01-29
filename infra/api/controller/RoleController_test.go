@@ -149,7 +149,8 @@ func (s RoleControllerSuite) TestChangeStatusOk() {
 		"id": roleId.String(),
 	}
 	r = mux.SetURLVars(r, vars)
-	s.roleSvc.EXPECT().ChangeStatus(r.Context(), roleId, changeStatus.Enabled).Return(nil).Times(1)
+	s.roleRepo.EXPECT().ExistsById(r.Context(), roleId).Return(true, nil).Times(1)
+	s.roleRepo.EXPECT().ChangeStatus(r.Context(), roleId, changeStatus.Enabled).Return(nil).Times(1)
 
 	s.rc.ChangeStatus(w, r)
 	s.Equal(http.StatusOK, w.Code)
@@ -181,7 +182,8 @@ func (s RoleControllerSuite) TestChangeStatusErrSvc() {
 		"id": roleId.String(),
 	}
 	r = mux.SetURLVars(r, vars)
-	s.roleSvc.EXPECT().ChangeStatus(r.Context(), roleId, changeStatus.Enabled).Return(fmt.Errorf(errMessage)).Times(1)
+	s.roleRepo.EXPECT().ExistsById(r.Context(), roleId).Return(true, nil).Times(1)
+	s.roleRepo.EXPECT().ChangeStatus(r.Context(), roleId, changeStatus.Enabled).Return(fmt.Errorf(errMessage)).Times(1)
 
 	s.rc.ChangeStatus(w, r)
 	s.Equal(http.StatusInternalServerError, w.Code)
