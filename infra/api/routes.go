@@ -1,12 +1,11 @@
 package api
 
 import (
-	"database/sql"
+	"github.com/golauth/golauth/domain/factory"
 	"github.com/golauth/golauth/domain/usecase"
 	"github.com/golauth/golauth/domain/usecase/token"
 	"github.com/golauth/golauth/infra/api/controller"
 	"github.com/golauth/golauth/infra/api/middleware"
-	"github.com/golauth/golauth/infra/repository/postgres"
 	"net/http"
 
 	"github.com/gorilla/mux"
@@ -27,11 +26,11 @@ type router struct {
 	tokenService         token.UseCase
 }
 
-func NewRouter(db *sql.DB) Router {
-	uRepo := postgres.NewUserRepository(db)
-	rRepo := postgres.NewRoleRepository(db)
-	urRepo := postgres.NewUserRoleRepository(db)
-	uaRepo := postgres.NewUserAuthorityRepository(db)
+func NewRouter(repoFactory factory.RepositoryFactory) Router {
+	uRepo := repoFactory.NewUserRepository()
+	rRepo := repoFactory.NewRoleRepository()
+	urRepo := repoFactory.NewUserRoleRepository()
+	uaRepo := repoFactory.NewUserAuthorityRepository()
 	tokenService := token.NewService()
 	userService := usecase.NewUserService(uRepo, rRepo, urRepo, uaRepo, tokenService)
 
@@ -42,7 +41,7 @@ func NewRouter(db *sql.DB) Router {
 		tokenController:      controller.NewTokenController(uRepo, uaRepo, tokenService, userService),
 		checkTokenController: controller.NewCheckTokenController(tokenService),
 		userController:       controller.NewUserController(userService),
-		roleController:       controller.NewRoleController(roleSvc),
+		roleController:       controller.NewRoleController(roleSvc, repoFactory),
 		tokenService:         tokenService,
 	}
 }

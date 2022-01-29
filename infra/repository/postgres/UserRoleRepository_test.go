@@ -1,14 +1,12 @@
 package postgres
 
 import (
-	"database/sql"
-	"github.com/DATA-DOG/go-sqlmock"
+	"context"
 	"github.com/golang/mock/gomock"
 	"github.com/golauth/golauth/domain/entity"
 	"github.com/golauth/golauth/domain/repository"
-	"github.com/golauth/golauth/infra/datasource"
+	"github.com/golauth/golauth/infra/database"
 	"github.com/golauth/golauth/ops"
-	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -19,7 +17,7 @@ type UserRoleRepositorySuite struct {
 	suite.Suite
 	*require.Assertions
 	mockCtrl *gomock.Controller
-	db       *sql.DB
+	db       database.Database
 
 	repo repository.UserRoleRepository
 }
@@ -35,15 +33,13 @@ func TestUserRoleRepository(t *testing.T) {
 func (s *UserRoleRepositorySuite) SetupTest() {
 	s.Assertions = require.New(s.T())
 	s.mockCtrl = gomock.NewController(s.T())
-	ds, err := datasource.NewDatasource()
-	s.NotNil(ds)
-	s.NoError(err)
-	s.db = ds.GetDB()
+	s.db = database.NewPGDatabase()
 
 	s.repo = NewUserRoleRepository(s.db)
 }
 
 func (s *UserRoleRepositorySuite) TearDownTest() {
+	s.db.Close()
 	s.mockCtrl.Finish()
 }
 
@@ -66,59 +62,14 @@ func (s *UserRoleRepositorySuite) TestAddUserRole() {
 		Password:  "e10adc3949ba59abbe56e057f20f883e",
 		Enabled:   true,
 	}
-	user, err := NewUserRepository(s.db).Create(u)
+	user, err := NewUserRepository(s.db).Create(context.Background(), u)
 	s.NoError(err)
 	s.NotNil(user)
 
-	role, err := NewRoleRepository(s.db).FindByName("USER")
+	role, err := NewRoleRepository(s.db).FindByName(context.Background(), "USER")
 	s.NoError(err)
 	s.NotNil(role)
 
-	err = s.repo.AddUserRole(user.ID, role.ID)
+	err = s.repo.AddUserRole(context.Background(), user.ID, role.ID)
 	s.NoError(err)
-}
-
-// =====================================================================================
-
-type UserRoleRepositoryDBMockSuite struct {
-	suite.Suite
-	*require.Assertions
-	mockCtrl     *gomock.Controller
-	db           *sql.DB
-	mockDB       sqlmock.Sqlmock
-	repo         repository.UserRoleRepository
-	roleMock     entity.Role
-	userAdmin2Id uuid.UUID
-	roleAdminId  uuid.UUID
-}
-
-func TestUserRoleRepositoryWithMock(t *testing.T) {
-	suite.Run(t, new(UserRoleRepositoryDBMockSuite))
-}
-
-func (s *UserRoleRepositoryDBMockSuite) SetupTest() {
-	s.Assertions = require.New(s.T())
-	s.mockCtrl = gomock.NewController(s.T())
-
-	var err error
-	s.db, s.mockDB, err = sqlmock.New()
-	s.NoError(err)
-
-	s.repo = NewUserRoleRepository(s.db)
-	s.userAdmin2Id, _ = uuid.Parse("e227d878-b5d6-4902-a500-3357955c962d")
-	s.roleAdminId, _ = uuid.Parse("7f68301e-df80-45bd-9532-23a58733ef2c")
-}
-
-func (s *UserRoleRepositoryDBMockSuite) TearDownTest() {
-	_ = s.db.Close()
-	s.mockCtrl.Finish()
-}
-
-func (s UserRoleRepositoryDBMockSuite) TestRoleRepositoryWithMockAddUserRoleScanError() {
-	s.mockDB.ExpectQuery("INSERT INTO golauth_user_role").
-		WithArgs(sqlmock.AnyArg()).
-		WillReturnError(ops.ErrMockScan)
-	err := s.repo.AddUserRole(s.userAdmin2Id, s.roleAdminId)
-	s.NotNil(err)
-	s.ErrorAs(err, &ops.ErrMockScan)
 }

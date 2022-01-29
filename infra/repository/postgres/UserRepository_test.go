@@ -1,12 +1,11 @@
 package postgres
 
 import (
-	"database/sql"
-	"github.com/DATA-DOG/go-sqlmock"
+	"context"
 	"github.com/golang/mock/gomock"
 	"github.com/golauth/golauth/domain/entity"
 	"github.com/golauth/golauth/domain/repository"
-	"github.com/golauth/golauth/infra/datasource"
+	"github.com/golauth/golauth/infra/database"
 	"github.com/golauth/golauth/ops"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -20,7 +19,7 @@ type UserRepositorySuite struct {
 	suite.Suite
 	*require.Assertions
 	mockCtrl *gomock.Controller
-	db       *sql.DB
+	db       database.Database
 
 	repo repository.UserRepository
 }
@@ -36,15 +35,13 @@ func TestUserRepository(t *testing.T) {
 func (s *UserRepositorySuite) SetupTest() {
 	s.Assertions = require.New(s.T())
 	s.mockCtrl = gomock.NewController(s.T())
-	ds, err := datasource.NewDatasource()
-	s.NotNil(ds)
-	s.NoError(err)
-	s.db = ds.GetDB()
+	s.db = database.NewPGDatabase()
 
 	s.repo = NewUserRepository(s.db)
 }
 
 func (s *UserRepositorySuite) TearDownTest() {
+	s.db.Close()
 	s.mockCtrl.Finish()
 }
 
@@ -60,7 +57,7 @@ func (s UserRepositorySuite) prepareDatabase(clean bool, scripts ...string) {
 func (s *UserRepositorySuite) TestFindUserWithoutPassword() {
 	s.prepareDatabase(true, "add-users.sql")
 	id, _ := uuid.Parse("8c61f220-8bb8-48b9-b225-d54dfa6503db")
-	u, err := s.repo.FindByID(id)
+	u, err := s.repo.FindByID(context.Background(), id)
 	s.NoError(err)
 	s.NotNil(u)
 	s.Equal("admin", u.Username)
@@ -69,7 +66,7 @@ func (s *UserRepositorySuite) TestFindUserWithoutPassword() {
 
 func (s *UserRepositorySuite) TestFindUserWithPassword() {
 	s.prepareDatabase(true, "add-users.sql")
-	u, err := s.repo.FindByUsername("admin")
+	u, err := s.repo.FindByUsername(context.Background(), "admin")
 	s.NoError(err)
 	s.NotNil(u)
 	s.Equal("admin", u.Username)
@@ -79,7 +76,7 @@ func (s *UserRepositorySuite) TestFindUserWithPassword() {
 func (s *UserRepositorySuite) TestFindUserByIdWithoutPassword() {
 	s.prepareDatabase(true, "add-users.sql")
 	userId, _ := uuid.Parse("8c61f220-8bb8-48b9-b225-d54dfa6503db")
-	u, err := s.repo.FindByID(userId)
+	u, err := s.repo.FindByID(context.Background(), userId)
 	s.NoError(err)
 	s.NotNil(u)
 	s.Equal("admin", u.Username)
@@ -99,67 +96,7 @@ func (s *UserRepositorySuite) TestCreateNewUserOk() {
 		CreationDate: time.Now(),
 	}
 
-	user, err := s.repo.Create(u)
+	user, err := s.repo.Create(context.Background(), u)
 	s.NoError(err)
 	s.NotEmpty(user.ID)
-}
-
-// =====================================================================================
-type UserRepositoryDBMockSuite struct {
-	suite.Suite
-	*require.Assertions
-	mockCtrl *gomock.Controller
-	db       *sql.DB
-	mockDB   sqlmock.Sqlmock
-	repo     repository.UserRepository
-}
-
-func TestUserRepositoryWithMock(t *testing.T) {
-	suite.Run(t, new(UserRepositoryDBMockSuite))
-}
-
-func (s *UserRepositoryDBMockSuite) SetupTest() {
-	s.Assertions = require.New(s.T())
-	s.mockCtrl = gomock.NewController(s.T())
-
-	var err error
-	s.db, s.mockDB, err = sqlmock.New()
-	s.NoError(err)
-
-	s.repo = NewUserRepository(s.db)
-}
-
-func (s *UserRepositoryDBMockSuite) TearDownTest() {
-	_ = s.db.Close()
-	s.mockCtrl.Finish()
-}
-
-func (s *UserRepositoryDBMockSuite) TestFindByUsernameScanError() {
-	s.mockDB.ExpectQuery("SELECT").
-		WithArgs("username").
-		WillReturnError(ops.ErrMockScan)
-	result, err := s.repo.FindByUsername("username")
-	s.Empty(result)
-	s.NotNil(err)
-	s.ErrorAs(err, &ops.ErrMockScan)
-}
-
-func (s *UserRepositoryDBMockSuite) TestFindByIDScanError() {
-	s.mockDB.ExpectQuery("SELECT").
-		WithArgs(1).
-		WillReturnError(ops.ErrMockScan)
-	result, err := s.repo.FindByID(uuid.New())
-	s.Empty(result)
-	s.NotNil(err)
-	s.ErrorAs(err, &ops.ErrMockScan)
-}
-
-func (s *UserRepositoryDBMockSuite) TestCreateScanError() {
-	s.mockDB.ExpectQuery("INSERT").
-		WithArgs(sqlmock.AnyArg()).
-		WillReturnError(ops.ErrMockScan)
-	result, err := s.repo.Create(entity.User{Username: "username"})
-	s.Empty(result)
-	s.NotNil(err)
-	s.ErrorAs(err, &ops.ErrMockScan)
 }

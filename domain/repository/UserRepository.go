@@ -2,12 +2,13 @@
 package repository
 
 import (
+	"context"
 	"github.com/golauth/golauth/domain/entity"
 	"github.com/google/uuid"
 )
 
 type UserRepository interface {
-	FindByUsername(username string) (entity.User, error)
-	FindByID(id uuid.UUID) (entity.User, error)
-	Create(user entity.User) (entity.User, error)
+	FindByUsername(ctx context.Context, username string) (entity.User, error)
+	FindByID(ctx context.Context, id uuid.UUID) (entity.User, error)
+	Create(ctx context.Context, user entity.User) (entity.User, error)
 }

@@ -2,6 +2,7 @@ package controller
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/golang/mock/gomock"
@@ -21,6 +22,7 @@ type SignupControllerSuite struct {
 	suite.Suite
 	*require.Assertions
 	mockCtrl *gomock.Controller
+	ctx      context.Context
 	svc      *mock.MockUserService
 
 	ctrl SignupController
@@ -33,6 +35,7 @@ func TestSignupController(t *testing.T) {
 func (s *SignupControllerSuite) SetupTest() {
 	s.Assertions = require.New(s.T())
 	s.mockCtrl = gomock.NewController(s.T())
+	s.ctx = context.Background()
 	s.svc = mock.NewMockUserService(s.mockCtrl)
 
 	s.ctrl = NewSignupController(s.svc)
@@ -62,7 +65,7 @@ func (s SignupControllerSuite) TestCreateUserOK() {
 		Enabled:      true,
 		CreationDate: time.Now().Add(-5 * time.Second),
 	}
-	s.svc.EXPECT().CreateUser(user).Return(savedUser, nil).Times(1)
+	s.svc.EXPECT().CreateUser(s.ctx, user).Return(savedUser, nil).Times(1)
 
 	body, _ := json.Marshal(user)
 	w := httptest.NewRecorder()
@@ -89,7 +92,7 @@ func (s SignupControllerSuite) TestCreateUserErrSvc() {
 		Enabled:   true,
 	}
 	errMessage := "could not create new user"
-	s.svc.EXPECT().CreateUser(user).Return(model.UserResponse{}, fmt.Errorf(errMessage)).Times(1)
+	s.svc.EXPECT().CreateUser(s.ctx, user).Return(model.UserResponse{}, fmt.Errorf(errMessage)).Times(1)
 
 	body, _ := json.Marshal(user)
 	w := httptest.NewRecorder()

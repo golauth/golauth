@@ -22,7 +22,7 @@ func NewSignupController(s usecase.UserService) SignupController {
 func (s signupController) CreateUser(w http.ResponseWriter, r *http.Request) {
 	var decodedUser model.UserRequest
 	_ = json.NewDecoder(r.Body).Decode(&decodedUser)
-	data, err := s.svc.CreateUser(decodedUser)
+	data, err := s.svc.CreateUser(r.Context(), decodedUser)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

@@ -55,7 +55,7 @@ func (s tokenController) Token(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	data, err := s.userService.GenerateToken(username, password)
+	data, err := s.userService.GenerateToken(r.Context(), username, password)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return

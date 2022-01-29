@@ -55,7 +55,6 @@ func (s *UserControllerSuite) TestFindByIDOk() {
 		Enabled:      true,
 		CreationDate: time.Now().AddDate(0, 0, -4),
 	}
-	s.userSvc.EXPECT().FindByID(user.ID).Return(user, nil).Times(1)
 
 	w := httptest.NewRecorder()
 	r, _ := http.NewRequest("GET", fmt.Sprintf("users/%s", user.ID), nil)
@@ -64,6 +63,7 @@ func (s *UserControllerSuite) TestFindByIDOk() {
 		"id": user.ID.String(),
 	}
 	r = mux.SetURLVars(r, vars)
+	s.userSvc.EXPECT().FindByID(r.Context(), user.ID).Return(user, nil).Times(1)
 
 	bf := bytes.NewBuffer([]byte{})
 	jsonEncoder := json.NewEncoder(bf)
@@ -77,7 +77,6 @@ func (s *UserControllerSuite) TestFindByIDOk() {
 func (s *UserControllerSuite) TestAddRoleOk() {
 	userId := uuid.New()
 	userRole := entity.UserRole{RoleID: uuid.New(), UserID: userId, CreationDate: time.Now()}
-	s.userSvc.EXPECT().AddUserRole(userRole.UserID, userRole.RoleID).Return(nil).Times(1)
 
 	body, _ := json.Marshal(userRole)
 	w := httptest.NewRecorder()
@@ -86,6 +85,7 @@ func (s *UserControllerSuite) TestAddRoleOk() {
 		"id": userId.String(),
 	}
 	r = mux.SetURLVars(r, vars)
+	s.userSvc.EXPECT().AddUserRole(r.Context(), userRole.UserID, userRole.RoleID).Return(nil).Times(1)
 
 	s.uc.AddRole(w, r)
 	s.Equal(http.StatusCreated, w.Code)
@@ -107,7 +107,6 @@ func (s *UserControllerSuite) TestFindByIDErrParseUUID() {
 func (s *UserControllerSuite) TestFindByIDErrSvc() {
 	id := uuid.New()
 	errMessage := "could not find user by id"
-	s.userSvc.EXPECT().FindByID(id).Return(model.UserResponse{}, fmt.Errorf(errMessage)).Times(1)
 
 	w := httptest.NewRecorder()
 	r, _ := http.NewRequest("GET", fmt.Sprintf("users/%s", id), nil)
@@ -116,6 +115,7 @@ func (s *UserControllerSuite) TestFindByIDErrSvc() {
 		"id": id.String(),
 	}
 	r = mux.SetURLVars(r, vars)
+	s.userSvc.EXPECT().FindByID(r.Context(), id).Return(model.UserResponse{}, fmt.Errorf(errMessage)).Times(1)
 
 	s.uc.FindById(w, r)
 	s.Equal(http.StatusInternalServerError, w.Code)
@@ -129,7 +129,6 @@ func (s *UserControllerSuite) TestAddRoleErrSvc() {
 	userRole := entity.UserRole{RoleID: roleId, UserID: userId, CreationDate: time.Now()}
 	body, err := json.Marshal(userRole)
 	s.NoError(err)
-	s.userSvc.EXPECT().AddUserRole(userId, roleId).Return(fmt.Errorf(errMessage)).Times(1)
 
 	w := httptest.NewRecorder()
 	r, _ := http.NewRequest("GET", fmt.Sprintf("users/%s/add-role", userId), strings.NewReader(string(body)))
@@ -138,6 +137,7 @@ func (s *UserControllerSuite) TestAddRoleErrSvc() {
 		"id": userId.String(),
 	}
 	r = mux.SetURLVars(r, vars)
+	s.userSvc.EXPECT().AddUserRole(r.Context(), userId, roleId).Return(fmt.Errorf(errMessage)).Times(1)
 
 	s.uc.AddRole(w, r)
 	s.Equal(http.StatusInternalServerError, w.Code)

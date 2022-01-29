@@ -24,7 +24,7 @@ func (u UserController) FindById(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	data, err := u.svc.FindByID(id)
+	data, err := u.svc.FindByID(r.Context(), id)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -35,7 +35,7 @@ func (u UserController) FindById(w http.ResponseWriter, r *http.Request) {
 func (u UserController) AddRole(w http.ResponseWriter, r *http.Request) {
 	var userRole model.UserRoleRequest
 	_ = json.NewDecoder(r.Body).Decode(&userRole)
-	err := u.svc.AddUserRole(userRole.UserID, userRole.RoleID)
+	err := u.svc.AddUserRole(r.Context(), userRole.UserID, userRole.RoleID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

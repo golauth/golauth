@@ -1,6 +1,7 @@
 package usecase
 
 import (
+	"context"
 	"fmt"
 	"github.com/golang/mock/gomock"
 	"github.com/golauth/golauth/domain/entity"
@@ -26,6 +27,7 @@ type UserServiceSuite struct {
 	userAuthorityRepository *mock.MockUserAuthorityRepository
 	tokenService            *tkSvc.MockUseCase
 
+	ctx context.Context
 	svc UserService
 
 	mockUser      model.UserRequest
@@ -46,6 +48,7 @@ func (s *UserServiceSuite) SetupTest() {
 	s.userAuthorityRepository = mock.NewMockUserAuthorityRepository(s.mockCtrl)
 	s.tokenService = tkSvc.NewMockUseCase(s.mockCtrl)
 
+	s.ctx = context.Background()
 	s.svc = NewUserService(s.userRepository, s.roleRepository, s.userRoleRepository, s.userAuthorityRepository, s.tokenService)
 
 	s.mockUser = model.UserRequest{
@@ -79,28 +82,28 @@ func (s UserServiceSuite) TestCreateUserOk() {
 	roleId := uuid.New()
 	userId := s.mockSavedUser.ID
 	role := entity.Role{ID: roleId, Name: "USER", Description: "User", Enabled: true, CreationDate: time.Now()}
-	s.userRepository.EXPECT().Create(gomock.Any()).Return(s.mockSavedUser, nil).Times(1)
-	s.roleRepository.EXPECT().FindByName(defaultRoleName).Return(role, nil).Times(1)
-	s.userRoleRepository.EXPECT().AddUserRole(userId, roleId).Return(nil).Times(1)
+	s.userRepository.EXPECT().Create(gomock.Any(), gomock.Any()).Return(s.mockSavedUser, nil).Times(1)
+	s.roleRepository.EXPECT().FindByName(s.ctx, defaultRoleName).Return(&role, nil).Times(1)
+	s.userRoleRepository.EXPECT().AddUserRole(s.ctx, userId, roleId).Return(nil).Times(1)
 
-	createUser, err := s.svc.CreateUser(s.mockUser)
+	createUser, err := s.svc.CreateUser(s.ctx, s.mockUser)
 	s.NoError(err)
 	s.Equal(s.mockSavedUser.ID, createUser.ID)
 	s.Equal(s.mockSavedUser.Username, createUser.Username)
 }
 
 func (s UserServiceSuite) TestCreateUserErrWhenSave() {
-	s.userRepository.EXPECT().Create(gomock.Any()).Return(entity.User{}, fmt.Errorf("could not create user admin")).Times(1)
+	s.userRepository.EXPECT().Create(gomock.Any(), gomock.Any()).Return(entity.User{}, fmt.Errorf("could not create user admin")).Times(1)
 
-	_, err := s.svc.CreateUser(model.UserRequest{})
+	_, err := s.svc.CreateUser(s.ctx, model.UserRequest{})
 	s.EqualError(err, "could not save user: could not create user admin")
 }
 
 func (s UserServiceSuite) TestCreateUserErrFindRole() {
-	s.userRepository.EXPECT().Create(gomock.Any()).Return(s.mockSavedUser, nil).Times(1)
-	s.roleRepository.EXPECT().FindByName(defaultRoleName).Return(entity.Role{}, fmt.Errorf("could not find role USER")).Times(1)
+	s.userRepository.EXPECT().Create(gomock.Any(), gomock.Any()).Return(s.mockSavedUser, nil).Times(1)
+	s.roleRepository.EXPECT().FindByName(s.ctx, defaultRoleName).Return(nil, fmt.Errorf("could not find role USER")).Times(1)
 
-	_, err := s.svc.CreateUser(s.mockUser)
+	_, err := s.svc.CreateUser(s.ctx, s.mockUser)
 	s.EqualError(err, "could not fetch default role: could not find role USER")
 }
 
@@ -108,20 +111,20 @@ func (s UserServiceSuite) TestCreateUserErrAddUserRole() {
 	roleId := uuid.New()
 	userId := s.mockSavedUser.ID
 	role := entity.Role{ID: roleId, Name: "USER", Description: "User", Enabled: true, CreationDate: time.Now()}
-	s.userRepository.EXPECT().Create(gomock.Any()).Return(s.mockSavedUser, nil).Times(1)
-	s.roleRepository.EXPECT().FindByName(defaultRoleName).Return(role, nil).Times(1)
+	s.userRepository.EXPECT().Create(gomock.Any(), gomock.Any()).Return(s.mockSavedUser, nil).Times(1)
+	s.roleRepository.EXPECT().FindByName(s.ctx, defaultRoleName).Return(&role, nil).Times(1)
 	s.userRoleRepository.
 		EXPECT().
-		AddUserRole(userId, roleId).Return(fmt.Errorf("could not add userrole [user:%s:role:%s]", userId, roleId)).
+		AddUserRole(s.ctx, userId, roleId).Return(fmt.Errorf("could not add userrole [user:%s:role:%s]", userId, roleId)).
 		Times(1)
 
-	_, err := s.svc.CreateUser(s.mockUser)
+	_, err := s.svc.CreateUser(s.ctx, s.mockUser)
 	s.EqualError(err, fmt.Sprintf("could not add default role to user: could not add userrole [user:%s:role:%s]", userId, roleId))
 }
 
 func (s UserServiceSuite) TestCreateUserErrGenerateHashPassword() {
 	bcryptDefaultCost = 50
-	_, err := s.svc.CreateUser(model.UserRequest{Password: "1234"})
+	_, err := s.svc.CreateUser(s.ctx, model.UserRequest{Password: "1234"})
 	s.EqualError(err, "could not generate password: crypto/bcrypt: cost 50 is outside allowed range (4,31)")
 }
 
@@ -142,11 +145,11 @@ func (s UserServiceSuite) TestGenerateTokenOk() {
 	}
 	authorities := []string{"PANEL_EDIT", "PANEL_READ"}
 	token := "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6ImFkbWluIiwiZmlyc3ROYW1lIjoiQWRtaW4iLCJsYXN0TmFtZSI6IkFkbWluIiwiYXV0aG9yaXRpZXMiOlsiQURNSU4iLCJVU0VSIl0sImV4cCI6MTYyNTExMDI4MH0.aXZnvA7IGvVbXcv3xYWv2ApCzb4mSfCElDS2-8I0Eoey2yZjTXun7ToKZEp3ANUSNsAp0Cc2T-NwsvXw-28ZzJG6OW1BmZ8in6DGk5c82zWEuokt_oqF496jZC4doeomop39dO-ETgpD1j63M6jzwz0joecbvCg_rixYdtN52Ix6ekIFMae6mvElD68wLTIlJLp6ld58on_jyHV3o5K13SUhP8SHkFJzUfgVaJxLGFRAa8qeOPJakTDsIqigbOUQVw3RdNGVpCGwCj86G9NWhcz0SdMsOMLsnLAhqUSOf6sqyagt3-mvquD_ehv4KDdx8g1wLzsz62bwJUzl85PdJQ"
-	s.userRepository.EXPECT().FindByUsername(username).Return(user, nil).Times(1)
-	s.userAuthorityRepository.EXPECT().FindAuthoritiesByUserID(user.ID).Return(authorities, nil).Times(1)
+	s.userRepository.EXPECT().FindByUsername(s.ctx, username).Return(user, nil).Times(1)
+	s.userAuthorityRepository.EXPECT().FindAuthoritiesByUserID(s.ctx, user.ID).Return(authorities, nil).Times(1)
 	s.tokenService.EXPECT().GenerateJwtToken(user, authorities).Return(token, nil).Times(1)
 
-	tokenResponse, err := s.svc.GenerateToken(username, password)
+	tokenResponse, err := s.svc.GenerateToken(s.ctx, username, password)
 	s.NoError(err)
 	s.NotEmpty(tokenResponse)
 	s.Zero(tokenResponse.RefreshToken)
@@ -157,9 +160,9 @@ func (s UserServiceSuite) TestGenerateTokenUserNotFound() {
 	username := "admin"
 	password := "123456"
 
-	s.userRepository.EXPECT().FindByUsername(username).Return(entity.User{}, fmt.Errorf("could not find user by username admin")).Times(1)
+	s.userRepository.EXPECT().FindByUsername(s.ctx, username).Return(entity.User{}, fmt.Errorf("could not find user by username admin")).Times(1)
 
-	tokenResponse, err := s.svc.GenerateToken(username, password)
+	tokenResponse, err := s.svc.GenerateToken(s.ctx, username, password)
 	s.ErrorIs(err, ErrInvalidUsernameOrPassword)
 	s.Empty(tokenResponse)
 }
@@ -179,9 +182,9 @@ func (s UserServiceSuite) TestGenerateTokenInvalidPassword() {
 		Enabled:      true,
 		CreationDate: time.Now().AddDate(-1, 0, 0),
 	}
-	s.userRepository.EXPECT().FindByUsername(username).Return(user, nil).Times(1)
+	s.userRepository.EXPECT().FindByUsername(s.ctx, username).Return(user, nil).Times(1)
 
-	tokenResponse, err := s.svc.GenerateToken(username, password)
+	tokenResponse, err := s.svc.GenerateToken(s.ctx, username, password)
 	s.ErrorIs(err, ErrInvalidUsernameOrPassword)
 	s.Empty(tokenResponse)
 }
@@ -201,10 +204,10 @@ func (s UserServiceSuite) TestGenerateTokenErrFetchAuthorities() {
 		Enabled:      true,
 		CreationDate: time.Now().AddDate(-1, 0, 0),
 	}
-	s.userRepository.EXPECT().FindByUsername(username).Return(user, nil).Times(1)
-	s.userAuthorityRepository.EXPECT().FindAuthoritiesByUserID(user.ID).Return([]string{}, fmt.Errorf("could not find authorities by user admin")).Times(1)
+	s.userRepository.EXPECT().FindByUsername(s.ctx, username).Return(user, nil).Times(1)
+	s.userAuthorityRepository.EXPECT().FindAuthoritiesByUserID(s.ctx, user.ID).Return([]string{}, fmt.Errorf("could not find authorities by user admin")).Times(1)
 
-	tokenResponse, err := s.svc.GenerateToken(username, password)
+	tokenResponse, err := s.svc.GenerateToken(s.ctx, username, password)
 	s.Error(err)
 	s.Equal(err.Error(), "error when fetch authorities: could not find authorities by user admin")
 	s.Empty(tokenResponse)
@@ -226,11 +229,11 @@ func (s UserServiceSuite) TestGenerateTokenErrGeneratingToken() {
 		CreationDate: time.Now().AddDate(-1, 0, 0),
 	}
 	authorities := []string{"PANEL_EDIT", "PANEL_READ"}
-	s.userRepository.EXPECT().FindByUsername(username).Return(user, nil).Times(1)
-	s.userAuthorityRepository.EXPECT().FindAuthoritiesByUserID(user.ID).Return(authorities, nil).Times(1)
+	s.userRepository.EXPECT().FindByUsername(s.ctx, username).Return(user, nil).Times(1)
+	s.userAuthorityRepository.EXPECT().FindAuthoritiesByUserID(s.ctx, user.ID).Return(authorities, nil).Times(1)
 	s.tokenService.EXPECT().GenerateJwtToken(user, authorities).Return("", fmt.Errorf("could not generate token")).Times(1)
 
-	tokenResponse, err := s.svc.GenerateToken(username, password)
+	tokenResponse, err := s.svc.GenerateToken(s.ctx, username, password)
 	s.ErrorIs(err, ErrGeneratingToken)
 	s.Empty(tokenResponse)
 }
@@ -248,7 +251,7 @@ func (s UserServiceSuite) TestFindByIDOK() {
 		Enabled:      true,
 		CreationDate: time.Now().AddDate(-1, 0, 0),
 	}
-	s.userRepository.EXPECT().FindByID(id).Return(user, nil).Times(1)
+	s.userRepository.EXPECT().FindByID(s.ctx, id).Return(user, nil).Times(1)
 
 	ret := model.UserResponse{
 		ID:           user.ID,
@@ -260,16 +263,16 @@ func (s UserServiceSuite) TestFindByIDOK() {
 		Enabled:      user.Enabled,
 		CreationDate: user.CreationDate,
 	}
-	resp, err := s.svc.FindByID(id)
+	resp, err := s.svc.FindByID(s.ctx, id)
 	s.NoError(err)
 	s.Equal(ret, resp)
 }
 
 func (s UserServiceSuite) TestFindByIDErr() {
 	id := uuid.New()
-	s.userRepository.EXPECT().FindByID(id).Return(entity.User{}, fmt.Errorf("could not find user")).Times(1)
+	s.userRepository.EXPECT().FindByID(s.ctx, id).Return(entity.User{}, fmt.Errorf("could not find user")).Times(1)
 
-	resp, err := s.svc.FindByID(id)
+	resp, err := s.svc.FindByID(s.ctx, id)
 	s.Zero(resp)
 	s.Error(err)
 	s.ErrorAs(fmt.Errorf("could not find user"), &err)
@@ -278,16 +281,16 @@ func (s UserServiceSuite) TestFindByIDErr() {
 func (s UserServiceSuite) TestAddUserRoleOK() {
 	userId := uuid.New()
 	roleId := uuid.New()
-	s.userRoleRepository.EXPECT().AddUserRole(userId, roleId).Return(nil).Times(1)
-	err := s.svc.AddUserRole(userId, roleId)
+	s.userRoleRepository.EXPECT().AddUserRole(s.ctx, userId, roleId).Return(nil).Times(1)
+	err := s.svc.AddUserRole(s.ctx, userId, roleId)
 	s.NoError(err)
 }
 
 func (s UserServiceSuite) TestAddUserRoleErr() {
 	userId := uuid.New()
 	roleId := uuid.New()
-	s.userRoleRepository.EXPECT().AddUserRole(userId, roleId).Return(fmt.Errorf("could not add role to user")).Times(1)
-	err := s.svc.AddUserRole(userId, roleId)
+	s.userRoleRepository.EXPECT().AddUserRole(s.ctx, userId, roleId).Return(fmt.Errorf("could not add role to user")).Times(1)
+	err := s.svc.AddUserRole(s.ctx, userId, roleId)
 	s.Error(err)
 	s.ErrorAs(fmt.Errorf("could not add role to user"), &err)
 }

@@ -2,6 +2,7 @@
 package usecase
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"github.com/golauth/golauth/domain/entity"
@@ -21,10 +22,10 @@ var (
 )
 
 type UserService interface {
-	CreateUser(userReq model.UserRequest) (model.UserResponse, error)
-	GenerateToken(username string, password string) (model.TokenResponse, error)
-	FindByID(id uuid.UUID) (model.UserResponse, error)
-	AddUserRole(id uuid.UUID, id2 uuid.UUID) error
+	CreateUser(ctx context.Context, userReq model.UserRequest) (model.UserResponse, error)
+	GenerateToken(ctx context.Context, username string, password string) (model.TokenResponse, error)
+	FindByID(ctx context.Context, id uuid.UUID) (model.UserResponse, error)
+	AddUserRole(ctx context.Context, id uuid.UUID, id2 uuid.UUID) error
 }
 
 type userService struct {
@@ -50,7 +51,7 @@ func NewUserService(
 	}
 }
 
-func (s userService) CreateUser(userReq model.UserRequest) (model.UserResponse, error) {
+func (s userService) CreateUser(ctx context.Context, userReq model.UserRequest) (model.UserResponse, error) {
 	user := entity.User{
 		Username:  userReq.Username,
 		FirstName: userReq.FirstName,
@@ -65,15 +66,15 @@ func (s userService) CreateUser(userReq model.UserRequest) (model.UserResponse, 
 		return model.UserResponse{}, fmt.Errorf("could not generate password: %w", err)
 	}
 	user.Password = string(hash)
-	savedUser, err := s.userRepository.Create(user)
+	savedUser, err := s.userRepository.Create(ctx, user)
 	if err != nil {
 		return model.UserResponse{}, fmt.Errorf("could not save user: %w", err)
 	}
-	role, err := s.roleRepository.FindByName(defaultRoleName)
+	role, err := s.roleRepository.FindByName(ctx, defaultRoleName)
 	if err != nil {
 		return model.UserResponse{}, fmt.Errorf("could not fetch default role: %w", err)
 	}
-	err = s.userRoleRepository.AddUserRole(savedUser.ID, role.ID)
+	err = s.userRoleRepository.AddUserRole(ctx, savedUser.ID, role.ID)
 	if err != nil {
 		return model.UserResponse{}, fmt.Errorf("could not add default role to user: %w", err)
 	}
@@ -90,8 +91,8 @@ func (s userService) CreateUser(userReq model.UserRequest) (model.UserResponse, 
 	}, nil
 }
 
-func (s userService) GenerateToken(username string, password string) (model.TokenResponse, error) {
-	user, err := s.userRepository.FindByUsername(username)
+func (s userService) GenerateToken(ctx context.Context, username string, password string) (model.TokenResponse, error) {
+	user, err := s.userRepository.FindByUsername(ctx, username)
 	if err != nil {
 		return model.TokenResponse{}, ErrInvalidUsernameOrPassword
 	}
@@ -101,7 +102,7 @@ func (s userService) GenerateToken(username string, password string) (model.Toke
 		return model.TokenResponse{}, ErrInvalidUsernameOrPassword
 	}
 
-	authorities, err := s.userAuthorityRepository.FindAuthoritiesByUserID(user.ID)
+	authorities, err := s.userAuthorityRepository.FindAuthoritiesByUserID(ctx, user.ID)
 	if err != nil {
 		return model.TokenResponse{}, fmt.Errorf("error when fetch authorities: %w", err)
 	}
@@ -114,8 +115,8 @@ func (s userService) GenerateToken(username string, password string) (model.Toke
 	return tokenResponse, nil
 }
 
-func (s userService) FindByID(id uuid.UUID) (model.UserResponse, error) {
-	user, err := s.userRepository.FindByID(id)
+func (s userService) FindByID(ctx context.Context, id uuid.UUID) (model.UserResponse, error) {
+	user, err := s.userRepository.FindByID(ctx, id)
 	if err != nil {
 		return model.UserResponse{}, err
 	}
@@ -131,6 +132,6 @@ func (s userService) FindByID(id uuid.UUID) (model.UserResponse, error) {
 	}, nil
 }
 
-func (s userService) AddUserRole(userID uuid.UUID, roleID uuid.UUID) error {
-	return s.userRoleRepository.AddUserRole(userID, roleID)
+func (s userService) AddUserRole(ctx context.Context, userID uuid.UUID, roleID uuid.UUID) error {
+	return s.userRoleRepository.AddUserRole(ctx, userID, roleID)
 }
