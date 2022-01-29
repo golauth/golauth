@@ -2,6 +2,7 @@ package controller
 
 import (
 	"encoding/json"
+	"github.com/golauth/golauth/domain/entity"
 	"github.com/golauth/golauth/domain/factory"
 	"github.com/golauth/golauth/domain/usecase/role"
 	"github.com/golauth/golauth/infra/api/controller/model"
@@ -27,15 +28,16 @@ func NewRoleController(repoFactory factory.RepositoryFactory) RoleController {
 }
 
 func (c RoleController) Create(w http.ResponseWriter, r *http.Request) {
-	var roleRequest model.RoleRequest
-	_ = json.NewDecoder(r.Body).Decode(&roleRequest)
-	data, err := c.addRole.Execute(r.Context(), roleRequest)
+	var data model.RoleRequest
+	_ = json.NewDecoder(r.Body).Decode(&data)
+	input := entity.NewRole(data.Name, data.Description)
+	response, err := c.addRole.Execute(r.Context(), input)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	w.WriteHeader(http.StatusCreated)
-	_ = json.NewEncoder(w).Encode(data)
+	_ = json.NewEncoder(w).Encode(response)
 }
 
 func (c RoleController) Edit(w http.ResponseWriter, r *http.Request) {

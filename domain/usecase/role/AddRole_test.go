@@ -7,7 +7,6 @@ import (
 	"github.com/golauth/golauth/domain/entity"
 	factoryMock "github.com/golauth/golauth/domain/factory/mock"
 	"github.com/golauth/golauth/domain/repository/mock"
-	"github.com/golauth/golauth/infra/api/controller/model"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -42,31 +41,32 @@ func (s *AddRoleSuite) TearDownTest() {
 }
 
 func (s AddRoleSuite) TestCreateOk() {
-	input := model.RoleRequest{
+	input := entity.Role{
 		Name:        "NEW_ROLE",
 		Description: "New Role",
+		Enabled:     true,
 	}
-	role := entity.Role{
+	savedEntity := entity.Role{
 		ID:           uuid.New(),
-		Name:         input.Name,
-		Description:  input.Description,
+		Name:         "NEW_ROLE",
+		Description:  "New Role",
 		Enabled:      true,
 		CreationDate: time.Now(),
 	}
-	s.repo.EXPECT().Create(gomock.Any(), gomock.Any()).Return(&role, nil).Times(1)
-	resp, err := s.addRole.Execute(context.Background(), input)
+	s.repo.EXPECT().Create(gomock.Any(), gomock.Any()).Return(&savedEntity, nil).Times(1)
+	resp, err := s.addRole.Execute(context.Background(), &input)
 	s.NoError(err)
 	s.NotZero(resp)
-	s.Equal(role.ID, resp.ID)
-	s.Equal(role.Name, resp.Name)
-	s.Equal(role.Description, resp.Description)
-	s.Equal(role.Enabled, resp.Enabled)
-	s.Equal(role.CreationDate, resp.CreationDate)
+	s.Equal(savedEntity.ID, resp.ID)
+	s.Equal(savedEntity.Name, resp.Name)
+	s.Equal(savedEntity.Description, resp.Description)
+	s.Equal(savedEntity.Enabled, resp.Enabled)
+	s.Equal(savedEntity.CreationDate, resp.CreationDate)
 }
 
 func (s AddRoleSuite) TestCreateNotOk() {
 	errMessage := "could not create role"
-	input := model.RoleRequest{
+	input := &entity.Role{
 		Name:        "NEW_ROLE",
 		Description: "New Role",
 	}

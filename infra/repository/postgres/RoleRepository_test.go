@@ -65,17 +65,17 @@ func (s RoleRepositorySuite) TestRoleRepositoryFindRoleByName() {
 
 func (s RoleRepositorySuite) TestRoleRepositoryCreateNewRole() {
 	s.prepareDatabase(true, "add-users.sql")
-	r := entity.Role{
+	r := &entity.Role{
 		Name:         "CUSTOMER_EDIT",
 		Description:  "Customer edit",
 		Enabled:      true,
 		CreationDate: time.Now(),
 	}
-	role, err := s.repo.Create(context.Background(), r)
+	saved, err := s.repo.Create(context.Background(), r)
 	s.NoError(err)
-	s.NotNil(role)
-	s.NotNil(role.ID)
-	s.Equal("CUSTOMER_EDIT", role.Name)
+	s.NotNil(saved)
+	s.NotNil(saved.ID)
+	s.Equal("CUSTOMER_EDIT", saved.Name)
 }
 
 func (s RoleRepositorySuite) TestRoleRepositoryEditOk() {
@@ -121,7 +121,7 @@ func (s RoleRepositorySuite) TestRoleRepositoryFindByNameNotFound() {
 
 func (s RoleRepositorySuite) TestRoleRepositoryCreateDuplicatedRole() {
 	s.prepareDatabase(true, "add-users.sql")
-	r := entity.Role{
+	r := &entity.Role{
 		Name:         "USER",
 		Description:  "New Role User",
 		Enabled:      true,

@@ -27,13 +27,13 @@ func (r RoleRepositoryPostgres) FindByName(ctx context.Context, name string) (*e
 	return &role, nil
 }
 
-func (r RoleRepositoryPostgres) Create(ctx context.Context, role entity.Role) (*entity.Role, error) {
+func (r RoleRepositoryPostgres) Create(ctx context.Context, role *entity.Role) (*entity.Role, error) {
 	err := r.db.One(ctx, "INSERT INTO golauth_role (name,description,enabled) VALUES ($1, $2, $3) RETURNING id, creation_date;",
 		role.Name, role.Description, role.Enabled).Scan(&role.ID, &role.CreationDate)
 	if err != nil {
 		return nil, fmt.Errorf("could not create role %s: %w", role.Name, err)
 	}
-	return &role, nil
+	return role, nil
 }
 
 func (r RoleRepositoryPostgres) Edit(ctx context.Context, role entity.Role) error {
