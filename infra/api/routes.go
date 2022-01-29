@@ -4,6 +4,7 @@ import (
 	"github.com/golauth/golauth/domain/factory"
 	"github.com/golauth/golauth/domain/usecase"
 	"github.com/golauth/golauth/domain/usecase/token"
+	"github.com/golauth/golauth/domain/usecase/user"
 	"github.com/golauth/golauth/infra/api/controller"
 	"github.com/golauth/golauth/infra/api/middleware"
 	"net/http"
@@ -34,8 +35,10 @@ func NewRouter(repoFactory factory.RepositoryFactory) Router {
 	tokenService := token.NewService()
 	userService := usecase.NewUserService(uRepo, rRepo, urRepo, uaRepo, tokenService)
 
+	createUser := user.NewCreateUser(repoFactory)
+
 	return &router{
-		signupController:     controller.NewSignupController(userService),
+		signupController:     controller.NewSignupController(createUser),
 		tokenController:      controller.NewTokenController(uRepo, uaRepo, tokenService, userService),
 		checkTokenController: controller.NewCheckTokenController(tokenService),
 		userController:       controller.NewUserController(userService),

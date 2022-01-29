@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/golang/mock/gomock"
-	"github.com/golauth/golauth/domain/usecase/mock"
+	mock2 "github.com/golauth/golauth/domain/usecase/user/mock"
 	"github.com/golauth/golauth/infra/api/controller/model"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
@@ -21,9 +21,9 @@ import (
 type SignupControllerSuite struct {
 	suite.Suite
 	*require.Assertions
-	mockCtrl *gomock.Controller
-	ctx      context.Context
-	svc      *mock.MockUserService
+	mockCtrl   *gomock.Controller
+	ctx        context.Context
+	createUser *mock2.MockCreateUser
 
 	ctrl SignupController
 }
@@ -36,9 +36,9 @@ func (s *SignupControllerSuite) SetupTest() {
 	s.Assertions = require.New(s.T())
 	s.mockCtrl = gomock.NewController(s.T())
 	s.ctx = context.Background()
-	s.svc = mock.NewMockUserService(s.mockCtrl)
+	s.createUser = mock2.NewMockCreateUser(s.mockCtrl)
 
-	s.ctrl = NewSignupController(s.svc)
+	s.ctrl = NewSignupController(s.createUser)
 }
 
 func (s *SignupControllerSuite) TearDownTest() {
@@ -65,7 +65,7 @@ func (s SignupControllerSuite) TestCreateUserOK() {
 		Enabled:      true,
 		CreationDate: time.Now().Add(-5 * time.Second),
 	}
-	s.svc.EXPECT().CreateUser(s.ctx, user).Return(savedUser, nil).Times(1)
+	s.createUser.EXPECT().Execute(s.ctx, user).Return(savedUser, nil).Times(1)
 
 	body, _ := json.Marshal(user)
 	w := httptest.NewRecorder()
@@ -92,7 +92,7 @@ func (s SignupControllerSuite) TestCreateUserErrSvc() {
 		Enabled:   true,
 	}
 	errMessage := "could not create new user"
-	s.svc.EXPECT().CreateUser(s.ctx, user).Return(model.UserResponse{}, fmt.Errorf(errMessage)).Times(1)
+	s.createUser.EXPECT().Execute(s.ctx, user).Return(model.UserResponse{}, fmt.Errorf(errMessage)).Times(1)
 
 	body, _ := json.Marshal(user)
 	w := httptest.NewRecorder()

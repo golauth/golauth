@@ -1,3 +1,4 @@
+//go:generate mockgen -source EditRole.go -destination mock/EditRole_mock.go -package mock
 package role
 
 import (

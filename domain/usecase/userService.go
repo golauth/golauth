@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/golauth/golauth/domain/entity"
 	"github.com/golauth/golauth/domain/repository"
 	"github.com/golauth/golauth/domain/usecase/token"
 	"github.com/golauth/golauth/infra/api/controller/model"
@@ -13,16 +12,12 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-const defaultRoleName = "USER"
-
 var (
-	bcryptDefaultCost            = bcrypt.DefaultCost
 	ErrInvalidUsernameOrPassword = errors.New("invalid username or password")
 	ErrGeneratingToken           = errors.New("error generating token")
 )
 
 type UserService interface {
-	CreateUser(ctx context.Context, userReq model.UserRequest) (model.UserResponse, error)
 	GenerateToken(ctx context.Context, username string, password string) (model.TokenResponse, error)
 	FindByID(ctx context.Context, id uuid.UUID) (model.UserResponse, error)
 	AddUserRole(ctx context.Context, id uuid.UUID, id2 uuid.UUID) error
@@ -49,46 +44,6 @@ func NewUserService(
 		userAuthorityRepository: userAuthorityRepository,
 		tokenService:            tokenService,
 	}
-}
-
-func (s userService) CreateUser(ctx context.Context, userReq model.UserRequest) (model.UserResponse, error) {
-	user := entity.User{
-		Username:  userReq.Username,
-		FirstName: userReq.FirstName,
-		LastName:  userReq.LastName,
-		Email:     userReq.Email,
-		Document:  userReq.Document,
-		Password:  userReq.Password,
-		Enabled:   true,
-	}
-	hash, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcryptDefaultCost)
-	if err != nil {
-		return model.UserResponse{}, fmt.Errorf("could not generate password: %w", err)
-	}
-	user.Password = string(hash)
-	savedUser, err := s.userRepository.Create(ctx, user)
-	if err != nil {
-		return model.UserResponse{}, fmt.Errorf("could not save user: %w", err)
-	}
-	role, err := s.roleRepository.FindByName(ctx, defaultRoleName)
-	if err != nil {
-		return model.UserResponse{}, fmt.Errorf("could not fetch default role: %w", err)
-	}
-	err = s.userRoleRepository.AddUserRole(ctx, savedUser.ID, role.ID)
-	if err != nil {
-		return model.UserResponse{}, fmt.Errorf("could not add default role to user: %w", err)
-	}
-
-	return model.UserResponse{
-		ID:           savedUser.ID,
-		Username:     savedUser.Username,
-		FirstName:    savedUser.FirstName,
-		LastName:     savedUser.LastName,
-		Email:        savedUser.Email,
-		Document:     savedUser.Document,
-		Enabled:      savedUser.Enabled,
-		CreationDate: savedUser.CreationDate,
-	}, nil
 }
 
 func (s userService) GenerateToken(ctx context.Context, username string, password string) (model.TokenResponse, error) {
