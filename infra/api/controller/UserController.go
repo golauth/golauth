@@ -11,12 +11,13 @@ import (
 )
 
 type UserController struct {
-	svc      usecase.UserService
-	findById user.FindUserById
+	svc         usecase.UserService
+	findById    user.FindUserById
+	addUserRole user.AddUserRole
 }
 
-func NewUserController(s usecase.UserService, findById user.FindUserById) UserController {
-	return UserController{svc: s, findById: findById}
+func NewUserController(s usecase.UserService, findById user.FindUserById, addUserRole user.AddUserRole) UserController {
+	return UserController{svc: s, findById: findById, addUserRole: addUserRole}
 }
 
 func (u UserController) FindById(w http.ResponseWriter, r *http.Request) {
@@ -37,7 +38,7 @@ func (u UserController) FindById(w http.ResponseWriter, r *http.Request) {
 func (u UserController) AddRole(w http.ResponseWriter, r *http.Request) {
 	var userRole model.UserRoleRequest
 	_ = json.NewDecoder(r.Body).Decode(&userRole)
-	err := u.svc.AddUserRole(r.Context(), userRole.UserID, userRole.RoleID)
+	err := u.addUserRole.Execute(r.Context(), userRole.UserID, userRole.RoleID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

@@ -37,12 +37,13 @@ func NewRouter(repoFactory factory.RepositoryFactory) Router {
 
 	createUser := user.NewCreateUser(repoFactory)
 	findUserById := user.NewFindUserById(uRepo)
+	addUserRole := user.NewAddUserRole(urRepo)
 
 	return &router{
 		signupController:     controller.NewSignupController(createUser),
 		tokenController:      controller.NewTokenController(uRepo, uaRepo, tokenService, userService),
 		checkTokenController: controller.NewCheckTokenController(tokenService),
-		userController:       controller.NewUserController(userService, findUserById),
+		userController:       controller.NewUserController(userService, findUserById, addUserRole),
 		roleController:       controller.NewRoleController(repoFactory),
 		tokenService:         tokenService,
 	}

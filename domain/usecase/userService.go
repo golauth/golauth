@@ -8,7 +8,6 @@ import (
 	"github.com/golauth/golauth/domain/repository"
 	"github.com/golauth/golauth/domain/usecase/token"
 	"github.com/golauth/golauth/infra/api/controller/model"
-	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -19,7 +18,6 @@ var (
 
 type UserService interface {
 	GenerateToken(ctx context.Context, username string, password string) (model.TokenResponse, error)
-	AddUserRole(ctx context.Context, id uuid.UUID, id2 uuid.UUID) error
 }
 
 type userService struct {
@@ -67,8 +65,4 @@ func (s userService) GenerateToken(ctx context.Context, username string, passwor
 	}
 	tokenResponse := model.TokenResponse{AccessToken: jwtToken}
 	return tokenResponse, nil
-}
-
-func (s userService) AddUserRole(ctx context.Context, userID uuid.UUID, roleID uuid.UUID) error {
-	return s.userRoleRepository.AddUserRole(ctx, userID, roleID)
 }

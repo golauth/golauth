@@ -186,20 +186,3 @@ func (s UserServiceSuite) TestGenerateTokenErrGeneratingToken() {
 	s.ErrorIs(err, ErrGeneratingToken)
 	s.Empty(tokenResponse)
 }
-
-func (s UserServiceSuite) TestAddUserRoleOK() {
-	userId := uuid.New()
-	roleId := uuid.New()
-	s.userRoleRepository.EXPECT().AddUserRole(s.ctx, userId, roleId).Return(nil).Times(1)
-	err := s.svc.AddUserRole(s.ctx, userId, roleId)
-	s.NoError(err)
-}
-
-func (s UserServiceSuite) TestAddUserRoleErr() {
-	userId := uuid.New()
-	roleId := uuid.New()
-	s.userRoleRepository.EXPECT().AddUserRole(s.ctx, userId, roleId).Return(fmt.Errorf("could not add role to user")).Times(1)
-	err := s.svc.AddUserRole(s.ctx, userId, roleId)
-	s.Error(err)
-	s.ErrorAs(fmt.Errorf("could not add role to user"), &err)
-}

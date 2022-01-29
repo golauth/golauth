@@ -26,6 +26,7 @@ type UserControllerSuite struct {
 	ctrl         *gomock.Controller
 	userSvc      *mockSvc.MockUserService
 	findUserById *mock.MockFindUserById
+	addUserRole  *mock.MockAddUserRole
 	uc           UserController
 }
 
@@ -39,8 +40,9 @@ func (s *UserControllerSuite) SetupTest() {
 	s.ctrl = gomock.NewController(s.T())
 	s.userSvc = mockSvc.NewMockUserService(s.ctrl)
 	s.findUserById = mock.NewMockFindUserById(s.ctrl)
+	s.addUserRole = mock.NewMockAddUserRole(s.ctrl)
 
-	s.uc = NewUserController(s.userSvc, s.findUserById)
+	s.uc = NewUserController(s.userSvc, s.findUserById, s.addUserRole)
 }
 
 func (s *UserControllerSuite) TearDownTest() {
@@ -88,7 +90,7 @@ func (s *UserControllerSuite) TestAddRoleOk() {
 		"id": userId.String(),
 	}
 	r = mux.SetURLVars(r, vars)
-	s.userSvc.EXPECT().AddUserRole(r.Context(), userRole.UserID, userRole.RoleID).Return(nil).Times(1)
+	s.addUserRole.EXPECT().Execute(r.Context(), userRole.UserID, userRole.RoleID).Return(nil).Times(1)
 
 	s.uc.AddRole(w, r)
 	s.Equal(http.StatusCreated, w.Code)
@@ -140,7 +142,7 @@ func (s *UserControllerSuite) TestAddRoleErrSvc() {
 		"id": userId.String(),
 	}
 	r = mux.SetURLVars(r, vars)
-	s.userSvc.EXPECT().AddUserRole(r.Context(), userId, roleId).Return(fmt.Errorf(errMessage)).Times(1)
+	s.addUserRole.EXPECT().Execute(r.Context(), userId, roleId).Return(fmt.Errorf(errMessage)).Times(1)
 
 	s.uc.AddRole(w, r)
 	s.Equal(http.StatusInternalServerError, w.Code)
