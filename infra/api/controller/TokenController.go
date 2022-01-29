@@ -51,13 +51,13 @@ func (s tokenController) Token(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	data, err := s.generateToken.Execute(r.Context(), username, password)
+	output, err := s.generateToken.Execute(r.Context(), username, password)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
 	}
 
-	_ = json.NewEncoder(w).Encode(data)
+	_ = json.NewEncoder(w).Encode(model.NewTokenResponseFromEntity(output))
 }
 
 func (s tokenController) extractUserPasswordFromJson(r *http.Request, username string, password string) (string, string, error) {

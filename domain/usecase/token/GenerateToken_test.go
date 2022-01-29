@@ -109,7 +109,6 @@ func (s GenerateTokenSuite) TestGenerateTokenOk() {
 	tokenResponse, err := s.generateToken.Execute(s.ctx, username, password)
 	s.NoError(err)
 	s.NotEmpty(tokenResponse)
-	s.Zero(tokenResponse.RefreshToken)
 	s.Equal(token, tokenResponse.AccessToken)
 }
 

@@ -5,9 +5,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/golauth/golauth/domain/entity"
 	"github.com/golauth/golauth/domain/factory"
 	"github.com/golauth/golauth/domain/repository"
-	"github.com/golauth/golauth/infra/api/controller/model"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -17,7 +17,7 @@ var (
 )
 
 type GenerateToken interface {
-	Execute(ctx context.Context, username string, password string) (model.TokenResponse, error)
+	Execute(ctx context.Context, username string, password string) (*entity.Token, error)
 }
 
 func NewGenerateToken(repoFactory factory.RepositoryFactory, jwtToken JwtToken) GenerateToken {
@@ -38,26 +38,25 @@ type generateToken struct {
 	jwtToken                JwtToken
 }
 
-func (uc generateToken) Execute(ctx context.Context, username string, password string) (model.TokenResponse, error) {
+func (uc generateToken) Execute(ctx context.Context, username string, password string) (*entity.Token, error) {
 	user, err := uc.userRepository.FindByUsername(ctx, username)
 	if err != nil {
-		return model.TokenResponse{}, ErrInvalidUsernameOrPassword
+		return nil, ErrInvalidUsernameOrPassword
 	}
 
 	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password))
 	if err != nil {
-		return model.TokenResponse{}, ErrInvalidUsernameOrPassword
+		return nil, ErrInvalidUsernameOrPassword
 	}
 
 	authorities, err := uc.userAuthorityRepository.FindAuthoritiesByUserID(ctx, user.ID)
 	if err != nil {
-		return model.TokenResponse{}, fmt.Errorf("error when fetch authorities: %w", err)
+		return nil, fmt.Errorf("error when fetch authorities: %w", err)
 	}
 
-	jwtToken, err := uc.jwtToken.Execute(user, authorities)
+	accessToken, err := uc.jwtToken.Execute(user, authorities)
 	if err != nil {
-		return model.TokenResponse{}, ErrGeneratingToken
+		return nil, ErrGeneratingToken
 	}
-	tokenResponse := model.TokenResponse{AccessToken: jwtToken}
-	return tokenResponse, nil
+	return &entity.Token{AccessToken: accessToken}, nil
 }
