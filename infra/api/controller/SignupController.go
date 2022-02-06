@@ -20,7 +20,7 @@ func NewSignupController(createUser user.CreateUser) SignupController {
 }
 
 func (s signupController) CreateUser(w http.ResponseWriter, r *http.Request) {
-	var decodedUser model.UserRequest
+	var decodedUser model.CreateUserRequest
 	_ = json.NewDecoder(r.Body).Decode(&decodedUser)
 	output, err := s.createUser.Execute(r.Context(), decodedUser.ToEntity())
 	if err != nil {

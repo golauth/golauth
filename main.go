@@ -12,12 +12,13 @@ import (
 	"github.com/subosito/gotenv"
 )
 
+const defaultPort = "8080"
+
 func getPortEnv() string {
 	port := os.Getenv("PORT")
 	if port == "" {
-		port = "8080"
+		port = defaultPort
 	}
-
 	return port
 }
 

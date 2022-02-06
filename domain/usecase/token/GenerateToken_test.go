@@ -33,7 +33,7 @@ type GenerateTokenSuite struct {
 	ctx           context.Context
 	generateToken GenerateToken
 
-	mockUser      model.UserRequest
+	mockUser      model.CreateUserRequest
 	mockSavedUser entity.User
 }
 
@@ -59,7 +59,7 @@ func (s *GenerateTokenSuite) SetupTest() {
 	s.ctx = context.Background()
 	s.generateToken = NewGenerateToken(s.repoFactory, s.jwtToken)
 
-	s.mockUser = model.UserRequest{
+	s.mockUser = model.CreateUserRequest{
 		Username:  "admin",
 		FirstName: "User",
 		LastName:  "Name",
