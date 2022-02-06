@@ -1,7 +1,6 @@
 package api
 
 import (
-	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/golang/mock/gomock"
 	factoryMock "github.com/golauth/golauth/domain/factory/mock"
 	repoMock "github.com/golauth/golauth/domain/repository/mock"
@@ -17,7 +16,6 @@ type RoutesSuite struct {
 	*require.Assertions
 	ctrl        *gomock.Controller
 	repoFactory *factoryMock.MockRepositoryFactory
-	mockDB      sqlmock.Sqlmock
 	r           Router
 	router      *mux.Router
 	recorder    *httptest.ResponseRecorder
