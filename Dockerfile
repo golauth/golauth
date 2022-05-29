@@ -15,7 +15,7 @@ RUN mkdir /app && addgroup -S golauth && adduser -S golauth -G golauth \
 
 USER golauth
 COPY --from=builder --chown=golauth /build/golauth /app/
-COPY --from=builder --chown=golauth /build/ops/migrations /app/migrations
+COPY --from=builder --chown=golauth /build/migrations /app/migrations
 WORKDIR /app
 EXPOSE 8080
 ENTRYPOINT ["./golauth"]
