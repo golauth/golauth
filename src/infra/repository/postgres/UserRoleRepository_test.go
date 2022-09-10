@@ -43,7 +43,7 @@ func (s *UserRoleRepositorySuite) TearDownTest() {
 	s.mockCtrl.Finish()
 }
 
-func (s UserRoleRepositorySuite) prepareDatabase(clean bool, scripts ...string) {
+func (s *UserRoleRepositorySuite) prepareDatabase(clean bool, scripts ...string) {
 	cleanScript := ""
 	if clean {
 		cleanScript = "clear-data.sql"

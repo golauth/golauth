@@ -39,7 +39,7 @@ func (s *FindRoleByNameSuite) TearDownTest() {
 	s.mockCtrl.Finish()
 }
 
-func (s FindRoleByNameSuite) TestFindByNameOk() {
+func (s *FindRoleByNameSuite) TestFindByNameOk() {
 	roleId := uuid.New()
 	role := entity.Role{
 		ID:           roleId,
@@ -59,7 +59,7 @@ func (s FindRoleByNameSuite) TestFindByNameOk() {
 	s.Equal(role.CreationDate, resp.CreationDate)
 }
 
-func (s FindRoleByNameSuite) TestFindByNameNotOk() {
+func (s *FindRoleByNameSuite) TestFindByNameNotOk() {
 	roleId := uuid.New()
 	role := entity.Role{
 		ID:           roleId,

@@ -40,7 +40,7 @@ func (s *AddRoleSuite) TearDownTest() {
 	s.mockCtrl.Finish()
 }
 
-func (s AddRoleSuite) TestCreateOk() {
+func (s *AddRoleSuite) TestCreateOk() {
 	input := entity.Role{
 		Name:        "NEW_ROLE",
 		Description: "New Role",
@@ -64,7 +64,7 @@ func (s AddRoleSuite) TestCreateOk() {
 	s.Equal(savedEntity.CreationDate, resp.CreationDate)
 }
 
-func (s AddRoleSuite) TestCreateNotOk() {
+func (s *AddRoleSuite) TestCreateNotOk() {
 	errMessage := "could not create role"
 	input := &entity.Role{
 		Name:        "NEW_ROLE",

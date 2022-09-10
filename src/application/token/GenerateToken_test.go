@@ -85,7 +85,7 @@ func (s *GenerateTokenSuite) TearDownTest() {
 	s.mockCtrl.Finish()
 }
 
-func (s GenerateTokenSuite) TestGenerateTokenOk() {
+func (s *GenerateTokenSuite) TestGenerateTokenOk() {
 	username := "admin"
 	password := "123456"
 	encodedPassword, _ := bcrypt.GenerateFromPassword([]byte("123456"), bcrypt.DefaultCost)
@@ -112,7 +112,7 @@ func (s GenerateTokenSuite) TestGenerateTokenOk() {
 	s.Equal(token, tokenResponse.AccessToken)
 }
 
-func (s GenerateTokenSuite) TestGenerateTokenUserNotFound() {
+func (s *GenerateTokenSuite) TestGenerateTokenUserNotFound() {
 	username := "admin"
 	password := "123456"
 
@@ -123,7 +123,7 @@ func (s GenerateTokenSuite) TestGenerateTokenUserNotFound() {
 	s.Empty(tokenResponse)
 }
 
-func (s GenerateTokenSuite) TestGenerateTokenInvalidPassword() {
+func (s *GenerateTokenSuite) TestGenerateTokenInvalidPassword() {
 	username := "admin"
 	password := "123456"
 	encodedPassword, _ := bcrypt.GenerateFromPassword([]byte("1234567"), bcrypt.DefaultCost)
@@ -145,7 +145,7 @@ func (s GenerateTokenSuite) TestGenerateTokenInvalidPassword() {
 	s.Empty(tokenResponse)
 }
 
-func (s GenerateTokenSuite) TestGenerateTokenErrFetchAuthorities() {
+func (s *GenerateTokenSuite) TestGenerateTokenErrFetchAuthorities() {
 	username := "admin"
 	password := "123456"
 	encodedPassword, _ := bcrypt.GenerateFromPassword([]byte("123456"), bcrypt.DefaultCost)
@@ -169,7 +169,7 @@ func (s GenerateTokenSuite) TestGenerateTokenErrFetchAuthorities() {
 	s.Empty(tokenResponse)
 }
 
-func (s GenerateTokenSuite) TestGenerateTokenErrGeneratingToken() {
+func (s *GenerateTokenSuite) TestGenerateTokenErrGeneratingToken() {
 	username := "admin"
 	password := "123456"
 	encodedPassword, _ := bcrypt.GenerateFromPassword([]byte("123456"), bcrypt.DefaultCost)

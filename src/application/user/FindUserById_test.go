@@ -42,7 +42,7 @@ func (s *FindUserByIdSuite) TearDownTest() {
 	s.mockCtrl.Finish()
 }
 
-func (s FindUserByIdSuite) TestFindByIdOK() {
+func (s *FindUserByIdSuite) TestFindByIdOK() {
 	id := uuid.New()
 	user := &entity.User{
 		ID:           id,
@@ -62,7 +62,7 @@ func (s FindUserByIdSuite) TestFindByIdOK() {
 	s.Equal(user, output)
 }
 
-func (s FindUserByIdSuite) TestFindByIDErr() {
+func (s *FindUserByIdSuite) TestFindByIDErr() {
 	id := uuid.New()
 	s.userRepository.EXPECT().FindByID(s.ctx, id).Return(nil, fmt.Errorf("could not find user")).Times(1)
 

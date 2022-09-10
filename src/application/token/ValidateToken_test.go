@@ -50,20 +50,20 @@ func (s *ValidateTokenSuite) TearDownTest() {
 	s.mockCtrl.Finish()
 }
 
-func (s ValidateTokenSuite) TestValidateTokenOk() {
+func (s *ValidateTokenSuite) TestValidateTokenOk() {
 	token, err := s.jwtToken.Execute(s.user, []string{"ADMIN"})
 	s.NoError(err)
 	err = s.validateToken.Execute(fmt.Sprintf("%v", token))
 	s.NoError(err)
 }
 
-func (s ValidateTokenSuite) TestValidateTokenInvalidFormat() {
+func (s *ValidateTokenSuite) TestValidateTokenInvalidFormat() {
 	err := s.validateToken.Execute("invalidTokenFormat")
 	s.Error(err)
 	s.EqualError(err, "could not parse and verify strToken: jwt: token format is not valid")
 }
 
-func (s ValidateTokenSuite) TestValidateTokenErrExpiredToken() {
+func (s *ValidateTokenSuite) TestValidateTokenErrExpiredToken() {
 	TokenExpirationTime = -1
 	expiredToken, err := s.jwtToken.Execute(s.user, []string{"ADMIN"})
 	s.NoError(err)

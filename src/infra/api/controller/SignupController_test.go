@@ -44,7 +44,7 @@ func (s *SignupControllerSuite) TearDownTest() {
 	s.mockCtrl.Finish()
 }
 
-func (s SignupControllerSuite) TestCreateUserOK() {
+func (s *SignupControllerSuite) TestCreateUserOK() {
 	input := &entity.User{
 		Username:  "admin",
 		FirstName: "User",
@@ -77,7 +77,7 @@ func (s SignupControllerSuite) TestCreateUserOK() {
 	s.Equal(savedUser.ID, output.ID)
 }
 
-func (s SignupControllerSuite) TestCreateUserErrSvc() {
+func (s *SignupControllerSuite) TestCreateUserErrSvc() {
 	user := &entity.User{
 		Username:  "admin",
 		FirstName: "User",

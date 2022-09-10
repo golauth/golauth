@@ -79,7 +79,7 @@ func (s *CreateUserSuite) TearDownTest() {
 	s.mockCtrl.Finish()
 }
 
-func (s CreateUserSuite) TestCreateUserOk() {
+func (s *CreateUserSuite) TestCreateUserOk() {
 	roleId := uuid.New()
 	userId := s.mockSavedUser.ID
 	role := entity.Role{ID: roleId, Name: "USER", Description: "User", Enabled: true, CreationDate: time.Now()}
@@ -93,14 +93,14 @@ func (s CreateUserSuite) TestCreateUserOk() {
 	s.Equal(s.mockSavedUser.Username, createUser.Username)
 }
 
-func (s CreateUserSuite) TestCreateUserErrWhenSave() {
+func (s *CreateUserSuite) TestCreateUserErrWhenSave() {
 	s.userRepository.EXPECT().Create(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("could not create user admin")).Times(1)
 
 	_, err := s.createUser.Execute(s.ctx, &entity.User{})
 	s.EqualError(err, "could not save user: could not create user admin")
 }
 
-func (s CreateUserSuite) TestCreateUserErrFindRole() {
+func (s *CreateUserSuite) TestCreateUserErrFindRole() {
 	s.userRepository.EXPECT().Create(gomock.Any(), gomock.Any()).Return(s.mockSavedUser, nil).Times(1)
 	s.roleRepository.EXPECT().FindByName(s.ctx, defaultRoleName).Return(nil, fmt.Errorf("could not find role USER")).Times(1)
 
@@ -108,7 +108,7 @@ func (s CreateUserSuite) TestCreateUserErrFindRole() {
 	s.EqualError(err, "could not fetch default role: could not find role USER")
 }
 
-func (s CreateUserSuite) TestCreateUserErrAddUserRole() {
+func (s *CreateUserSuite) TestCreateUserErrAddUserRole() {
 	roleId := uuid.New()
 	userId := s.mockSavedUser.ID
 	role := entity.Role{ID: roleId, Name: "USER", Description: "User", Enabled: true, CreationDate: time.Now()}
@@ -123,7 +123,7 @@ func (s CreateUserSuite) TestCreateUserErrAddUserRole() {
 	s.EqualError(err, fmt.Sprintf("could not add default role to user: could not add userrole [user:%s:role:%s]", userId, roleId))
 }
 
-func (s CreateUserSuite) TestCreateUserErrGenerateHashPassword() {
+func (s *CreateUserSuite) TestCreateUserErrGenerateHashPassword() {
 	bcryptDefaultCost = 50
 	_, err := s.createUser.Execute(s.ctx, &entity.User{Password: "1234"})
 	s.EqualError(err, "could not generate password: crypto/bcrypt: cost 50 is outside allowed range (4,31)")

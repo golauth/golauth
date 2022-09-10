@@ -37,7 +37,7 @@ func (s *ChangeRoleStatusSuite) TearDownTest() {
 	s.mockCtrl.Finish()
 }
 
-func (s ChangeRoleStatusSuite) TestChangeStatusOk() {
+func (s *ChangeRoleStatusSuite) TestChangeStatusOk() {
 	roleId := uuid.New()
 	s.repo.EXPECT().ExistsById(s.ctx, roleId).Return(true, nil).Times(1)
 	s.repo.EXPECT().ChangeStatus(s.ctx, roleId, false).Return(nil).Times(1)
@@ -45,7 +45,7 @@ func (s ChangeRoleStatusSuite) TestChangeStatusOk() {
 	s.NoError(err)
 }
 
-func (s ChangeRoleStatusSuite) TestChangeStatusIdNotExists() {
+func (s *ChangeRoleStatusSuite) TestChangeStatusIdNotExists() {
 	roleId := uuid.New()
 	errMessage := fmt.Sprintf("role with id %s does not exists", roleId)
 	s.repo.EXPECT().ExistsById(s.ctx, roleId).Return(false, nil).Times(1)
@@ -54,7 +54,7 @@ func (s ChangeRoleStatusSuite) TestChangeStatusIdNotExists() {
 	s.EqualError(err, errMessage)
 }
 
-func (s ChangeRoleStatusSuite) TestChangeStatusExistsErr() {
+func (s *ChangeRoleStatusSuite) TestChangeStatusExistsErr() {
 	errMessage := "could not check if id exists"
 	roleId := uuid.New()
 	s.repo.EXPECT().ExistsById(s.ctx, roleId).Return(false, errors.New(errMessage)).Times(1)
