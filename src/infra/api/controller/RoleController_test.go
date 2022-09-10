@@ -47,7 +47,7 @@ func (s *RoleControllerSuite) TearDownTest() {
 	s.ctrl.Finish()
 }
 
-func (s RoleControllerSuite) TestCreateRoleOk() {
+func (s *RoleControllerSuite) TestCreateRoleOk() {
 	input := model.RoleRequest{Name: "New Role", Description: "New Role Description"}
 	body, _ := json.Marshal(input)
 	w := httptest.NewRecorder()
@@ -61,7 +61,7 @@ func (s RoleControllerSuite) TestCreateRoleOk() {
 	s.NotZero(result.ID)
 }
 
-func (s RoleControllerSuite) TestEditRoleOk() {
+func (s *RoleControllerSuite) TestEditRoleOk() {
 	role := model.RoleRequest{
 		ID:          uuid.New(),
 		Name:        "Role Edited",
@@ -88,7 +88,7 @@ func (s RoleControllerSuite) TestEditRoleOk() {
 	s.Equal("Description Edited", result.Description)
 }
 
-func (s RoleControllerSuite) TestEditRoleErrParseUUID() {
+func (s *RoleControllerSuite) TestEditRoleErrParseUUID() {
 
 	role := model.RoleRequest{
 		ID:          uuid.New(),
@@ -110,7 +110,7 @@ func (s RoleControllerSuite) TestEditRoleErrParseUUID() {
 	s.ErrorAs(errors.New(w.Body.String()), &expected)
 }
 
-func (s RoleControllerSuite) TestEditRoleNotOk() {
+func (s *RoleControllerSuite) TestEditRoleNotOk() {
 	roleId := uuid.New()
 	role := model.RoleRequest{
 		ID:          roleId,
@@ -134,7 +134,7 @@ func (s RoleControllerSuite) TestEditRoleNotOk() {
 	s.Contains(w.Body.String(), errMessage)
 }
 
-func (s RoleControllerSuite) TestChangeStatusOk() {
+func (s *RoleControllerSuite) TestChangeStatusOk() {
 	roleId := uuid.New()
 	changeStatus := model.RoleChangeStatus{Enabled: false}
 
@@ -152,7 +152,7 @@ func (s RoleControllerSuite) TestChangeStatusOk() {
 	s.Equal(http.StatusOK, w.Code)
 }
 
-func (s RoleControllerSuite) TestChangeStatusErrParseUUID() {
+func (s *RoleControllerSuite) TestChangeStatusErrParseUUID() {
 	changeStatus := model.RoleChangeStatus{Enabled: false}
 	body, _ := json.Marshal(changeStatus)
 	w := httptest.NewRecorder()
@@ -166,7 +166,7 @@ func (s RoleControllerSuite) TestChangeStatusErrParseUUID() {
 	s.Equal(http.StatusBadRequest, w.Code)
 }
 
-func (s RoleControllerSuite) TestChangeStatusErrSvc() {
+func (s *RoleControllerSuite) TestChangeStatusErrSvc() {
 	roleId := uuid.New()
 	changeStatus := model.RoleChangeStatus{Enabled: false}
 	errMessage := "could not change status for role"
@@ -186,7 +186,7 @@ func (s RoleControllerSuite) TestChangeStatusErrSvc() {
 	s.Contains(w.Body.String(), errMessage)
 }
 
-func (s RoleControllerSuite) TestFindByNameOk() {
+func (s *RoleControllerSuite) TestFindByNameOk() {
 	roleId := uuid.New()
 	roleName := "ROLE_NAME"
 	resp := &model.RoleResponse{
@@ -215,7 +215,7 @@ func (s RoleControllerSuite) TestFindByNameOk() {
 	s.Equal(roleName, result.Name)
 }
 
-func (s RoleControllerSuite) TestFindByNameErrSvc() {
+func (s *RoleControllerSuite) TestFindByNameErrSvc() {
 	roleName := "ROLE_NAME"
 	errMessage := "could not find role by name"
 

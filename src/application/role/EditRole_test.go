@@ -37,7 +37,7 @@ func (s *EditRoleSuite) TearDownTest() {
 	s.mockCtrl.Finish()
 }
 
-func (s EditRoleSuite) TestEditOk() {
+func (s *EditRoleSuite) TestEditOk() {
 	roleId := uuid.New()
 	input := &entity.Role{
 		ID:          roleId,
@@ -50,7 +50,7 @@ func (s EditRoleSuite) TestEditOk() {
 	s.NoError(err)
 }
 
-func (s EditRoleSuite) TestEditIDNotExists() {
+func (s *EditRoleSuite) TestEditIDNotExists() {
 	roleId := uuid.New()
 	errMessage := fmt.Sprintf("role with id %s does not exists", roleId)
 	input := &entity.Role{
@@ -64,7 +64,7 @@ func (s EditRoleSuite) TestEditIDNotExists() {
 	s.EqualError(err, errMessage)
 }
 
-func (s EditRoleSuite) TestEditExistsErr() {
+func (s *EditRoleSuite) TestEditExistsErr() {
 	errMessage := "could not check if id exists"
 	roleId := uuid.New()
 	input := &entity.Role{
@@ -78,7 +78,7 @@ func (s EditRoleSuite) TestEditExistsErr() {
 	s.EqualError(err, errMessage)
 }
 
-func (s EditRoleSuite) TestEditErrIdNotMatch() {
+func (s *EditRoleSuite) TestEditErrIdNotMatch() {
 	roleId := uuid.New()
 	pathId := uuid.New()
 	errMessage := fmt.Sprintf("path id[%s] and object_id[%s] does not match", pathId, roleId)

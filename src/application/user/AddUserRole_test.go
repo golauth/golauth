@@ -39,7 +39,7 @@ func (s *AddUserRoleSuite) TearDownTest() {
 	s.mockCtrl.Finish()
 }
 
-func (s AddUserRoleSuite) TestAddUserRoleOK() {
+func (s *AddUserRoleSuite) TestAddUserRoleOK() {
 	userId := uuid.New()
 	roleId := uuid.New()
 	s.userRoleRepository.EXPECT().AddUserRole(s.ctx, userId, roleId).Return(nil).Times(1)
@@ -47,7 +47,7 @@ func (s AddUserRoleSuite) TestAddUserRoleOK() {
 	s.NoError(err)
 }
 
-func (s AddUserRoleSuite) TestAddUserRoleErr() {
+func (s *AddUserRoleSuite) TestAddUserRoleErr() {
 	userId := uuid.New()
 	roleId := uuid.New()
 	s.userRoleRepository.EXPECT().AddUserRole(s.ctx, userId, roleId).Return(fmt.Errorf("could not add role to user")).Times(1)

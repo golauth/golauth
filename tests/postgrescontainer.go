@@ -2,7 +2,6 @@ package tests
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"github.com/docker/go-connections/nat"
 	"github.com/golauth/golauth/src/infra/database"
@@ -15,10 +14,7 @@ import (
 )
 
 var (
-	pgC             testcontainers.Container
-	ErrMockScan     = errors.New("scan error")
-	ErrMockDBClosed = errors.New("sql: database is closed")
-	ErrMockUpdate   = errors.New("exec update error")
+	pgC testcontainers.Container
 )
 
 const (

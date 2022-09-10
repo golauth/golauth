@@ -46,7 +46,7 @@ func (s *RoleRepositorySuite) TearDownTest() {
 	s.mockCtrl.Finish()
 }
 
-func (s RoleRepositorySuite) prepareDatabase(clean bool, scripts ...string) {
+func (s *RoleRepositorySuite) prepareDatabase(clean bool, scripts ...string) {
 	cleanScript := ""
 	if clean {
 		cleanScript = "clear-data.sql"
@@ -55,7 +55,7 @@ func (s RoleRepositorySuite) prepareDatabase(clean bool, scripts ...string) {
 	s.NoError(err)
 }
 
-func (s RoleRepositorySuite) TestRoleRepositoryFindRoleByName() {
+func (s *RoleRepositorySuite) TestRoleRepositoryFindRoleByName() {
 	s.prepareDatabase(true, "add-users.sql")
 	role, err := s.repo.FindByName(context.Background(), "USER")
 	s.NoError(err)
@@ -63,7 +63,7 @@ func (s RoleRepositorySuite) TestRoleRepositoryFindRoleByName() {
 	s.Equal("USER", role.Name)
 }
 
-func (s RoleRepositorySuite) TestRoleRepositoryCreateNewRole() {
+func (s *RoleRepositorySuite) TestRoleRepositoryCreateNewRole() {
 	s.prepareDatabase(true, "add-users.sql")
 	r := &entity.Role{
 		Name:         "CUSTOMER_EDIT",
@@ -78,7 +78,7 @@ func (s RoleRepositorySuite) TestRoleRepositoryCreateNewRole() {
 	s.Equal("CUSTOMER_EDIT", saved.Name)
 }
 
-func (s RoleRepositorySuite) TestRoleRepositoryEditOk() {
+func (s *RoleRepositorySuite) TestRoleRepositoryEditOk() {
 	s.prepareDatabase(true, "add-users.sql")
 	r, err := s.repo.FindByName(context.Background(), "USER")
 	s.NoError(err)
@@ -95,7 +95,7 @@ func (s RoleRepositorySuite) TestRoleRepositoryEditOk() {
 	s.Equal("Role to common user", edited.Description)
 }
 
-func (s RoleRepositorySuite) TestRoleRepositoryEditIdNotFound() {
+func (s *RoleRepositorySuite) TestRoleRepositoryEditIdNotFound() {
 	s.prepareDatabase(true)
 	r := &entity.Role{
 		ID:           uuid.New(),
@@ -110,7 +110,7 @@ func (s RoleRepositorySuite) TestRoleRepositoryEditIdNotFound() {
 	s.ErrorAs(err, &expectedErr)
 }
 
-func (s RoleRepositorySuite) TestRoleRepositoryFindByNameNotFound() {
+func (s *RoleRepositorySuite) TestRoleRepositoryFindByNameNotFound() {
 	s.prepareDatabase(true)
 	role, err := s.repo.FindByName(context.Background(), "USER")
 	s.Empty(role)
@@ -119,7 +119,7 @@ func (s RoleRepositorySuite) TestRoleRepositoryFindByNameNotFound() {
 	s.ErrorAs(err, &expectedErr)
 }
 
-func (s RoleRepositorySuite) TestRoleRepositoryCreateDuplicatedRole() {
+func (s *RoleRepositorySuite) TestRoleRepositoryCreateDuplicatedRole() {
 	s.prepareDatabase(true, "add-users.sql")
 	r := &entity.Role{
 		Name:         "USER",
@@ -134,7 +134,7 @@ func (s RoleRepositorySuite) TestRoleRepositoryCreateDuplicatedRole() {
 	s.ErrorAs(err, &expectedErr)
 }
 
-func (s RoleRepositorySuite) TestRoleRepositoryChangeStatusOk() {
+func (s *RoleRepositorySuite) TestRoleRepositoryChangeStatusOk() {
 	s.prepareDatabase(true, "add-users.sql")
 	id, _ := uuid.Parse("c12b415b-c3ad-487f-9800-f548aa18cc58")
 	err := s.repo.ChangeStatus(context.Background(), id, false)
@@ -146,7 +146,7 @@ func (s RoleRepositorySuite) TestRoleRepositoryChangeStatusOk() {
 	s.False(edited.Enabled)
 }
 
-func (s RoleRepositorySuite) TestRoleRepositoryExistsByID() {
+func (s *RoleRepositorySuite) TestRoleRepositoryExistsByID() {
 	s.prepareDatabase(true, "add-users.sql")
 	id, _ := uuid.Parse("c12b415b-c3ad-487f-9800-f548aa18cc58")
 	exists, err := s.repo.ExistsById(context.Background(), id)
@@ -154,7 +154,7 @@ func (s RoleRepositorySuite) TestRoleRepositoryExistsByID() {
 	s.True(exists)
 }
 
-func (s RoleRepositorySuite) TestRoleRepositoryNotExistsByID() {
+func (s *RoleRepositorySuite) TestRoleRepositoryNotExistsByID() {
 	s.prepareDatabase(true, "add-users.sql")
 	exists, err := s.repo.ExistsById(context.Background(), uuid.New())
 	s.NoError(err)

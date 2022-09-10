@@ -18,7 +18,7 @@ func NewUserRepository(db database.Database) repository.UserRepository {
 }
 
 func (ur UserRepositoryPostgres) FindByUsername(ctx context.Context, username string) (*entity.User, error) {
-	user := entity.User{}
+	var user entity.User
 	row := ur.db.One(ctx, "SELECT * FROM golauth_user WHERE username = $1", username)
 	err := row.Scan(&user.ID, &user.Username, &user.FirstName, &user.LastName, &user.Email, &user.Document, &user.Password, &user.Enabled, &user.CreationDate)
 	if err != nil {
@@ -28,7 +28,7 @@ func (ur UserRepositoryPostgres) FindByUsername(ctx context.Context, username st
 }
 
 func (ur UserRepositoryPostgres) FindByID(ctx context.Context, id uuid.UUID) (*entity.User, error) {
-	user := entity.User{}
+	var user entity.User
 	var phantomZone string
 	row := ur.db.One(ctx, "SELECT * FROM golauth_user WHERE id = $1", id)
 	err := row.Scan(&user.ID, &user.Username, &user.FirstName, &user.LastName, &user.Email, &user.Document, &phantomZone, &user.Enabled, &user.CreationDate)
