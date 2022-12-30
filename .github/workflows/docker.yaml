@@ -16,7 +16,7 @@ jobs:
         uses: actions/checkout@v2
 
       - name: Publish mainline
-        uses: elgohr/Publish-Docker-Github-Action@master
+        uses: elgohr/Publish-Docker-Github-Action@v5
         if: github.ref == 'refs/heads/master'
         with:
           name: golauth/golauth
@@ -25,7 +25,7 @@ jobs:
           tags: "latest"
 
       - name: Publish release
-        uses: elgohr/Publish-Docker-Github-Action@master
+        uses: elgohr/Publish-Docker-Github-Action@v5
         if: github.event_name ==  'release'
         with:
           name: golauth/golauth
