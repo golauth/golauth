@@ -5,3 +5,4 @@ vendor/
 coverage*
 golauth
 **/mock/*_mock.go
+/.fleet/
