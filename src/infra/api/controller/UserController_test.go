@@ -70,7 +70,13 @@ func (s *UserControllerSuite) TestFindByIDOk() {
 	s.Equal(http.StatusOK, resp.StatusCode)
 	var userResponse model.UserResponse
 	s.NoError(json.NewDecoder(resp.Body).Decode(&userResponse))
-	s.Equal(*model.NewUserResponseFromEntity(user), userResponse)
+	s.Equal(user.ID, userResponse.ID)
+	s.Equal(user.Username, userResponse.Username)
+	s.Equal(user.FirstName, userResponse.FirstName)
+	s.Equal(user.LastName, userResponse.LastName)
+	s.Equal(user.Email, userResponse.Email)
+	s.Equal(user.Document, userResponse.Document)
+	s.True(userResponse.Enabled)
 }
 
 func (s *UserControllerSuite) TestAddRoleOk() {

@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"fmt"
 	"github.com/gofiber/fiber/v2"
 	"github.com/golauth/golauth/src/application/token"
 	"net/http"
@@ -26,7 +27,9 @@ func (s *SecurityMiddleware) Apply() fiber.Handler {
 	return func(ctx *fiber.Ctx) error {
 		requestURI := ctx.Request().URI().String()
 		if s.isPrivateURI(requestURI) {
-			t, err := token.ExtractToken(ctx.Get("Authorization"))
+			fmt.Println(ctx.GetReqHeaders())
+			bearerTk := ctx.Get("Authorization", "")
+			t, err := token.ExtractToken(bearerTk)
 			if err != nil {
 				return fiber.NewError(http.StatusInternalServerError, err.Error())
 			}

@@ -67,11 +67,11 @@ func (c RoleController) ChangeStatus(ctx *fiber.Ctx) error {
 	}
 	var data model.RoleChangeStatus
 	if err := ctx.BodyParser(&data); err != nil {
-		return err
+		return fiber.NewError(http.StatusInternalServerError, err.Error())
 	}
 	err = c.changeRoleStatus.Execute(ctx.UserContext(), id, data.Enabled)
 	if err != nil {
-		return err
+		return fiber.NewError(http.StatusInternalServerError, err.Error())
 	}
 
 	return ctx.SendStatus(http.StatusNoContent)
@@ -81,9 +81,8 @@ func (c RoleController) FindByName(ctx *fiber.Ctx) error {
 	name := ctx.Params("name")
 	data, err := c.findByName.Execute(ctx.UserContext(), name)
 	if err != nil {
-		ctx.Status(http.StatusInternalServerError)
-		return err
+		return fiber.NewError(http.StatusInternalServerError, err.Error())
 	}
-	ctx.Status(http.StatusOK)
-	return ctx.JSON(data)
+
+	return ctx.Status(http.StatusOK).JSON(data)
 }

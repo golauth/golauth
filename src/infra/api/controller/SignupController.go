@@ -26,7 +26,7 @@ func (s *signupController) CreateUser(ctx *fiber.Ctx) error {
 	}
 	output, err := s.createUser.Execute(ctx.UserContext(), decodedUser.ToEntity())
 	if err != nil {
-		return err
+		return fiber.NewError(http.StatusInternalServerError, err.Error())
 	}
 
 	return ctx.Status(http.StatusCreated).JSON(output)

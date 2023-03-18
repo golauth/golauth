@@ -39,5 +39,6 @@ func (u UserController) AddRole(ctx *fiber.Ctx) error {
 	if err != nil {
 		return fiber.NewError(http.StatusInternalServerError, err.Error())
 	}
+
 	return ctx.SendStatus(http.StatusCreated)
 }
