@@ -4,14 +4,15 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/gofiber/fiber/v2"
 	"github.com/golang/mock/gomock"
 	userMock "github.com/golauth/golauth/src/application/user/mock"
 	"github.com/golauth/golauth/src/domain/entity"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
+	"io"
 	"net/http"
-	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
@@ -23,8 +24,8 @@ type SignupControllerSuite struct {
 	mockCtrl   *gomock.Controller
 	ctx        context.Context
 	createUser *userMock.MockCreateUser
-
-	ctrl SignupController
+	app        *fiber.App
+	ctrl       SignupController
 }
 
 func TestSignupController(t *testing.T) {
@@ -38,6 +39,8 @@ func (s *SignupControllerSuite) SetupTest() {
 	s.createUser = userMock.NewMockCreateUser(s.mockCtrl)
 
 	s.ctrl = NewSignupController(s.createUser)
+	s.app = fiber.New()
+	s.app.Post("/users", s.ctrl.CreateUser)
 }
 
 func (s *SignupControllerSuite) TearDownTest() {
@@ -67,14 +70,24 @@ func (s *SignupControllerSuite) TestCreateUserOK() {
 	s.createUser.EXPECT().Execute(s.ctx, input).Return(savedUser, nil).Times(1)
 
 	body, _ := json.Marshal(input)
-	w := httptest.NewRecorder()
 	r, _ := http.NewRequest("POST", "/users", strings.NewReader(string(body)))
+	r.Header.Set("Content-Type", "application/json")
 
-	s.ctrl.CreateUser(w, r)
-	s.Equal(http.StatusCreated, w.Code)
+	resp, _ := s.app.Test(r, -1)
+
+	s.Equal(http.StatusCreated, resp.StatusCode)
 	var output entity.User
-	_ = json.Unmarshal(w.Body.Bytes(), &output)
+	_ = json.NewDecoder(resp.Body).Decode(&output)
 	s.Equal(savedUser.ID, output.ID)
+}
+
+func (s *SignupControllerSuite) TestCreateUserErrBadRequest() {
+	body, _ := json.Marshal("invalid json")
+	r, _ := http.NewRequest("POST", "/users", strings.NewReader(string(body)))
+	r.Header.Set("Content-Type", "application/json")
+
+	resp, _ := s.app.Test(r, -1)
+	s.Equal(http.StatusBadRequest, resp.StatusCode)
 }
 
 func (s *SignupControllerSuite) TestCreateUserErrSvc() {
@@ -91,10 +104,11 @@ func (s *SignupControllerSuite) TestCreateUserErrSvc() {
 	s.createUser.EXPECT().Execute(s.ctx, user).Return(nil, fmt.Errorf(errMessage)).Times(1)
 
 	body, _ := json.Marshal(user)
-	w := httptest.NewRecorder()
 	r, _ := http.NewRequest("POST", "/users", strings.NewReader(string(body)))
+	r.Header.Set("Content-Type", "application/json")
 
-	s.ctrl.CreateUser(w, r)
-	s.Equal(http.StatusInternalServerError, w.Code)
-	s.Contains(w.Body.String(), errMessage)
+	resp, _ := s.app.Test(r, -1)
+	s.Equal(http.StatusInternalServerError, resp.StatusCode)
+	b, _ := io.ReadAll(resp.Body)
+	s.Equal(errMessage, string(b))
 }

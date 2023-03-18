@@ -1,19 +1,22 @@
 package controller
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/gofiber/fiber/v2"
 	"github.com/golauth/golauth/src/application/token"
 	"github.com/golauth/golauth/src/domain/repository"
 	"github.com/golauth/golauth/src/infra/api/controller/model"
 	"net/http"
 )
 
-var ErrContentTypeNotSupported = errors.New("content-type not supported")
+var (
+	ErrContentTypeNotSupported = errors.New("content-type not supported")
+	ErrMissingBodyData         = errors.New("missing body data")
+)
 
 type TokenController interface {
-	Token(w http.ResponseWriter, r *http.Request)
+	Token(ctx *fiber.Ctx) error
 }
 
 type tokenController struct {
@@ -33,50 +36,26 @@ func NewTokenController(
 	}
 }
 
-func (s tokenController) Token(w http.ResponseWriter, r *http.Request) {
-	var username string
-	var password string
-	var err error
-
-	if r.Header.Get("Content-Type") == "application/x-www-form-urlencoded" {
-		username, password, err = s.extractUserPasswordFromForm(r, username, password)
-	} else if r.Header.Get("Content-Type") == "application/json" {
-		username, password, err = s.extractUserPasswordFromJson(r, username, password)
-	} else {
-		http.Error(w, ErrContentTypeNotSupported.Error(), http.StatusMethodNotAllowed)
-		return
-	}
-
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	output, err := s.generateToken.Execute(r.Context(), username, password)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusUnauthorized)
-		return
-	}
-
-	_ = json.NewEncoder(w).Encode(model.NewTokenResponseFromEntity(output))
-}
-
-func (s tokenController) extractUserPasswordFromJson(r *http.Request, username string, password string) (string, string, error) {
+func (s tokenController) Token(ctx *fiber.Ctx) error {
 	var userLogin model.UserLoginRequest
-	err := json.NewDecoder(r.Body).Decode(&userLogin)
-	if err != nil {
-		return "", "", fmt.Errorf("json decoder error: %s", err.Error())
-	}
-	username = userLogin.Username
-	password = userLogin.Password
-	return username, password, err
-}
 
-func (s tokenController) extractUserPasswordFromForm(r *http.Request, username string, password string) (string, string, error) {
-	err := r.ParseForm()
-	if err != nil {
-		return "", "", fmt.Errorf("parse form error: %s", err.Error())
+	contentType := ctx.Get("Content-Type")
+	if contentType != "application/json" && contentType != "application/x-www-form-urlencoded" {
+		return fiber.NewError(http.StatusMethodNotAllowed, ErrContentTypeNotSupported.Error())
 	}
-	username = r.FormValue("username")
-	password = r.FormValue("password")
-	return username, password, nil
+
+	if err := ctx.BodyParser(&userLogin); err != nil {
+		return fiber.NewError(http.StatusBadRequest, fmt.Sprintf("json decoder error: %v", err))
+	}
+
+	if userLogin == (model.UserLoginRequest{}) {
+		return fiber.NewError(http.StatusBadRequest, ErrMissingBodyData.Error())
+	}
+
+	output, err := s.generateToken.Execute(ctx.UserContext(), userLogin.Username, userLogin.Password)
+	if err != nil {
+		return fiber.NewError(http.StatusUnauthorized)
+	}
+
+	return ctx.Status(http.StatusOK).JSON(&model.TokenResponse{AccessToken: output.AccessToken})
 }

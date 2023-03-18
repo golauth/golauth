@@ -1,20 +1,20 @@
 package api
 
 import (
+	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/cors"
+	"github.com/gofiber/fiber/v2/middleware/recover"
 	"github.com/golauth/golauth/src/application/token"
 	"github.com/golauth/golauth/src/application/user"
 	"github.com/golauth/golauth/src/domain/factory"
 	"github.com/golauth/golauth/src/infra/api/controller"
 	"github.com/golauth/golauth/src/infra/api/middleware"
-	"net/http"
-
-	"github.com/gorilla/mux"
 )
 
 const pathPrefix = "/auth"
 
 type Router interface {
-	Config() *mux.Router
+	Config() *fiber.App
 }
 
 type router struct {
@@ -49,24 +49,30 @@ func NewRouter(repoFactory factory.RepositoryFactory) Router {
 	}
 }
 
-func (r *router) Config() *mux.Router {
-	rt := mux.NewRouter().PathPrefix(pathPrefix).Subrouter()
+func (r *router) Config() *fiber.App {
+	app := fiber.New()
 
-	rt.HandleFunc("/signup", r.signupController.CreateUser).Methods(http.MethodPost, http.MethodOptions).Name("signup")
-	rt.HandleFunc("/token", r.tokenController.Token).Methods(http.MethodPost, http.MethodOptions).Name("token")
-	rt.HandleFunc("/check_token", r.checkTokenController.CheckToken).Methods(http.MethodGet, http.MethodOptions).Name("checkToken")
+	auth := app.Group(pathPrefix)
 
-	rt.HandleFunc("/users/{id}", r.userController.FindById).Methods(http.MethodGet, http.MethodOptions).Name("getUser")
-	rt.HandleFunc("/users/{id}/add-role", r.userController.AddRole).Methods(http.MethodPost, http.MethodOptions).Name("addRoleToUser")
+	auth.Get("/signup", r.signupController.CreateUser).Name("signup")
+	auth.Post("/token", r.tokenController.Token).Name("token")
+	auth.Get("/check_token", r.checkTokenController.CheckToken).Name("checkToken")
 
-	rt.HandleFunc("/roles", r.roleController.Create).Methods(http.MethodPost, http.MethodOptions).Name("addRole")
-	rt.HandleFunc("/roles/{name}", r.roleController.FindByName).Methods(http.MethodGet, http.MethodOptions).Name("findRoleByName")
-	rt.HandleFunc("/roles/{id}", r.roleController.Edit).Methods(http.MethodPut, http.MethodOptions).Name("editRole")
-	rt.HandleFunc("/roles/{id}/change-status", r.roleController.ChangeStatus).Methods(http.MethodPatch, http.MethodOptions).Name("changeStatus")
+	auth.Get("/users/:id", r.userController.FindById).Name("getUser")
+	auth.Post("/users/:id/add-role", r.userController.AddRole).Name("addRoleToUser")
 
-	rt.Use(middleware.NewCorsMiddleware("*").Apply)
-	rt.Use(middleware.NewSecurityMiddleware(r.validateToken, pathPrefix).Apply)
-	rt.Use(middleware.NewCommonMiddleware().Apply)
+	auth.Post("/roles", r.roleController.Create).Name("addRole")
+	auth.Get("/roles/:name", r.roleController.FindByName).Name("findRoleByName")
+	auth.Put("/roles/:id", r.roleController.Edit).Name("editRole")
+	auth.Patch("/roles/:id/change-status", r.roleController.ChangeStatus).Name("changeStatus")
 
-	return rt
+	app.Use(cors.New(cors.Config{
+		AllowOrigins: "*",
+		AllowMethods: "POST, GET, OPTIONS, PUT, PATCH, DELETE",
+		AllowHeaders: "access-control-allow-headers,access-control-allow-methods,access-control-allow-origin,authorization",
+	}))
+	app.Use(middleware.NewSecurityMiddleware(r.validateToken, pathPrefix).Apply())
+	app.Use(recover.New())
+
+	return app
 }

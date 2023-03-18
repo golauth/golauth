@@ -1,13 +1,13 @@
 package controller
 
 import (
-	"encoding/json"
+	"github.com/gofiber/fiber/v2"
 	"github.com/golauth/golauth/src/application/token"
 	"net/http"
 )
 
 type CheckTokenController interface {
-	CheckToken(w http.ResponseWriter, r *http.Request)
+	CheckToken(ctx *fiber.Ctx) error
 }
 
 type checkTokenController struct {
@@ -18,16 +18,14 @@ func NewCheckTokenController(validateToken token.ValidateToken) CheckTokenContro
 	return checkTokenController{validateToken: validateToken}
 }
 
-func (c checkTokenController) CheckToken(w http.ResponseWriter, r *http.Request) {
-	t, err := token.ExtractToken(r)
+func (c checkTokenController) CheckToken(ctx *fiber.Ctx) error {
+	t, err := token.ExtractToken(ctx.Get("Authorization"))
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
+		return fiber.NewError(http.StatusBadRequest, err.Error())
 	}
 	err = c.validateToken.Execute(t)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusUnauthorized)
-		return
+		return fiber.NewError(http.StatusUnauthorized, err.Error())
 	}
-	_ = json.NewEncoder(w).Encode(true)
+	return ctx.SendStatus(http.StatusNoContent)
 }

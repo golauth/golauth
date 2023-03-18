@@ -1,21 +1,21 @@
 package controller
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/gofiber/fiber/v2"
 	"github.com/golang/mock/gomock"
 	"github.com/golauth/golauth/src/application/user/mock"
 	"github.com/golauth/golauth/src/domain/entity"
+	"github.com/golauth/golauth/src/infra/api/controller/model"
 	"github.com/google/uuid"
-	"github.com/gorilla/mux"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
+	"io"
 	"net/http"
-	"net/http/httptest"
 	"strings"
 	"testing"
-	"time"
+	time "time"
 )
 
 type UserControllerSuite struct {
@@ -25,6 +25,7 @@ type UserControllerSuite struct {
 	findUserById *mock.MockFindUserById
 	addUserRole  *mock.MockAddUserRole
 	uc           UserController
+	app          *fiber.App
 }
 
 func TestUserControllerSuite(t *testing.T) {
@@ -39,6 +40,9 @@ func (s *UserControllerSuite) SetupTest() {
 	s.addUserRole = mock.NewMockAddUserRole(s.ctrl)
 
 	s.uc = NewUserController(s.findUserById, s.addUserRole)
+	s.app = fiber.New()
+	s.app.Get("/users/:id", s.uc.FindById)
+	s.app.Post("/users/:id/add-role", s.uc.AddRole)
 }
 
 func (s *UserControllerSuite) TearDownTest() {
@@ -57,70 +61,60 @@ func (s *UserControllerSuite) TestFindByIDOk() {
 		CreationDate: time.Now().AddDate(0, 0, -4),
 	}
 
-	w := httptest.NewRecorder()
-	r, _ := http.NewRequest("GET", fmt.Sprintf("users/%s", user.ID), nil)
+	r, _ := http.NewRequest("GET", fmt.Sprintf("/users/%s", user.ID), nil)
+	r.Header.Set("Content-Type", "application/json")
 
-	vars := map[string]string{
-		"id": user.ID.String(),
-	}
-	r = mux.SetURLVars(r, vars)
 	s.findUserById.EXPECT().Execute(r.Context(), user.ID).Return(user, nil).Times(1)
 
-	bf := bytes.NewBuffer([]byte{})
-	jsonEncoder := json.NewEncoder(bf)
-	jsonEncoder.SetEscapeHTML(false)
-	_ = jsonEncoder.Encode(user)
-	s.uc.FindById(w, r)
-	s.Equal(http.StatusOK, w.Code)
-	s.Equal(bf, w.Body)
+	resp, _ := s.app.Test(r, -1)
+	s.Equal(http.StatusOK, resp.StatusCode)
+	var userResponse model.UserResponse
+	s.NoError(json.NewDecoder(resp.Body).Decode(&userResponse))
+	s.Equal(user.ID, userResponse.ID)
+	s.Equal(user.Username, userResponse.Username)
+	s.Equal(user.FirstName, userResponse.FirstName)
+	s.Equal(user.LastName, userResponse.LastName)
+	s.Equal(user.Email, userResponse.Email)
+	s.Equal(user.Document, userResponse.Document)
+	s.True(userResponse.Enabled)
 }
 
 func (s *UserControllerSuite) TestAddRoleOk() {
 	userId := uuid.New()
 	userRole := entity.UserRole{RoleID: uuid.New(), UserID: userId, CreationDate: time.Now()}
-
 	body, _ := json.Marshal(userRole)
-	w := httptest.NewRecorder()
-	r, _ := http.NewRequest("POST", fmt.Sprintf("users/%s/add-role", userId), strings.NewReader(string(body)))
-	vars := map[string]string{
-		"id": userId.String(),
-	}
-	r = mux.SetURLVars(r, vars)
+
+	r, _ := http.NewRequest("POST", fmt.Sprintf("/users/%s/add-role", userId), strings.NewReader(string(body)))
+	r.Header.Set("Content-Type", "application/json")
+
 	s.addUserRole.EXPECT().Execute(r.Context(), userRole.UserID, userRole.RoleID).Return(nil).Times(1)
 
-	s.uc.AddRole(w, r)
-	s.Equal(http.StatusCreated, w.Code)
+	resp, _ := s.app.Test(r, -1)
+	s.Equal(http.StatusCreated, resp.StatusCode)
 }
 
 func (s *UserControllerSuite) TestFindByIDErrParseUUID() {
-	w := httptest.NewRecorder()
-	r, _ := http.NewRequest("GET", fmt.Sprintf("users/abc"), nil)
+	r, _ := http.NewRequest("GET", fmt.Sprintf("/users/abc"), nil)
+	r.Header.Set("Content-Type", "application/json")
 
-	vars := map[string]string{
-		"id": "abc",
-	}
-	r = mux.SetURLVars(r, vars)
-
-	s.uc.FindById(w, r)
-	s.Equal(http.StatusBadRequest, w.Code)
+	resp, _ := s.app.Test(r, -1)
+	s.Equal(http.StatusBadRequest, resp.StatusCode)
 }
 
 func (s *UserControllerSuite) TestFindByIDErrSvc() {
 	id := uuid.New()
 	errMessage := "could not find user by id"
 
-	w := httptest.NewRecorder()
-	r, _ := http.NewRequest("GET", fmt.Sprintf("users/%s", id), nil)
+	r, _ := http.NewRequest("GET", fmt.Sprintf("/users/%s", id), nil)
+	r.Header.Set("Content-Type", "application/json")
 
-	vars := map[string]string{
-		"id": id.String(),
-	}
-	r = mux.SetURLVars(r, vars)
 	s.findUserById.EXPECT().Execute(r.Context(), id).Return(nil, fmt.Errorf(errMessage)).Times(1)
 
-	s.uc.FindById(w, r)
-	s.Equal(http.StatusInternalServerError, w.Code)
-	s.Contains(w.Body.String(), errMessage)
+	resp, _ := s.app.Test(r, -1)
+	s.Equal(http.StatusInternalServerError, resp.StatusCode)
+	b, _ := io.ReadAll(resp.Body)
+	defer resp.Body.Close()
+	s.Contains(string(b), errMessage)
 }
 
 func (s *UserControllerSuite) TestAddRoleErrSvc() {
@@ -131,16 +125,13 @@ func (s *UserControllerSuite) TestAddRoleErrSvc() {
 	body, err := json.Marshal(userRole)
 	s.NoError(err)
 
-	w := httptest.NewRecorder()
-	r, _ := http.NewRequest("GET", fmt.Sprintf("users/%s/add-role", userId), strings.NewReader(string(body)))
+	r, _ := http.NewRequest("POST", fmt.Sprintf("/users/%s/add-role", userId), strings.NewReader(string(body)))
+	r.Header.Set("Content-Type", "application/json")
 
-	vars := map[string]string{
-		"id": userId.String(),
-	}
-	r = mux.SetURLVars(r, vars)
 	s.addUserRole.EXPECT().Execute(r.Context(), userId, roleId).Return(fmt.Errorf(errMessage)).Times(1)
 
-	s.uc.AddRole(w, r)
-	s.Equal(http.StatusInternalServerError, w.Code)
-	s.Contains(w.Body.String(), errMessage)
+	resp, err := s.app.Test(r, -1)
+	s.Equal(http.StatusInternalServerError, resp.StatusCode)
+	b, _ := io.ReadAll(resp.Body)
+	s.Contains(string(b), errMessage)
 }
