@@ -1,11 +1,10 @@
 package controller
 
 import (
-	"encoding/json"
+	"github.com/gofiber/fiber/v2"
 	"github.com/golauth/golauth/src/application/user"
 	"github.com/golauth/golauth/src/infra/api/controller/model"
 	"github.com/google/uuid"
-	"github.com/gorilla/mux"
 	"net/http"
 )
 
@@ -18,28 +17,27 @@ func NewUserController(findById user.FindUserById, addUserRole user.AddUserRole)
 	return UserController{findById: findById, addUserRole: addUserRole}
 }
 
-func (u UserController) FindById(w http.ResponseWriter, r *http.Request) {
-	params := mux.Vars(r)
-	id, err := uuid.Parse(params["id"])
+func (u UserController) FindById(ctx *fiber.Ctx) error {
+	id, err := uuid.Parse(ctx.Params("id"))
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
+		return fiber.NewError(http.StatusBadRequest, err.Error())
 	}
-	data, err := u.findById.Execute(r.Context(), id)
+	data, err := u.findById.Execute(ctx.UserContext(), id)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return fiber.NewError(http.StatusInternalServerError, err.Error())
 	}
-	_ = json.NewEncoder(w).Encode(data)
+
+	return ctx.Status(http.StatusOK).JSON(model.NewUserResponseFromEntity(data))
 }
 
-func (u UserController) AddRole(w http.ResponseWriter, r *http.Request) {
+func (u UserController) AddRole(ctx *fiber.Ctx) error {
 	var userRole model.UserRoleRequest
-	_ = json.NewDecoder(r.Body).Decode(&userRole)
-	err := u.addUserRole.Execute(r.Context(), userRole.UserID, userRole.RoleID)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+	if err := ctx.BodyParser(&userRole); err != nil {
+		return fiber.NewError(http.StatusInternalServerError, err.Error())
 	}
-	w.WriteHeader(http.StatusCreated)
+	err := u.addUserRole.Execute(ctx.UserContext(), userRole.UserID, userRole.RoleID)
+	if err != nil {
+		return fiber.NewError(http.StatusInternalServerError, err.Error())
+	}
+	return ctx.SendStatus(http.StatusCreated)
 }

@@ -67,7 +67,7 @@ networks:
 
 | Env Variable | Description                     |
 |--------------|---------------------------------|
-| DB_HOST      | Dabatase hostname               |
+| DB_HOST      | Database hostname               |
 | DB_PORT      | Database port                   |
 | DB_NAME      | Database name                   |
 | DB_USERNAME  | Database username               |
@@ -78,9 +78,8 @@ networks:
 
 Default user is `admin` and password `admin123`.
 
-
 ```bash
-$ curl --request POST \
+curl --request POST \
     --url http://localhost:8180/auth/token \
     --header 'content-type: application/json' \
     --data '{"username": "admin","password": "admin123"}'
@@ -89,10 +88,11 @@ $ curl --request POST \
 or 
 
 ```bash
-$ curl --request POST \
+curl --request POST \
     --url http://localhost:8180/auth/token \
     --header 'content-type: application/x-www-form-urlencoded' \
     --data username=admin \
     --data password=admin123
 ```
+
 ---

@@ -6,7 +6,6 @@ import (
 	"github.com/golauth/golauth/src/infra/database"
 	"github.com/golauth/golauth/src/infra/factory"
 	"log"
-	"net/http"
 	"os"
 
 	"github.com/subosito/gotenv"
@@ -29,7 +28,7 @@ func main() {
 	db := database.NewPGDatabase()
 	defer db.Close()
 	rf := factory.NewPostgresRepositoryFactory(db)
-	r := api.NewRouter(rf)
+	app := api.NewRouter(rf)
 	fmt.Println("Server listening on port: ", port)
-	log.Fatal(http.ListenAndServe(addr, r.Config()))
+	log.Fatal(app.Config().Listen(addr))
 }

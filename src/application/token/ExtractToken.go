@@ -1,13 +1,8 @@
 package token
 
-import (
-	"net/http"
-)
-
-func ExtractToken(r *http.Request) (string, error) {
-	authorization := r.Header.Get("Authorization")
-	if len(authorization) > len("Bearer ") {
-		return authorization[7:], nil
+func ExtractToken(headerValue string) (string, error) {
+	if len(headerValue) > len("Bearer ") {
+		return headerValue[7:], nil
 	}
 	return "", ErrBearerTokenExtract
 }

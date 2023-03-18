@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"github.com/gofiber/fiber/v2"
 	"github.com/golauth/golauth/src/application/token"
 	"net/http"
 )
@@ -21,26 +22,24 @@ func NewSecurityMiddleware(validateToken token.ValidateToken, pathPrefix string)
 	}
 }
 
-func (s *SecurityMiddleware) Apply(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		requestURI := r.RequestURI
+func (s *SecurityMiddleware) Apply() fiber.Handler {
+	return func(ctx *fiber.Ctx) error {
+		requestURI := ctx.Request().URI().String()
 		if s.isPrivateURI(requestURI) {
-			t, err := token.ExtractToken(r)
+			t, err := token.ExtractToken(ctx.Get("Authorization"))
 			if err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
+				return fiber.NewError(http.StatusInternalServerError, err.Error())
 			}
 			err = s.validateToken.Execute(t)
 			if err != nil {
-				http.Error(w, err.Error(), http.StatusUnauthorized)
-				return
+				return fiber.NewError(http.StatusUnauthorized, err.Error())
 			}
 		}
-		next.ServeHTTP(w, r)
-	})
+		return ctx.Next()
+	}
 }
 
-func (s SecurityMiddleware) isPrivateURI(requestURI string) bool {
+func (s *SecurityMiddleware) isPrivateURI(requestURI string) bool {
 	_, contains := s.publicURI[requestURI]
 	return !contains
 }

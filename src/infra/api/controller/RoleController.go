@@ -1,13 +1,13 @@
 package controller
 
 import (
-	"encoding/json"
+	"fmt"
+	"github.com/gofiber/fiber/v2"
 	"github.com/golauth/golauth/src/application/role"
 	"github.com/golauth/golauth/src/domain/entity"
 	"github.com/golauth/golauth/src/domain/factory"
 	"github.com/golauth/golauth/src/infra/api/controller/model"
 	"github.com/google/uuid"
-	"github.com/gorilla/mux"
 	"net/http"
 )
 
@@ -27,60 +27,63 @@ func NewRoleController(repoFactory factory.RepositoryFactory) RoleController {
 	}
 }
 
-func (c RoleController) Create(w http.ResponseWriter, r *http.Request) {
+func (c RoleController) Create(ctx *fiber.Ctx) error {
 	var data model.RoleRequest
-	_ = json.NewDecoder(r.Body).Decode(&data)
+	fmt.Println(ctx.GetReqHeaders())
+	if err := ctx.BodyParser(&data); err != nil {
+		return fiber.NewError(http.StatusInternalServerError, err.Error())
+	}
+
 	input := entity.NewRole(data.Name, data.Description)
-	output, err := c.addRole.Execute(r.Context(), input)
+	output, err := c.addRole.Execute(ctx.UserContext(), input)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return fiber.NewError(http.StatusInternalServerError, err.Error())
 	}
-	w.WriteHeader(http.StatusCreated)
-	_ = json.NewEncoder(w).Encode(model.NewRoleResponseFromEntity(output))
+
+	return ctx.Status(http.StatusCreated).JSON(output)
 }
 
-func (c RoleController) Edit(w http.ResponseWriter, r *http.Request) {
-	params := mux.Vars(r)
-	id, err := uuid.Parse(params["id"])
+func (c RoleController) Edit(ctx *fiber.Ctx) error {
+	id, err := uuid.Parse(ctx.Params("id"))
 	if err != nil {
-		http.Error(w, "cannot cast [id] to [uuid]", http.StatusInternalServerError)
-		return
+		return fmt.Errorf("cannot cast %s to uuid: %w", id, err)
 	}
 	var data model.RoleRequest
-	_ = json.NewDecoder(r.Body).Decode(&data)
-	err = c.editRole.Execute(r.Context(), id, data.ToEntity())
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+	if err := ctx.BodyParser(&data); err != nil {
+		return err
 	}
-	_ = json.NewEncoder(w).Encode(data)
+	err = c.editRole.Execute(ctx.UserContext(), id, data.ToEntity())
+	if err != nil {
+		return err
+	}
+	ctx.Status(http.StatusOK)
+	return ctx.JSON(data)
 }
 
-func (c RoleController) ChangeStatus(w http.ResponseWriter, r *http.Request) {
-	params := mux.Vars(r)
-	id, err := uuid.Parse(params["id"])
+func (c RoleController) ChangeStatus(ctx *fiber.Ctx) error {
+	id, err := uuid.Parse(ctx.Params("id"))
 	if err != nil {
-		http.Error(w, "cannot cast [id] to [uuid]", http.StatusBadRequest)
-		return
+		return fiber.NewError(http.StatusBadRequest, fmt.Sprintf("cannot cast %s to uuid: %v", id, err))
 	}
 	var data model.RoleChangeStatus
-	_ = json.NewDecoder(r.Body).Decode(&data)
-	err = c.changeRoleStatus.Execute(r.Context(), id, data.Enabled)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+	if err := ctx.BodyParser(&data); err != nil {
+		return err
 	}
-	_ = json.NewEncoder(w).Encode(data)
+	err = c.changeRoleStatus.Execute(ctx.UserContext(), id, data.Enabled)
+	if err != nil {
+		return err
+	}
+
+	return ctx.SendStatus(http.StatusNoContent)
 }
 
-func (c RoleController) FindByName(w http.ResponseWriter, r *http.Request) {
-	params := mux.Vars(r)
-	name := params["name"]
-	data, err := c.findByName.Execute(r.Context(), name)
+func (c RoleController) FindByName(ctx *fiber.Ctx) error {
+	name := ctx.Params("name")
+	data, err := c.findByName.Execute(ctx.UserContext(), name)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		ctx.Status(http.StatusInternalServerError)
+		return err
 	}
-	_ = json.NewEncoder(w).Encode(data)
+	ctx.Status(http.StatusOK)
+	return ctx.JSON(data)
 }

@@ -6,7 +6,7 @@ import (
 )
 
 type RoleRequest struct {
-	ID          uuid.UUID `json:"id"`
+	ID          uuid.UUID `json:"id,omitempty"`
 	Name        string    `json:"name"`
 	Description string    `json:"description"`
 }
