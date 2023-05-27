@@ -7,9 +7,14 @@ import (
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
+	"github.com/golauth/golauth/src/infra/monitoring"
 	"github.com/sirupsen/logrus"
 	"github.com/subosito/gotenv"
+	semconv "go.opentelemetry.io/otel/semconv/v1.20.0"
+	_ "go.opentelemetry.io/otel/trace"
 	"os"
+
+	"go.nhat.io/otelsql"
 )
 
 var instance *PGDatabase
@@ -34,14 +39,20 @@ func NewPGDatabase() Database {
 }
 
 func (d PGDatabase) Many(ctx context.Context, query string, params ...interface{}) (*sql.Rows, error) {
+	ctx, span := monitoring.StartSpan(ctx, "Many")
+	defer span.End()
 	return d.db.QueryContext(ctx, query, params...)
 }
 
 func (d PGDatabase) One(ctx context.Context, query string, params ...interface{}) *sql.Row {
+	ctx, span := monitoring.StartSpan(ctx, "One")
+	defer span.End()
 	return d.db.QueryRowContext(ctx, query, params...)
 }
 
 func (d PGDatabase) Exec(ctx context.Context, query string, params ...interface{}) (sql.Result, error) {
+	ctx, span := monitoring.StartSpan(ctx, "Exec")
+	defer span.End()
 	return d.db.ExecContext(ctx, query, params...)
 }
 
@@ -56,7 +67,19 @@ func (d PGDatabase) createStringConn() string {
 }
 
 func (d PGDatabase) getConnection(connStr string) (*sql.DB, error) {
-	db, err := sql.Open("postgres", connStr)
+	driverName, err := otelsql.Register("postgres",
+		otelsql.AllowRoot(),
+		otelsql.TraceQueryWithoutArgs(),
+		otelsql.TraceRowsClose(),
+		otelsql.TraceRowsAffected(),
+		otelsql.WithDatabaseName(os.Getenv("DB_NAME")), // Optional.
+		otelsql.WithSystem(semconv.DBSystemPostgreSQL), // Optional.
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	db, err := sql.Open(driverName, connStr)
 	if err != nil {
 		return nil, fmt.Errorf("database: could not open connection: %w", err)
 	}

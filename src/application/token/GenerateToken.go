@@ -8,6 +8,8 @@ import (
 	"github.com/golauth/golauth/src/domain/entity"
 	"github.com/golauth/golauth/src/domain/factory"
 	"github.com/golauth/golauth/src/domain/repository"
+	"github.com/golauth/golauth/src/infra/monitoring"
+	"go.opentelemetry.io/otel/attribute"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -39,6 +41,9 @@ type generateToken struct {
 }
 
 func (uc generateToken) Execute(ctx context.Context, username string, password string) (*entity.Token, error) {
+	ctx, span := monitoring.StartSpan(ctx, "generateToken")
+	defer span.End()
+	span.SetAttributes(attribute.KeyValue{Key: "username", Value: attribute.StringValue(username)})
 	user, err := uc.userRepository.FindByUsername(ctx, username)
 	if err != nil {
 		return nil, ErrInvalidUsernameOrPassword

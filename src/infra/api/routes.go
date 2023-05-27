@@ -1,6 +1,7 @@
 package api
 
 import (
+	"github.com/gofiber/contrib/otelfiber"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/recover"
@@ -9,6 +10,7 @@ import (
 	"github.com/golauth/golauth/src/domain/factory"
 	"github.com/golauth/golauth/src/infra/api/controller"
 	"github.com/golauth/golauth/src/infra/api/middleware"
+	"net/http"
 )
 
 const pathPrefix = "/auth"
@@ -50,29 +52,37 @@ func NewRouter(repoFactory factory.RepositoryFactory) Router {
 }
 
 func (r *router) Config() *fiber.App {
-	app := fiber.New()
+	app := fiber.New(fiber.Config{
+		ServerHeader:          "Golauth",
+		AppName:               "Golauth",
+		DisableStartupMessage: true,
+	})
 
-	auth := app.Group(pathPrefix)
-
-	auth.Get("/signup", r.signupController.CreateUser).Name("signup")
-	auth.Post("/token", r.tokenController.Token).Name("token")
-	auth.Get("/check_token", r.checkTokenController.CheckToken).Name("checkToken")
-
-	auth.Get("/users/:id", r.userController.FindById).Name("getUser")
-	auth.Post("/users/:id/add-role", r.userController.AddRole).Name("addRoleToUser")
-
-	auth.Post("/roles", r.roleController.Create).Name("addRole")
-	auth.Get("/roles/:name", r.roleController.FindByName).Name("findRoleByName")
-	auth.Put("/roles/:id", r.roleController.Edit).Name("editRole")
-	auth.Patch("/roles/:id/change-status", r.roleController.ChangeStatus).Name("changeStatus")
+	app.Use(otelfiber.Middleware())
 
 	app.Use(cors.New(cors.Config{
 		AllowOrigins: "*",
 		AllowMethods: "POST, GET, OPTIONS, PUT, PATCH, DELETE",
 		AllowHeaders: "access-control-allow-headers,access-control-allow-methods,access-control-allow-origin,authorization",
 	}))
-	app.Use(middleware.NewSecurityMiddleware(r.validateToken, pathPrefix).Apply())
 	app.Use(recover.New())
+
+	app.Get("/health", func(ctx *fiber.Ctx) error {
+		return ctx.Status(http.StatusOK).SendString("OK")
+	})
+
+	auth := app.Group(pathPrefix)
+	auth.Get("/signup", r.signupController.CreateUser).Name("signup")
+	auth.Post("/token", r.tokenController.Token).Name("token")
+	auth.Get("/check_token", r.checkTokenController.CheckToken).Name("checkToken")
+	auth.Get("/users/:id", r.userController.FindById).Name("getUser")
+	auth.Post("/users/:id/add-role", r.userController.AddRole).Name("addRoleToUser")
+	auth.Post("/roles", r.roleController.Create).Name("addRole")
+	auth.Get("/roles/:name", r.roleController.FindByName).Name("findRoleByName")
+	auth.Put("/roles/:id", r.roleController.Edit).Name("editRole")
+	auth.Patch("/roles/:id/change-status", r.roleController.ChangeStatus).Name("changeStatus")
+
+	auth.Use(middleware.NewSecurityMiddleware(r.validateToken, pathPrefix).Apply())
 
 	return app
 }
