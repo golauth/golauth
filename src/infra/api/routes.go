@@ -9,6 +9,7 @@ import (
 	"github.com/golauth/golauth/src/domain/factory"
 	"github.com/golauth/golauth/src/infra/api/controller"
 	"github.com/golauth/golauth/src/infra/api/middleware"
+	"os"
 )
 
 const pathPrefix = "/auth"
@@ -50,7 +51,10 @@ func NewRouter(repoFactory factory.RepositoryFactory) Router {
 }
 
 func (r *router) Config() *fiber.App {
-	app := fiber.New()
+	app := fiber.New(fiber.Config{
+		AppName:               os.Getenv("APP_NAME"),
+		DisableStartupMessage: true,
+	})
 
 	auth := app.Group(pathPrefix)
 
