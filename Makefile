@@ -2,7 +2,8 @@ STACK_NAME=golauth
 
 prepare:
 	cp .env.example .env
-	go get -u github.com/ory/go-acc
+	go install github.com/ory/go-acc@latest
+	go install github.com/golang/mock/mockgen@v1.6.0
 	go mod download
 	go mod tidy
 
