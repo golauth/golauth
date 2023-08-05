@@ -5,7 +5,7 @@ on:
       - published
   push:
     branches:
-      - master
+      - main
 
 jobs:
   docker:
@@ -17,7 +17,7 @@ jobs:
 
       - name: Publish mainline
         uses: elgohr/Publish-Docker-Github-Action@v5
-        if: github.ref == 'refs/heads/master'
+        if: github.ref == 'refs/heads/main'
         with:
           name: golauth/golauth
           username: ${{ secrets.DOCKERHUB_USERNAME }}
