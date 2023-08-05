@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"github.com/gofiber/fiber/v2"
-	"github.com/golang/mock/gomock"
 	"github.com/golauth/golauth/src/application/token"
 	"github.com/golauth/golauth/src/application/user/mock"
 	"github.com/golauth/golauth/src/domain/entity"
@@ -13,6 +12,7 @@ import (
 	"github.com/golauth/golauth/src/infra/api/controller"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/mock/gomock"
 	"net/http"
 	"testing"
 )

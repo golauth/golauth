@@ -2,7 +2,6 @@ package postgres
 
 import (
 	"context"
-	"github.com/golang/mock/gomock"
 	"github.com/golauth/golauth/src/domain/repository"
 	"github.com/golauth/golauth/src/infra/database"
 	"github.com/golauth/golauth/tests"
@@ -10,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
+	"go.uber.org/mock/gomock"
 	"testing"
 )
 

@@ -3,12 +3,12 @@ package user
 import (
 	"context"
 	"fmt"
-	"github.com/golang/mock/gomock"
 	"github.com/golauth/golauth/src/domain/entity"
 	"github.com/golauth/golauth/src/domain/repository/mock"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
+	"go.uber.org/mock/gomock"
 	"testing"
 	"time"
 )
