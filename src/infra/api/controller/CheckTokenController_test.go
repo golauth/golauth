@@ -3,11 +3,11 @@ package controller
 import (
 	"fmt"
 	"github.com/gofiber/fiber/v2"
-	"github.com/golang/mock/gomock"
 	"github.com/golauth/golauth/src/application/token"
 	"github.com/golauth/golauth/src/application/token/mock"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
+	"go.uber.org/mock/gomock"
 	"io"
 	"net/http"
 	"testing"

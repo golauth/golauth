@@ -8,7 +8,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
-	"io/ioutil"
 	"log"
 	"os"
 )
@@ -37,10 +36,10 @@ func ContainerDBStart(basePath string) (context.Context, error) {
 		},
 		WaitingFor: wait.ForAll(
 			wait.ForListeningPort(testPostgresSvcPort),
-			wait.ForSQL(testPostgresSvcPort, "postgres", func(port nat.Port) string {
+			wait.ForSQL(testPostgresSvcPort, "postgres", func(host string, port nat.Port) string {
 				return fmt.Sprintf(
 					"host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
-					testDbHost,
+					host,
 					port.Port(),
 					testDbUser,
 					testDbPassword,
@@ -135,7 +134,7 @@ func clearDataScript(basePath string, fileName string) (string, error) {
 
 func loadScript(basePath string, fileName string) (string, error) {
 	filePath := fmt.Sprintf("%s/tests/scripts/%s", basePath, fileName)
-	c, err := ioutil.ReadFile(filePath)
+	c, err := os.ReadFile(filePath)
 	if err != nil {
 		return "", err
 	}

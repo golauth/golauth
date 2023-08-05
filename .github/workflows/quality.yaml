@@ -23,7 +23,7 @@ jobs:
       - name: test
         run: |
           go install github.com/ory/go-acc@v0.2.8
-          go install github.com/golang/mock/mockgen@v1.6.0
+          go install go.uber.org/mock/mockgen@latest
           go mod download
           make test
 

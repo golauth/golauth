@@ -3,7 +3,6 @@ package token
 import (
 	"context"
 	"fmt"
-	"github.com/golang/mock/gomock"
 	tokenMock "github.com/golauth/golauth/src/application/token/mock"
 	"github.com/golauth/golauth/src/domain/entity"
 	factoryMock "github.com/golauth/golauth/src/domain/factory/mock"
@@ -12,6 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
+	"go.uber.org/mock/gomock"
 	"golang.org/x/crypto/bcrypt"
 	"testing"
 	"time"
