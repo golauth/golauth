@@ -5,7 +5,7 @@ go 1.20
 require (
 	github.com/cristalhq/jwt/v3 v3.1.0
 	github.com/docker/go-connections v0.4.0
-	github.com/gofiber/fiber/v2 v2.52.1
+	github.com/gofiber/fiber/v2 v2.52.5
 	github.com/golang-migrate/migrate/v4 v4.16.2
 	github.com/google/uuid v1.5.0
 	github.com/sirupsen/logrus v1.9.3
