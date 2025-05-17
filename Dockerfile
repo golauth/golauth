@@ -7,7 +7,7 @@ RUN apk add --no-cache git make \
     && make build
 
 ###
-FROM alpine:2117 AS dist
+FROM alpine:3.21 AS dist
 ENV MIGRATION_SOURCE_URL=./migrations
 
 RUN mkdir /app && addgroup -S golauth && adduser -S golauth -G golauth \
