@@ -3,7 +3,7 @@ STACK_NAME=golauth
 prepare:
 	cp .env.example .env
 	go install github.com/ory/go-acc@latest
-	go install github.com/golang/mock/mockgen@v1.6.0
+	go install go.uber.org/mock/mockgen@latest
 	go mod download
 	go mod tidy
 
@@ -20,7 +20,7 @@ build-image:
 	docker build -t golauth/golauth:dev -f Dockerfile .
 
 run:
-	go run main.go
+	go run cmd/api/main.go
 
 fmt:
 	go fmt ./...
@@ -29,7 +29,7 @@ test: mock
 	go-acc --covermode=set -o coverage.txt ./...
 
 build:
-	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-w -s" -o golauth
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-w -s" -o golauth ./cmd/api/main.go
 
 cover:
 	go tool cover -html coverage.txt
