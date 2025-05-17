@@ -26,8 +26,6 @@ docker run -p 8180:8080 \
 Docker compose example with database creation:
 
 ```yaml
-version: '3'
-
 services:
   postgres:
     image: postgres:alpine
