@@ -2,9 +2,9 @@ package main
 
 import (
 	"fmt"
-	"github.com/golauth/golauth/src/infra/api"
-	"github.com/golauth/golauth/src/infra/database"
-	"github.com/golauth/golauth/src/infra/factory"
+	"github.com/golauth/golauth/pkg/infra/api"
+	"github.com/golauth/golauth/pkg/infra/database"
+	"github.com/golauth/golauth/pkg/infra/factory"
 	"log"
 	"os"
 

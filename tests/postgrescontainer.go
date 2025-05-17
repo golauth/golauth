@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/docker/go-connections/nat"
-	"github.com/golauth/golauth/src/infra/database"
+	"github.com/golauth/golauth/pkg/infra/database"
 	"github.com/sirupsen/logrus"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
