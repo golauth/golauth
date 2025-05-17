@@ -26,7 +26,8 @@ jobs:
           go install github.com/ory/go-acc@latest
           go install github.com/golang/mock/mockgen@v1.6.0
           go mod download
-          make test
+          go generate -v ./...
+          go-acc --covermode=set -o coverage.txt ./...
 
       - name: SonarCloud Scan
         uses: SonarSource/sonarqube-scan-action@v5
