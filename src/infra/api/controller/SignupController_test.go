@@ -3,7 +3,7 @@ package controller
 import (
 	"context"
 	"encoding/json"
-	"fmt"
+	"errors"
 	"github.com/gofiber/fiber/v2"
 	userMock "github.com/golauth/golauth/src/application/user/mock"
 	"github.com/golauth/golauth/src/domain/entity"
@@ -101,7 +101,7 @@ func (s *SignupControllerSuite) TestCreateUserErrSvc() {
 		Enabled:   true,
 	}
 	errMessage := "could not create new user"
-	s.createUser.EXPECT().Execute(s.ctx, user).Return(nil, fmt.Errorf(errMessage)).Times(1)
+	s.createUser.EXPECT().Execute(s.ctx, user).Return(nil, errors.New(errMessage)).Times(1)
 
 	body, _ := json.Marshal(user)
 	r, _ := http.NewRequest("POST", "/users", strings.NewReader(string(body)))

@@ -2,6 +2,7 @@ package controller
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/gofiber/fiber/v2"
 	"github.com/golauth/golauth/src/application/user/mock"
@@ -108,7 +109,7 @@ func (s *UserControllerSuite) TestFindByIDErrSvc() {
 	r, _ := http.NewRequest("GET", fmt.Sprintf("/users/%s", id), nil)
 	r.Header.Set("Content-Type", "application/json")
 
-	s.findUserById.EXPECT().Execute(r.Context(), id).Return(nil, fmt.Errorf(errMessage)).Times(1)
+	s.findUserById.EXPECT().Execute(r.Context(), id).Return(nil, errors.New(errMessage)).Times(1)
 
 	resp, _ := s.app.Test(r, -1)
 	s.Equal(http.StatusInternalServerError, resp.StatusCode)
@@ -128,7 +129,7 @@ func (s *UserControllerSuite) TestAddRoleErrSvc() {
 	r, _ := http.NewRequest("POST", fmt.Sprintf("/users/%s/add-role", userId), strings.NewReader(string(body)))
 	r.Header.Set("Content-Type", "application/json")
 
-	s.addUserRole.EXPECT().Execute(r.Context(), userId, roleId).Return(fmt.Errorf(errMessage)).Times(1)
+	s.addUserRole.EXPECT().Execute(r.Context(), userId, roleId).Return(errors.New(errMessage)).Times(1)
 
 	resp, err := s.app.Test(r, -1)
 	s.Equal(http.StatusInternalServerError, resp.StatusCode)

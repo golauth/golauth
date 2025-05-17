@@ -2,6 +2,7 @@ package role
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"github.com/golauth/golauth/src/domain/entity"
 	"github.com/golauth/golauth/src/domain/repository/mock"
@@ -72,7 +73,7 @@ func (s *EditRoleSuite) TestEditExistsErr() {
 		Name:        "NEW_ROLE",
 		Description: "Edited Role",
 	}
-	s.repo.EXPECT().ExistsById(s.ctx, roleId).Return(false, fmt.Errorf(errMessage)).Times(1)
+	s.repo.EXPECT().ExistsById(s.ctx, roleId).Return(false, errors.New(errMessage)).Times(1)
 	err := s.editRole.Execute(s.ctx, roleId, input)
 	s.Error(err)
 	s.EqualError(err, errMessage)

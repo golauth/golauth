@@ -2,6 +2,7 @@ package controller
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/gofiber/fiber/v2"
 	"github.com/golauth/golauth/src/domain/entity"
@@ -124,7 +125,7 @@ func (s *RoleControllerSuite) TestEditRoleNotOk() {
 	r.Header.Set("Content-Type", "application/json")
 
 	s.roleRepo.EXPECT().ExistsById(r.Context(), roleId).Return(true, nil).Times(1)
-	s.roleRepo.EXPECT().Edit(r.Context(), gomock.Any()).Return(fmt.Errorf(errMessage)).Times(1)
+	s.roleRepo.EXPECT().Edit(r.Context(), gomock.Any()).Return(errors.New(errMessage)).Times(1)
 
 	resp, _ := s.app.Test(r, -1)
 	s.Equal(http.StatusInternalServerError, resp.StatusCode)
@@ -168,7 +169,7 @@ func (s *RoleControllerSuite) TestChangeStatusErrSvc() {
 	r.Header.Set("Content-Type", "application/json")
 
 	s.roleRepo.EXPECT().ExistsById(r.Context(), roleId).Return(true, nil).Times(1)
-	s.roleRepo.EXPECT().ChangeStatus(r.Context(), roleId, changeStatus.Enabled).Return(fmt.Errorf(errMessage)).Times(1)
+	s.roleRepo.EXPECT().ChangeStatus(r.Context(), roleId, changeStatus.Enabled).Return(errors.New(errMessage)).Times(1)
 
 	resp, _ := s.app.Test(r, -1)
 	s.Equal(http.StatusInternalServerError, resp.StatusCode)
@@ -208,7 +209,7 @@ func (s *RoleControllerSuite) TestFindByNameErrSvc() {
 	r, _ := http.NewRequest("GET", fmt.Sprintf("/roles/%s", roleName), nil)
 	r.Header.Set("Content-Type", "application/json")
 
-	s.roleRepo.EXPECT().FindByName(r.Context(), roleName).Return(nil, fmt.Errorf(errMessage)).Times(1)
+	s.roleRepo.EXPECT().FindByName(r.Context(), roleName).Return(nil, errors.New(errMessage)).Times(1)
 
 	resp, _ := s.app.Test(r, -1)
 
