@@ -43,7 +43,7 @@ services:
     links:
       - postgres
     ports:
-      - 8180:8080
+      - '8180:8080'
     environment:
       - PORT=8080
       - DB_HOST=postgres
