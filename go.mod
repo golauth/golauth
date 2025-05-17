@@ -1,6 +1,6 @@
 module github.com/golauth/golauth
 
-go 1.23.0
+go 1.24
 
 require (
 	github.com/cristalhq/jwt/v3 v3.1.0

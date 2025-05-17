@@ -2,7 +2,7 @@ package role
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"github.com/golauth/golauth/src/domain/entity"
 	"github.com/golauth/golauth/src/domain/repository/mock"
 	"github.com/google/uuid"
@@ -69,7 +69,7 @@ func (s *FindRoleByNameSuite) TestFindByNameNotOk() {
 		CreationDate: time.Now(),
 	}
 	errMessage := "could not find role by name"
-	s.repo.EXPECT().FindByName(s.ctx, "ROLE").Return(nil, fmt.Errorf(errMessage)).Times(1)
+	s.repo.EXPECT().FindByName(s.ctx, "ROLE").Return(nil, errors.New(errMessage)).Times(1)
 	resp, err := s.finding.Execute(s.ctx, role.Name)
 	s.Error(err)
 	s.EqualError(err, errMessage)

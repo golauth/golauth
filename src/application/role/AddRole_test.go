@@ -2,7 +2,7 @@ package role
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"github.com/golauth/golauth/src/domain/entity"
 	factoryMock "github.com/golauth/golauth/src/domain/factory/mock"
 	"github.com/golauth/golauth/src/domain/repository/mock"
@@ -70,7 +70,7 @@ func (s *AddRoleSuite) TestCreateNotOk() {
 		Name:        "NEW_ROLE",
 		Description: "New Role",
 	}
-	s.repo.EXPECT().Create(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf(errMessage)).Times(1)
+	s.repo.EXPECT().Create(gomock.Any(), gomock.Any()).Return(nil, errors.New(errMessage)).Times(1)
 	resp, err := s.addRole.Execute(context.Background(), input)
 	s.Error(err)
 	s.Zero(resp)
