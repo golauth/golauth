@@ -5,7 +5,7 @@ go 1.24
 require (
 	github.com/cristalhq/jwt/v3 v3.1.0
 	github.com/docker/go-connections v0.5.0
-	github.com/gofiber/fiber/v2 v2.52.6
+	github.com/gofiber/fiber/v2 v2.52.8
 	github.com/golang-migrate/migrate/v4 v4.18.3
 	github.com/google/uuid v1.6.0
 	github.com/sirupsen/logrus v1.9.3
