@@ -5,6 +5,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/golauth/golauth/pkg/application/token"
 	"github.com/golauth/golauth/pkg/application/token/mock"
+	"github.com/golauth/golauth/pkg/infra/api/controller/model"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/mock/gomock"
@@ -56,7 +57,7 @@ func (s *CheckTokenControllerSuite) TestCheckTokenInvalidToken() {
 
 	r, _ := http.NewRequest("GET", "/check_token", nil)
 	r.Header.Set("Authorization", fmt.Sprintf("Bearer %s", tk))
-	s.validateToken.EXPECT().Execute(tk).Return(fmt.Errorf("parsed token invalid")).Times(1)
+	s.validateToken.EXPECT().Execute(tk).Return(nil, fmt.Errorf("parsed token invalid")).Times(1)
 
 	resp, err := s.app.Test(r, -1)
 	s.NoError(err)
@@ -72,7 +73,7 @@ func (s *CheckTokenControllerSuite) TestCheckTokenOk() {
 
 	r, _ := http.NewRequest("GET", "/check_token", nil)
 	r.Header.Set("Authorization", fmt.Sprintf("Bearer %s", tk))
-	s.validateToken.EXPECT().Execute(tk).Return(nil).Times(1)
+	s.validateToken.EXPECT().Execute(tk).Return(&model.Claims{Username: "admin"}, nil).Times(1)
 
 	resp, err := s.app.Test(r, -1)
 	s.NoError(err)

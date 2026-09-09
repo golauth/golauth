@@ -40,6 +40,7 @@ func (uc generateJwtToken) Execute(user *entity.User, authorities []string) (str
 		LastName:    user.LastName,
 		Authorities: authorities,
 		StandardClaims: jwt.StandardClaims{
+			Subject:   user.ID.String(),
 			ExpiresAt: jwt.NewNumericDate(expirationTime),
 		},
 	}

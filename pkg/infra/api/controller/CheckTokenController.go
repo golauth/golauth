@@ -23,7 +23,7 @@ func (c checkTokenController) CheckToken(ctx *fiber.Ctx) error {
 	if err != nil {
 		return fiber.NewError(http.StatusBadRequest, err.Error())
 	}
-	err = c.validateToken.Execute(t)
+	_, err = c.validateToken.Execute(t)
 	if err != nil {
 		return fiber.NewError(http.StatusUnauthorized, err.Error())
 	}

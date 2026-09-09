@@ -1,10 +1,6 @@
 # golauth
 
-[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=golauth_golauth&metric=alert_status)](https://sonarcloud.io/dashboard?id=golauth_golauth)
-[![Bugs](https://sonarcloud.io/api/project_badges/measure?project=golauth_golauth&metric=bugs)](https://sonarcloud.io/dashboard?id=golauth_golauth)
-[![Code Smells](https://sonarcloud.io/api/project_badges/measure?project=golauth_golauth&metric=code_smells)](https://sonarcloud.io/dashboard?id=golauth_golauth)
-[![Coverage](https://sonarcloud.io/api/project_badges/measure?project=golauth_golauth&metric=coverage)](https://sonarcloud.io/dashboard?id=golauth_golauth)
-[![Lines of Code](https://sonarcloud.io/api/project_badges/measure?project=golauth_golauth&metric=ncloc)](https://sonarcloud.io/dashboard?id=golauth_golauth)
+[![Quality](https://github.com/golauth/golauth/actions/workflows/quality.yaml/badge.svg)](https://github.com/golauth/golauth/actions/workflows/quality.yaml)
 
 ---
 
@@ -63,18 +59,32 @@ networks:
 
 ##### Environment Variables
 
-| Env Variable | Description                     |
-|--------------|---------------------------------|
-| DB_HOST      | Database hostname               |
-| DB_PORT      | Database port                   |
-| DB_NAME      | Database name                   |
-| DB_USERNAME  | Database username               |
-| DB_PASSWORD  | Database password               |
-| PORT         | Application port (default 8080) |
+| Env Variable         | Description                                                                               |
+|----------------------|-------------------------------------------------------------------------------------------|
+| DB_HOST              | Database hostname                                                                         |
+| DB_PORT              | Database port                                                                             |
+| DB_NAME              | Database name                                                                             |
+| DB_USERNAME          | Database username                                                                         |
+| DB_PASSWORD          | Database password                                                                         |
+| PORT                 | Application port (default 8080)                                                           |
+| CORS_ALLOWED_ORIGINS | Comma separated browser origins allowed to call the API (default `http://localhost:3000`) |
+
+`CORS_ALLOWED_ORIGINS` no longer defaults to `*`. Set it to the origins of your
+front-ends; a wildcard combined with the `authorization` header would let any
+site drive the API with a token it obtained from a user.
+
+### Authorization
+
+Only `/auth/token`, `/auth/check_token` and `/auth/signup` are public. Every
+other endpoint requires a `Bearer` token, and the role-management endpoints
+(`/auth/roles*` and `/auth/users/:id/add-role`) additionally require the `ADMIN`
+authority. `GET /auth/users/:id` is available to the user itself or to an admin.
 
 ### Accessing
 
-Default user is `admin` and password `admin123`.
+Default user is `admin` and password `admin123`. **Change this password before
+exposing the service**: the credential is seeded by the bundled migrations and
+is therefore public.
 
 ```bash
 curl --request POST \

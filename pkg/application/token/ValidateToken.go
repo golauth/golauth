@@ -14,7 +14,7 @@ import (
 var errExpiredToken = errors.New("expired token")
 
 type ValidateToken interface {
-	Execute(token string) error
+	Execute(token string) (*model.Claims, error)
 }
 
 func NewValidateToken(key *rsa.PrivateKey) ValidateToken {
@@ -25,20 +25,20 @@ type validateToken struct {
 	verifier jwt.Verifier
 }
 
-func (uc validateToken) Execute(strToken string) error {
+func (uc validateToken) Execute(strToken string) (*model.Claims, error) {
 	token, err := jwt.ParseAndVerifyString(strToken, uc.verifier)
 	if err != nil {
-		return fmt.Errorf("could not parse and verify strToken: %w", err)
+		return nil, fmt.Errorf("could not parse and verify strToken: %w", err)
 	}
 
 	claims := &model.Claims{}
 	err = json.Unmarshal(token.RawClaims(), &claims)
 	if err != nil {
-		return fmt.Errorf("could not unmarshal claims: %w", err)
+		return nil, fmt.Errorf("could not unmarshal claims: %w", err)
 	}
 	if !claims.IsValidAt(time.Now()) {
-		return errExpiredToken
+		return nil, errExpiredToken
 	}
 
-	return nil
+	return claims, nil
 }

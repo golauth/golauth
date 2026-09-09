@@ -95,7 +95,7 @@ func (s *UserControllerSuite) TestAddRoleOk() {
 }
 
 func (s *UserControllerSuite) TestFindByIDErrParseUUID() {
-	r, _ := http.NewRequest("GET", fmt.Sprintf("/users/abc"), nil)
+	r, _ := http.NewRequest("GET", "/users/abc", nil)
 	r.Header.Set("Content-Type", "application/json")
 
 	resp, _ := s.app.Test(r, -1)
@@ -132,6 +132,7 @@ func (s *UserControllerSuite) TestAddRoleErrSvc() {
 	s.addUserRole.EXPECT().Execute(r.Context(), userId, roleId).Return(errors.New(errMessage)).Times(1)
 
 	resp, err := s.app.Test(r, -1)
+	s.Require().NoError(err)
 	s.Equal(http.StatusInternalServerError, resp.StatusCode)
 	b, _ := io.ReadAll(resp.Body)
 	s.Contains(string(b), errMessage)
