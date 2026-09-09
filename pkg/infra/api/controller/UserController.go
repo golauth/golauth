@@ -31,11 +31,20 @@ func (u UserController) FindById(ctx *fiber.Ctx) error {
 }
 
 func (u UserController) AddRole(ctx *fiber.Ctx) error {
+	userID, err := uuid.Parse(ctx.Params("id"))
+	if err != nil {
+		return fiber.NewError(http.StatusBadRequest, err.Error())
+	}
 	var userRole model.UserRoleRequest
 	if err := ctx.BodyParser(&userRole); err != nil {
-		return fiber.NewError(http.StatusInternalServerError, err.Error())
+		return fiber.NewError(http.StatusBadRequest, err.Error())
 	}
-	err := u.addUserRole.Execute(ctx.UserContext(), userRole.UserID, userRole.RoleID)
+	// The path is the source of truth: it is what the authorization layer saw.
+	// A body naming a different user is a mismatch, not an override.
+	if userRole.UserID != uuid.Nil && userRole.UserID != userID {
+		return fiber.NewError(http.StatusBadRequest, "userId does not match the request path")
+	}
+	err = u.addUserRole.Execute(ctx.UserContext(), userID, userRole.RoleID)
 	if err != nil {
 		return fiber.NewError(http.StatusInternalServerError, err.Error())
 	}

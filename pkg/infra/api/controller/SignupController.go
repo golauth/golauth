@@ -29,5 +29,7 @@ func (s *signupController) CreateUser(ctx *fiber.Ctx) error {
 		return fiber.NewError(http.StatusInternalServerError, err.Error())
 	}
 
-	return ctx.Status(http.StatusCreated).JSON(output)
+	// Serialize through UserResponse rather than the entity: the entity
+	// carries the bcrypt hash, and signup answers unauthenticated callers.
+	return ctx.Status(http.StatusCreated).JSON(model.NewUserResponseFromEntity(output))
 }

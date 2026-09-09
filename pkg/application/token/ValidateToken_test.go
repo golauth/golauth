@@ -53,13 +53,17 @@ func (s *ValidateTokenSuite) TearDownTest() {
 func (s *ValidateTokenSuite) TestValidateTokenOk() {
 	token, err := s.jwtToken.Execute(s.user, []string{"ADMIN"})
 	s.NoError(err)
-	err = s.validateToken.Execute(fmt.Sprintf("%v", token))
+	claims, err := s.validateToken.Execute(fmt.Sprintf("%v", token))
 	s.NoError(err)
+	s.Equal(s.user.Username, claims.Username)
+	s.Equal(s.user.ID.String(), claims.Subject)
+	s.Equal([]string{"ADMIN"}, claims.Authorities)
 }
 
 func (s *ValidateTokenSuite) TestValidateTokenInvalidFormat() {
-	err := s.validateToken.Execute("invalidTokenFormat")
+	claims, err := s.validateToken.Execute("invalidTokenFormat")
 	s.Error(err)
+	s.Nil(claims)
 	s.EqualError(err, "could not parse and verify strToken: jwt: token format is not valid")
 }
 
@@ -67,7 +71,8 @@ func (s *ValidateTokenSuite) TestValidateTokenErrExpiredToken() {
 	TokenExpirationTime = -1
 	expiredToken, err := s.jwtToken.Execute(s.user, []string{"ADMIN"})
 	s.NoError(err)
-	err = s.validateToken.Execute(expiredToken)
+	claims, err := s.validateToken.Execute(expiredToken)
 	s.Error(err)
+	s.Nil(claims)
 	s.ErrorIs(err, errExpiredToken)
 }

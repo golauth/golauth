@@ -8,13 +8,13 @@ prepare:
 	go mod tidy
 
 start-db:
-	docker-compose -p ${STACK_NAME} up -d
+	docker compose -p ${STACK_NAME} up -d
 
 stop-db:
-	docker-compose -p ${STACK_NAME} stop
+	docker compose -p ${STACK_NAME} stop
 
 down-db:
-	docker-compose -p ${STACK_NAME} down -v
+	docker compose -p ${STACK_NAME} down -v
 
 build-image:
 	docker build -t golauth/golauth:dev -f Dockerfile .

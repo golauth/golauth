@@ -81,6 +81,27 @@ func (s *SignupControllerSuite) TestCreateUserOK() {
 	s.Equal(savedUser.ID, output.ID)
 }
 
+// Signup answers unauthenticated callers, so the response must not carry the
+// stored password hash back out. The entity was previously serialized as-is.
+func (s *SignupControllerSuite) TestCreateUserDoesNotLeakPasswordHash() {
+	const hash = "$2a$10$VNkiJ40.00IfVjxo8ILyauLUbnxMcKK2G/FbbwdsTYb.lCuZEbh22"
+	input := &entity.User{Username: "admin", Email: "em@il.com", Password: "4567", Enabled: true}
+	savedUser := &entity.User{ID: uuid.New(), Username: "admin", Email: "em@il.com", Password: hash, Enabled: true}
+	s.createUser.EXPECT().Execute(s.ctx, input).Return(savedUser, nil).Times(1)
+
+	body, _ := json.Marshal(input)
+	r, _ := http.NewRequest("POST", "/users", strings.NewReader(string(body)))
+	r.Header.Set("Content-Type", "application/json")
+
+	resp, _ := s.app.Test(r, -1)
+	s.Equal(http.StatusCreated, resp.StatusCode)
+
+	raw, err := io.ReadAll(resp.Body)
+	s.NoError(err)
+	s.NotContains(string(raw), hash)
+	s.NotContains(strings.ToLower(string(raw)), `"password"`)
+}
+
 func (s *SignupControllerSuite) TestCreateUserErrBadRequest() {
 	body, _ := json.Marshal("invalid json")
 	r, _ := http.NewRequest("POST", "/users", strings.NewReader(string(body)))

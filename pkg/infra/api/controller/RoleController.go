@@ -29,7 +29,6 @@ func NewRoleController(repoFactory factory.RepositoryFactory) RoleController {
 
 func (c RoleController) Create(ctx *fiber.Ctx) error {
 	var data model.RoleRequest
-	fmt.Println(ctx.GetReqHeaders())
 	if err := ctx.BodyParser(&data); err != nil {
 		return fiber.NewError(http.StatusInternalServerError, err.Error())
 	}

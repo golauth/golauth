@@ -40,3 +40,25 @@ func (s *ExtractTokenSuite) TestExtractTokenNotOk() {
 	s.Empty(extracted)
 	s.ErrorAs(err, &ErrBearerTokenExtract)
 }
+
+func (s *ExtractTokenSuite) TestExtractTokenCaseInsensitiveScheme() {
+	extracted, err := ExtractToken("bearer abc123")
+	s.NoError(err)
+	s.Equal("abc123", extracted)
+}
+
+func (s *ExtractTokenSuite) TestExtractTokenRejectsOtherSchemes() {
+	// Slicing the first 7 bytes off blindly used to turn a basic credential
+	// into something the verifier was asked to parse as a bearer token.
+	for _, header := range []string{
+		"Basic dXNlcjpwYXNzd29yZA==",
+		"Digest username=admin",
+		"BearerNoSpaceSeparator",
+		"Bearer ",
+		"Bearer    ",
+	} {
+		extracted, err := ExtractToken(header)
+		s.ErrorIs(err, ErrBearerTokenExtract, "header %q must be rejected", header)
+		s.Empty(extracted)
+	}
+}

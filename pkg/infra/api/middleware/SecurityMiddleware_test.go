@@ -17,6 +17,12 @@ import (
 	"testing"
 )
 
+// pathPrefix mirrors the prefix the router actually mounts the API under.
+// The suite used to pass "/", which made every allowlist key ("//token") a
+// string no real request could produce -- so the public-path logic was never
+// really exercised here.
+const pathPrefix = "/auth"
+
 func TestSecurityMiddleware(t *testing.T) {
 	username := "admin"
 	password := "admin123"
@@ -29,8 +35,11 @@ func TestSecurityMiddleware(t *testing.T) {
 	key := token.GeneratePrivateKey()
 
 	app := fiber.New()
-	app.Use(NewSecurityMiddleware(token.NewValidateToken(key), "/").Apply())
-	app.Get("/users/:id", userController.FindById)
+	app.Use(NewSecurityMiddleware(token.NewValidateToken(key), pathPrefix).Apply())
+	app.Get(pathPrefix+"/users/:id", userController.FindById)
+	app.Post(pathPrefix+"/token", func(ctx *fiber.Ctx) error {
+		return ctx.SendStatus(http.StatusOK)
+	})
 
 	t.Run("valid token", func(t *testing.T) {
 		userRepository := mock3.NewMockUserRepository(ctrl)
@@ -53,7 +62,7 @@ func TestSecurityMiddleware(t *testing.T) {
 		tk, err := generateToken.Execute(context.Background(), username, password)
 		assert.NoError(t, err)
 
-		req, err := http.NewRequest("GET", "/users/37fe41b4-24bf-4da9-9124-615cc72865a5", nil)
+		req, err := http.NewRequest("GET", pathPrefix+"/users/37fe41b4-24bf-4da9-9124-615cc72865a5", nil)
 		req.Header.Set("Content-Type", "application/json")
 		bearerTk := fmt.Sprintf("Bearer %s", tk.AccessToken)
 		req.Header.Set("Authorization", bearerTk)
@@ -67,7 +76,7 @@ func TestSecurityMiddleware(t *testing.T) {
 	})
 
 	t.Run("invalid token", func(t *testing.T) {
-		req, err := http.NewRequest("GET", "/users/37fe41b4-24bf-4da9-9124-615cc72865a5", nil)
+		req, err := http.NewRequest("GET", pathPrefix+"/users/37fe41b4-24bf-4da9-9124-615cc72865a5", nil)
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("Authorization", "Bearer 123456")
 		assert.NoError(t, err)
@@ -76,4 +85,56 @@ func TestSecurityMiddleware(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, http.StatusUnauthorized, resp.StatusCode)
 	})
+
+	// A missing or non-bearer header is an authentication failure, not a server
+	// fault; it used to surface as 500.
+	t.Run("missing and malformed headers are unauthorized", func(t *testing.T) {
+		for name, header := range map[string]string{
+			"absent": "",
+			"basic":  "Basic dXNlcjpwYXNzd29yZA==",
+			"empty":  "Bearer ",
+		} {
+			req, _ := http.NewRequest("GET", pathPrefix+"/users/37fe41b4-24bf-4da9-9124-615cc72865a5", nil)
+			if header != "" {
+				req.Header.Set("Authorization", header)
+			}
+			resp, err := app.Test(req, -1)
+			assert.NoError(t, err)
+			assert.Equal(t, http.StatusUnauthorized, resp.StatusCode, "header case %q", name)
+		}
+	})
+
+	// The allowlist is matched against the request path. It previously compared
+	// the absolute URI ("http://host/auth/token"), so no entry ever matched.
+	t.Run("public path is served without a token", func(t *testing.T) {
+		for _, target := range []string{
+			pathPrefix + "/token",
+			pathPrefix + "/token/",
+			pathPrefix + "/token?redirect=/somewhere",
+		} {
+			req, _ := http.NewRequest("POST", target, nil)
+			resp, err := app.Test(req, -1)
+			assert.NoError(t, err)
+			assert.Equal(t, http.StatusOK, resp.StatusCode, "target %q", target)
+		}
+	})
+}
+
+func TestIsPrivateURI(t *testing.T) {
+	s := NewSecurityMiddleware(nil, pathPrefix)
+
+	for path, private := range map[string]bool{
+		"/auth/token":            false,
+		"/auth/signup":           false,
+		"/auth/check_token":      false,
+		"/auth/users/some-id":    true,
+		"/auth/roles/ADMIN":      true,
+		"/auth/roles":            true,
+		"/token":                 true,
+		"/auth":                  true,
+		"/anything/unmapped":     true,
+		"/auth/token/../users/x": true,
+	} {
+		assert.Equal(t, private, s.isPrivateURI(path), "path %q", path)
+	}
 }
