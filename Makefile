@@ -3,7 +3,7 @@ STACK_NAME=golauth
 prepare:
 	cp .env.example .env
 	go install go.uber.org/mock/mockgen@latest
-	go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.12.2
+	go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.13.2
 	go mod download
 	go mod tidy
 
