@@ -1,6 +1,6 @@
 module github.com/golauth/golauth
 
-go 1.24
+go 1.24.0
 
 require (
 	github.com/cristalhq/jwt/v3 v3.1.0
@@ -13,7 +13,7 @@ require (
 	github.com/subosito/gotenv v1.6.0
 	github.com/testcontainers/testcontainers-go v0.37.0
 	go.uber.org/mock v0.5.2
-	golang.org/x/crypto v0.38.0
+	golang.org/x/crypto v0.45.0
 )
 
 require (
@@ -72,8 +72,8 @@ require (
 	go.opentelemetry.io/otel/metric v1.35.0 // indirect
 	go.opentelemetry.io/otel/trace v1.35.0 // indirect
 	go.uber.org/atomic v1.11.0 // indirect
-	golang.org/x/sys v0.33.0 // indirect
-	golang.org/x/text v0.25.0 // indirect
+	golang.org/x/sys v0.38.0 // indirect
+	golang.org/x/text v0.31.0 // indirect
 	google.golang.org/grpc v1.70.0 // indirect
 	google.golang.org/protobuf v1.36.5 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect

@@ -126,5 +126,11 @@ func (s *CreateUserSuite) TestCreateUserErrAddUserRole() {
 func (s *CreateUserSuite) TestCreateUserErrGenerateHashPassword() {
 	bcryptDefaultCost = 50
 	_, err := s.createUser.Execute(s.ctx, &entity.User{Password: "1234"})
-	s.EqualError(err, "could not generate password: crypto/bcrypt: cost 50 is outside allowed range (4,31)")
+	s.ErrorContains(err, "could not generate password:")
+
+	// Match the cause by type, not by message: bcrypt owns the wording and
+	// has reworded this error before.
+	var invalidCost bcrypt.InvalidCostError
+	s.ErrorAs(err, &invalidCost)
+	s.Equal(bcrypt.InvalidCostError(50), invalidCost)
 }
