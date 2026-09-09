@@ -2,7 +2,6 @@ STACK_NAME=golauth
 
 prepare:
 	cp .env.example .env
-	go install github.com/ory/go-acc@latest
 	go install go.uber.org/mock/mockgen@latest
 	go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.12.2
 	go mod download
@@ -30,7 +29,7 @@ lint: mock
 	golangci-lint run ./...
 
 test: mock
-	go-acc --covermode=set -o coverage.txt ./...
+	go test -covermode=set -coverpkg=./... -coverprofile=coverage.txt ./...
 
 build:
 	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-w -s" -o golauth ./cmd/api/main.go
