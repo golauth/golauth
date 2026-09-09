@@ -1,4 +1,4 @@
-FROM golang:1.24-alpine3.21 AS builder
+FROM golang:1.27-alpine3.24 AS builder
 ENV GO111MODULE=on
 WORKDIR /build
 COPY . .
@@ -7,7 +7,7 @@ RUN apk add --no-cache git make \
     && make build
 
 ###
-FROM alpine:3.21 AS dist
+FROM alpine:3.24 AS dist
 ENV MIGRATION_SOURCE_URL=./migrations
 
 RUN mkdir /app && addgroup -S golauth && adduser -S golauth -G golauth \
