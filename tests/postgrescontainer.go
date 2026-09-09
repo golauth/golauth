@@ -3,8 +3,8 @@ package tests
 import (
 	"context"
 	"fmt"
-	"github.com/docker/go-connections/nat"
 	"github.com/golauth/golauth/pkg/infra/database"
+	"github.com/moby/moby/api/types/network"
 	"github.com/sirupsen/logrus"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
@@ -36,7 +36,7 @@ func ContainerDBStart(basePath string) (context.Context, error) {
 		},
 		WaitingFor: wait.ForAll(
 			wait.ForListeningPort(testPostgresSvcPort),
-			wait.ForSQL(testPostgresSvcPort, "postgres", func(host string, port nat.Port) string {
+			wait.ForSQL(testPostgresSvcPort, "postgres", func(host string, port network.Port) string {
 				return fmt.Sprintf(
 					"host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
 					host,
@@ -63,7 +63,7 @@ func ContainerDBStart(basePath string) (context.Context, error) {
 	return ctx, nil
 }
 
-func setEnv(testDbPort nat.Port, basePath string) {
+func setEnv(testDbPort network.Port, basePath string) {
 	_ = os.Setenv("DB_HOST", testDbHost)
 	_ = os.Setenv("DB_PORT", testDbPort.Port())
 	_ = os.Setenv("DB_NAME", testDbName)
