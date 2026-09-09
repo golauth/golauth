@@ -3,11 +3,12 @@ package controller
 import (
 	"errors"
 	"fmt"
-	"github.com/gofiber/fiber/v2"
+	"net/http"
+
+	"github.com/gofiber/fiber/v3"
 	"github.com/golauth/golauth/pkg/application/token"
 	"github.com/golauth/golauth/pkg/domain/repository"
 	"github.com/golauth/golauth/pkg/infra/api/controller/model"
-	"net/http"
 )
 
 var (
@@ -16,7 +17,7 @@ var (
 )
 
 type TokenController interface {
-	Token(ctx *fiber.Ctx) error
+	Token(ctx fiber.Ctx) error
 }
 
 type tokenController struct {
@@ -36,7 +37,7 @@ func NewTokenController(
 	}
 }
 
-func (s tokenController) Token(ctx *fiber.Ctx) error {
+func (s tokenController) Token(ctx fiber.Ctx) error {
 	var userLogin model.UserLoginRequest
 
 	contentType := ctx.Get("Content-Type")
@@ -44,7 +45,7 @@ func (s tokenController) Token(ctx *fiber.Ctx) error {
 		return fiber.NewError(http.StatusMethodNotAllowed, ErrContentTypeNotSupported.Error())
 	}
 
-	if err := ctx.BodyParser(&userLogin); err != nil {
+	if err := ctx.Bind().Body(&userLogin); err != nil {
 		return fiber.NewError(http.StatusBadRequest, fmt.Sprintf("json decoder error: %v", err))
 	}
 
@@ -52,7 +53,7 @@ func (s tokenController) Token(ctx *fiber.Ctx) error {
 		return fiber.NewError(http.StatusBadRequest, ErrMissingBodyData.Error())
 	}
 
-	output, err := s.generateToken.Execute(ctx.UserContext(), userLogin.Username, userLogin.Password)
+	output, err := s.generateToken.Execute(ctx.Context(), userLogin.Username, userLogin.Password)
 	if err != nil {
 		return fiber.NewError(http.StatusUnauthorized)
 	}

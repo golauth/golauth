@@ -4,7 +4,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/gofiber/fiber/v2"
+	"io"
+	"net/http"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/gofiber/fiber/v3"
 	"github.com/golauth/golauth/pkg/domain/entity"
 	factoryMock "github.com/golauth/golauth/pkg/domain/factory/mock"
 	repoMock "github.com/golauth/golauth/pkg/domain/repository/mock"
@@ -13,11 +19,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/mock/gomock"
-	"io"
-	"net/http"
-	"strings"
-	"testing"
-	"time"
 )
 
 type RoleControllerSuite struct {
@@ -61,7 +62,7 @@ func (s *RoleControllerSuite) TestCreateRoleOk() {
 
 	s.roleRepo.EXPECT().Create(r.Context(), gomock.Any()).Return(&entity.Role{ID: uuid.New(), Name: input.Name, Description: input.Description}, nil)
 
-	resp, err := s.app.Test(r, -1)
+	resp, err := s.app.Test(r, fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 	s.NoError(err)
 	s.Equal(http.StatusCreated, resp.StatusCode)
 	var result model.RoleResponse
@@ -83,7 +84,7 @@ func (s *RoleControllerSuite) TestEditRoleOk() {
 	s.roleRepo.EXPECT().ExistsById(r.Context(), role.ID).Return(true, nil).Times(1)
 	s.roleRepo.EXPECT().Edit(r.Context(), gomock.Any()).Return(nil).Times(1)
 
-	resp, err := s.app.Test(r, -1)
+	resp, err := s.app.Test(r, fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 	s.NoError(err)
 	s.Equal(http.StatusOK, resp.StatusCode)
 
@@ -105,7 +106,7 @@ func (s *RoleControllerSuite) TestEditRoleErrParseUUID() {
 	r, _ := http.NewRequest("PUT", "/roles/abc", strings.NewReader(string(body)))
 	r.Header.Set("Content-Type", "application/json")
 
-	resp, _ := s.app.Test(r, -1)
+	resp, _ := s.app.Test(r, fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 	s.Equal(http.StatusInternalServerError, resp.StatusCode)
 	b, _ := io.ReadAll(resp.Body)
 	s.Contains(string(b), "invalid UUID length")
@@ -127,7 +128,7 @@ func (s *RoleControllerSuite) TestEditRoleNotOk() {
 	s.roleRepo.EXPECT().ExistsById(r.Context(), roleId).Return(true, nil).Times(1)
 	s.roleRepo.EXPECT().Edit(r.Context(), gomock.Any()).Return(errors.New(errMessage)).Times(1)
 
-	resp, _ := s.app.Test(r, -1)
+	resp, _ := s.app.Test(r, fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 	s.Equal(http.StatusInternalServerError, resp.StatusCode)
 	b, _ := io.ReadAll(resp.Body)
 	s.Contains(string(b), errMessage)
@@ -144,7 +145,7 @@ func (s *RoleControllerSuite) TestChangeStatusOk() {
 	s.roleRepo.EXPECT().ExistsById(r.Context(), roleId).Return(true, nil).Times(1)
 	s.roleRepo.EXPECT().ChangeStatus(r.Context(), roleId, changeStatus.Enabled).Return(nil).Times(1)
 
-	resp, _ := s.app.Test(r, -1)
+	resp, _ := s.app.Test(r, fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 	s.Equal(http.StatusNoContent, resp.StatusCode)
 }
 
@@ -155,7 +156,7 @@ func (s *RoleControllerSuite) TestChangeStatusErrParseUUID() {
 	r, _ := http.NewRequest("PATCH", "/roles/abc/change-status", strings.NewReader(string(body)))
 	r.Header.Set("Content-Type", "application/json")
 
-	resp, _ := s.app.Test(r, -1)
+	resp, _ := s.app.Test(r, fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 	s.Equal(http.StatusBadRequest, resp.StatusCode)
 }
 
@@ -171,7 +172,7 @@ func (s *RoleControllerSuite) TestChangeStatusErrSvc() {
 	s.roleRepo.EXPECT().ExistsById(r.Context(), roleId).Return(true, nil).Times(1)
 	s.roleRepo.EXPECT().ChangeStatus(r.Context(), roleId, changeStatus.Enabled).Return(errors.New(errMessage)).Times(1)
 
-	resp, _ := s.app.Test(r, -1)
+	resp, _ := s.app.Test(r, fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 	s.Equal(http.StatusInternalServerError, resp.StatusCode)
 	b, _ := io.ReadAll(resp.Body)
 	s.Contains(string(b), errMessage)
@@ -193,7 +194,7 @@ func (s *RoleControllerSuite) TestFindByNameOk() {
 
 	s.roleRepo.EXPECT().FindByName(r.Context(), roleName).Return(roleEntity, nil).Times(1)
 
-	resp, _ := s.app.Test(r, -1)
+	resp, _ := s.app.Test(r, fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 
 	s.Equal(http.StatusOK, resp.StatusCode)
 	var result model.RoleResponse
@@ -211,7 +212,7 @@ func (s *RoleControllerSuite) TestFindByNameErrSvc() {
 
 	s.roleRepo.EXPECT().FindByName(r.Context(), roleName).Return(nil, errors.New(errMessage)).Times(1)
 
-	resp, _ := s.app.Test(r, -1)
+	resp, _ := s.app.Test(r, fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 
 	s.Equal(http.StatusInternalServerError, resp.StatusCode)
 	b, _ := io.ReadAll(resp.Body)

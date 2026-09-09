@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/golauth/golauth/pkg/domain/entity"
 	factorymock "github.com/golauth/golauth/pkg/domain/factory/mock"
 	repomock "github.com/golauth/golauth/pkg/domain/repository/mock"
@@ -95,7 +95,7 @@ func (s *RoutesSuite) login(authorities ...string) string {
 	req, _ := http.NewRequest(http.MethodPost, "/auth/token", strings.NewReader(body))
 	req.Header.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSON)
 
-	resp, err := s.app.Test(req, -1)
+	resp, err := s.app.Test(req, fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 	s.Require().NoError(err)
 	defer func() { _ = resp.Body.Close() }()
 	s.Equal(http.StatusOK, resp.StatusCode)
@@ -116,7 +116,7 @@ func (s *RoutesSuite) do(method, path, token string) int {
 	if token != "" {
 		req.Header.Set(fiber.HeaderAuthorization, "Bearer "+token)
 	}
-	resp, err := s.app.Test(req, -1)
+	resp, err := s.app.Test(req, fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 	s.Require().NoError(err)
 	defer func() { _ = resp.Body.Close() }()
 	return resp.StatusCode
@@ -165,7 +165,7 @@ func (s *RoutesSuite) TestPublicRoutesRemainReachable() {
 		body := `{"username":"someone","firstName":"Some","lastName":"One","email":"some@one.test","document":"1","password":"pass123456"}`
 		req, _ := http.NewRequest(http.MethodPost, "/auth/signup", strings.NewReader(body))
 		req.Header.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSON)
-		resp, err := s.app.Test(req, -1)
+		resp, err := s.app.Test(req, fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 		s.Require().NoError(err)
 		defer func() { _ = resp.Body.Close() }()
 		s.Equal(http.StatusCreated, resp.StatusCode)
@@ -244,7 +244,7 @@ func (s *RoutesSuite) TestPreflightIsNotAuthenticated() {
 	req.Header.Set("Origin", "http://localhost:3000")
 	req.Header.Set("Access-Control-Request-Method", http.MethodGet)
 
-	resp, err := s.app.Test(req, -1)
+	resp, err := s.app.Test(req, fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 	s.Require().NoError(err)
 	defer func() { _ = resp.Body.Close() }()
 	s.NotEqual(http.StatusUnauthorized, resp.StatusCode)

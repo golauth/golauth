@@ -2,16 +2,17 @@ package controller
 
 import (
 	"fmt"
-	"github.com/gofiber/fiber/v2"
+	"io"
+	"net/http"
+	"testing"
+
+	"github.com/gofiber/fiber/v3"
 	"github.com/golauth/golauth/pkg/application/token"
 	"github.com/golauth/golauth/pkg/application/token/mock"
 	"github.com/golauth/golauth/pkg/infra/api/controller/model"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/mock/gomock"
-	"io"
-	"net/http"
-	"testing"
 )
 
 type CheckTokenControllerSuite struct {
@@ -44,7 +45,7 @@ func (s *CheckTokenControllerSuite) TearDownTest() {
 
 func (s *CheckTokenControllerSuite) TestCheckTokenErrExtractToken() {
 	r, _ := http.NewRequest("GET", "/check_token", nil)
-	resp, err := s.app.Test(r, -1)
+	resp, err := s.app.Test(r, fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 	s.NoError(err)
 	s.Equal(http.StatusBadRequest, resp.StatusCode)
 	b, err := io.ReadAll(resp.Body)
@@ -59,7 +60,7 @@ func (s *CheckTokenControllerSuite) TestCheckTokenInvalidToken() {
 	r.Header.Set("Authorization", fmt.Sprintf("Bearer %s", tk))
 	s.validateToken.EXPECT().Execute(tk).Return(nil, fmt.Errorf("parsed token invalid")).Times(1)
 
-	resp, err := s.app.Test(r, -1)
+	resp, err := s.app.Test(r, fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 	s.NoError(err)
 	s.Equal(http.StatusUnauthorized, resp.StatusCode)
 	expectedMsg := "parsed token invalid"
@@ -75,7 +76,7 @@ func (s *CheckTokenControllerSuite) TestCheckTokenOk() {
 	r.Header.Set("Authorization", fmt.Sprintf("Bearer %s", tk))
 	s.validateToken.EXPECT().Execute(tk).Return(&model.Claims{Username: "admin"}, nil).Times(1)
 
-	resp, err := s.app.Test(r, -1)
+	resp, err := s.app.Test(r, fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 	s.NoError(err)
 	s.Equal(http.StatusNoContent, resp.StatusCode)
 }

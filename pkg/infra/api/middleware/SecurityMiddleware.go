@@ -3,10 +3,11 @@ package middleware
 import (
 	"strings"
 
-	"github.com/gofiber/fiber/v2"
+	"net/http"
+
+	"github.com/gofiber/fiber/v3"
 	"github.com/golauth/golauth/pkg/application/token"
 	"github.com/golauth/golauth/pkg/infra/api/controller/model"
-	"net/http"
 )
 
 // claimsKey is the fiber Locals key under which the validated claims of the
@@ -18,7 +19,7 @@ type claimsKey struct{}
 // current request. The second result is false when the request did not go
 // through authentication, which authorization middlewares must treat as a
 // denial rather than as an anonymous-but-allowed request.
-func ClaimsFromContext(ctx *fiber.Ctx) (*model.Claims, bool) {
+func ClaimsFromContext(ctx fiber.Ctx) (*model.Claims, bool) {
 	claims, ok := ctx.Locals(claimsKey{}).(*model.Claims)
 	return claims, ok && claims != nil
 }
@@ -46,7 +47,7 @@ func NewSecurityMiddleware(validateToken token.ValidateToken, pathPrefix string)
 // route registered earlier is served by its handler without ever reaching this
 // one. That ordering mistake was GHSA-p34g-m47x-q2m4.
 func (s *SecurityMiddleware) Apply() fiber.Handler {
-	return func(ctx *fiber.Ctx) error {
+	return func(ctx fiber.Ctx) error {
 		if !s.isPrivateURI(ctx.Path()) {
 			return ctx.Next()
 		}

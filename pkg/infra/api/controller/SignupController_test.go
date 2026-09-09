@@ -4,18 +4,19 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"github.com/gofiber/fiber/v2"
+	"io"
+	"net/http"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/gofiber/fiber/v3"
 	userMock "github.com/golauth/golauth/pkg/application/user/mock"
 	"github.com/golauth/golauth/pkg/domain/entity"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/mock/gomock"
-	"io"
-	"net/http"
-	"strings"
-	"testing"
-	"time"
 )
 
 type SignupControllerSuite struct {
@@ -73,7 +74,7 @@ func (s *SignupControllerSuite) TestCreateUserOK() {
 	r, _ := http.NewRequest("POST", "/users", strings.NewReader(string(body)))
 	r.Header.Set("Content-Type", "application/json")
 
-	resp, _ := s.app.Test(r, -1)
+	resp, _ := s.app.Test(r, fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 
 	s.Equal(http.StatusCreated, resp.StatusCode)
 	var output entity.User
@@ -93,7 +94,7 @@ func (s *SignupControllerSuite) TestCreateUserDoesNotLeakPasswordHash() {
 	r, _ := http.NewRequest("POST", "/users", strings.NewReader(string(body)))
 	r.Header.Set("Content-Type", "application/json")
 
-	resp, _ := s.app.Test(r, -1)
+	resp, _ := s.app.Test(r, fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 	s.Equal(http.StatusCreated, resp.StatusCode)
 
 	raw, err := io.ReadAll(resp.Body)
@@ -107,7 +108,7 @@ func (s *SignupControllerSuite) TestCreateUserErrBadRequest() {
 	r, _ := http.NewRequest("POST", "/users", strings.NewReader(string(body)))
 	r.Header.Set("Content-Type", "application/json")
 
-	resp, _ := s.app.Test(r, -1)
+	resp, _ := s.app.Test(r, fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 	s.Equal(http.StatusBadRequest, resp.StatusCode)
 }
 
@@ -128,7 +129,7 @@ func (s *SignupControllerSuite) TestCreateUserErrSvc() {
 	r, _ := http.NewRequest("POST", "/users", strings.NewReader(string(body)))
 	r.Header.Set("Content-Type", "application/json")
 
-	resp, _ := s.app.Test(r, -1)
+	resp, _ := s.app.Test(r, fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 	s.Equal(http.StatusInternalServerError, resp.StatusCode)
 	b, _ := io.ReadAll(resp.Body)
 	s.Equal(errMessage, string(b))

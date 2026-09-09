@@ -1,13 +1,14 @@
 package controller
 
 import (
-	"github.com/gofiber/fiber/v2"
-	"github.com/golauth/golauth/pkg/application/token"
 	"net/http"
+
+	"github.com/gofiber/fiber/v3"
+	"github.com/golauth/golauth/pkg/application/token"
 )
 
 type CheckTokenController interface {
-	CheckToken(ctx *fiber.Ctx) error
+	CheckToken(ctx fiber.Ctx) error
 }
 
 type checkTokenController struct {
@@ -18,7 +19,7 @@ func NewCheckTokenController(validateToken token.ValidateToken) CheckTokenContro
 	return checkTokenController{validateToken: validateToken}
 }
 
-func (c checkTokenController) CheckToken(ctx *fiber.Ctx) error {
+func (c checkTokenController) CheckToken(ctx fiber.Ctx) error {
 	t, err := token.ExtractToken(ctx.Get("Authorization"))
 	if err != nil {
 		return fiber.NewError(http.StatusBadRequest, err.Error())

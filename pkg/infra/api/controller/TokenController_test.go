@@ -4,7 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/gofiber/fiber/v2"
+	"io"
+	"net/http"
+	"strings"
+	"testing"
+
+	"github.com/gofiber/fiber/v3"
 	"github.com/golauth/golauth/pkg/application/token/mock"
 	"github.com/golauth/golauth/pkg/domain/entity"
 	repoMock "github.com/golauth/golauth/pkg/domain/repository/mock"
@@ -12,10 +17,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/mock/gomock"
-	"io"
-	"net/http"
-	"strings"
-	"testing"
 )
 
 type TokenControllerSuite struct {
@@ -63,7 +64,7 @@ func (s *TokenControllerSuite) TestTokenFormOk() {
 
 	s.generateToken.EXPECT().Execute(r.Context(), username, password).Return(&entity.Token{AccessToken: token}, nil).Times(1)
 
-	resp, _ := s.app.Test(r, -1)
+	resp, _ := s.app.Test(r, fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 	s.Equal(http.StatusOK, resp.StatusCode)
 
 	var result model.TokenResponse
@@ -86,7 +87,7 @@ func (s *TokenControllerSuite) TestTokenJsonOk() {
 
 	s.generateToken.EXPECT().Execute(r.Context(), username, password).Return(&entity.Token{AccessToken: token}, nil).Times(1)
 
-	resp, _ := s.app.Test(r, -1)
+	resp, _ := s.app.Test(r, fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 	s.Equal(http.StatusOK, resp.StatusCode)
 
 	var result model.TokenResponse
@@ -98,7 +99,7 @@ func (s *TokenControllerSuite) TestTokenJsonNotOk() {
 	r, _ := http.NewRequest("POST", "/token", strings.NewReader("{foo:bar}"))
 	r.Header.Set("Content-Type", "application/json")
 
-	resp, _ := s.app.Test(r, -1)
+	resp, _ := s.app.Test(r, fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 	s.Equal(http.StatusBadRequest, resp.StatusCode)
 	b, _ := io.ReadAll(resp.Body)
 	s.Contains(string(b), "json decoder error")
@@ -111,7 +112,7 @@ func (s *TokenControllerSuite) TestTokenMethodNotAllowed() {
 	r, _ := http.NewRequest("POST", "/token", strings.NewReader(fmt.Sprintf("username=%s&password=%s", username, password)))
 	r.Header.Set("Content-Type", "text/html")
 
-	resp, _ := s.app.Test(r, -1)
+	resp, _ := s.app.Test(r, fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 	s.Equal(http.StatusMethodNotAllowed, resp.StatusCode)
 	b, _ := io.ReadAll(resp.Body)
 	s.Equal(ErrContentTypeNotSupported.Error(), string(b))
@@ -121,7 +122,7 @@ func (s *TokenControllerSuite) TestTokenErrParseForm() {
 	r, _ := http.NewRequest("POST", "/token", nil)
 	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-	resp, _ := s.app.Test(r, -1)
+	resp, _ := s.app.Test(r, fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 	s.Equal(http.StatusBadRequest, resp.StatusCode)
 	b, _ := io.ReadAll(resp.Body)
 	s.Contains(string(b), ErrMissingBodyData.Error())
@@ -136,6 +137,6 @@ func (s *TokenControllerSuite) TestTokenErrGenerateToken() {
 
 	s.generateToken.EXPECT().Execute(s.ctx, username, password).Return(nil, fmt.Errorf("could not find user by username admin")).Times(1)
 
-	resp, _ := s.app.Test(r, -1)
+	resp, _ := s.app.Test(r, fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 	s.Equal(http.StatusUnauthorized, resp.StatusCode)
 }

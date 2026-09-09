@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/cristalhq/jwt/v3"
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/golauth/golauth/pkg/infra/api/controller/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -14,7 +14,7 @@ import (
 // withClaims stands in for SecurityMiddleware, publishing claims the way it
 // does. Passing nil models a request that never went through authentication.
 func withClaims(claims *model.Claims) fiber.Handler {
-	return func(ctx *fiber.Ctx) error {
+	return func(ctx fiber.Ctx) error {
 		if claims != nil {
 			ctx.Locals(claimsKey{}, claims)
 		}
@@ -22,7 +22,7 @@ func withClaims(claims *model.Claims) fiber.Handler {
 	}
 }
 
-func ok(ctx *fiber.Ctx) error { return ctx.SendStatus(http.StatusOK) }
+func ok(ctx fiber.Ctx) error { return ctx.SendStatus(http.StatusOK) }
 
 func TestRequireAuthority(t *testing.T) {
 	tests := map[string]struct {
@@ -42,7 +42,7 @@ func TestRequireAuthority(t *testing.T) {
 			app.Get("/roles", withClaims(tc.claims), RequireAuthority(AdminAuthority), ok)
 
 			req, _ := http.NewRequest("GET", "/roles", nil)
-			resp, err := app.Test(req, -1)
+			resp, err := app.Test(req, fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 			require.NoError(t, err)
 			defer func() { _ = resp.Body.Close() }()
 			assert.Equal(t, tc.expected, resp.StatusCode)
@@ -82,7 +82,7 @@ func TestRequireSelfOrAuthority(t *testing.T) {
 			app.Get("/users/:id", withClaims(tc.claims), RequireSelfOrAuthority("id", AdminAuthority), ok)
 
 			req, _ := http.NewRequest("GET", "/users/"+tc.target, nil)
-			resp, err := app.Test(req, -1)
+			resp, err := app.Test(req, fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 			require.NoError(t, err)
 			defer func() { _ = resp.Body.Close() }()
 			assert.Equal(t, tc.expected, resp.StatusCode)

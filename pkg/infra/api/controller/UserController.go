@@ -1,11 +1,12 @@
 package controller
 
 import (
-	"github.com/gofiber/fiber/v2"
+	"net/http"
+
+	"github.com/gofiber/fiber/v3"
 	"github.com/golauth/golauth/pkg/application/user"
 	"github.com/golauth/golauth/pkg/infra/api/controller/model"
 	"github.com/google/uuid"
-	"net/http"
 )
 
 type UserController struct {
@@ -17,12 +18,12 @@ func NewUserController(findById user.FindUserById, addUserRole user.AddUserRole)
 	return UserController{findById: findById, addUserRole: addUserRole}
 }
 
-func (u UserController) FindById(ctx *fiber.Ctx) error {
+func (u UserController) FindById(ctx fiber.Ctx) error {
 	id, err := uuid.Parse(ctx.Params("id"))
 	if err != nil {
 		return fiber.NewError(http.StatusBadRequest, err.Error())
 	}
-	data, err := u.findById.Execute(ctx.UserContext(), id)
+	data, err := u.findById.Execute(ctx.Context(), id)
 	if err != nil {
 		return fiber.NewError(http.StatusInternalServerError, err.Error())
 	}
@@ -30,13 +31,13 @@ func (u UserController) FindById(ctx *fiber.Ctx) error {
 	return ctx.Status(http.StatusOK).JSON(model.NewUserResponseFromEntity(data))
 }
 
-func (u UserController) AddRole(ctx *fiber.Ctx) error {
+func (u UserController) AddRole(ctx fiber.Ctx) error {
 	userID, err := uuid.Parse(ctx.Params("id"))
 	if err != nil {
 		return fiber.NewError(http.StatusBadRequest, err.Error())
 	}
 	var userRole model.UserRoleRequest
-	if err := ctx.BodyParser(&userRole); err != nil {
+	if err := ctx.Bind().Body(&userRole); err != nil {
 		return fiber.NewError(http.StatusBadRequest, err.Error())
 	}
 	// The path is the source of truth: it is what the authorization layer saw.
@@ -44,7 +45,7 @@ func (u UserController) AddRole(ctx *fiber.Ctx) error {
 	if userRole.UserID != uuid.Nil && userRole.UserID != userID {
 		return fiber.NewError(http.StatusBadRequest, "userId does not match the request path")
 	}
-	err = u.addUserRole.Execute(ctx.UserContext(), userID, userRole.RoleID)
+	err = u.addUserRole.Execute(ctx.Context(), userID, userRole.RoleID)
 	if err != nil {
 		return fiber.NewError(http.StatusInternalServerError, err.Error())
 	}

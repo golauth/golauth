@@ -3,7 +3,10 @@ package middleware
 import (
 	"context"
 	"fmt"
-	"github.com/gofiber/fiber/v2"
+	"net/http"
+	"testing"
+
+	"github.com/gofiber/fiber/v3"
 	"github.com/golauth/golauth/pkg/application/token"
 	"github.com/golauth/golauth/pkg/application/user/mock"
 	"github.com/golauth/golauth/pkg/domain/entity"
@@ -14,8 +17,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
-	"net/http"
-	"testing"
 )
 
 // pathPrefix mirrors the prefix the router actually mounts the API under.
@@ -38,7 +39,7 @@ func TestSecurityMiddleware(t *testing.T) {
 	app := fiber.New()
 	app.Use(NewSecurityMiddleware(token.NewValidateToken(key), pathPrefix).Apply())
 	app.Get(pathPrefix+"/users/:id", userController.FindById)
-	app.Post(pathPrefix+"/token", func(ctx *fiber.Ctx) error {
+	app.Post(pathPrefix+"/token", func(ctx fiber.Ctx) error {
 		return ctx.SendStatus(http.StatusOK)
 	})
 
@@ -71,7 +72,7 @@ func TestSecurityMiddleware(t *testing.T) {
 
 		findUserById.EXPECT().Execute(gomock.Any(), gomock.Any()).Return(&entity.User{ID: uuid.MustParse("37fe41b4-24bf-4da9-9124-615cc72865a5")}, nil)
 
-		resp, err := app.Test(req, -1)
+		resp, err := app.Test(req, fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 		require.NoError(t, err)
 		defer func() { _ = resp.Body.Close() }()
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
@@ -83,7 +84,7 @@ func TestSecurityMiddleware(t *testing.T) {
 		req.Header.Set("Authorization", "Bearer 123456")
 		assert.NoError(t, err)
 
-		resp, err := app.Test(req, -1)
+		resp, err := app.Test(req, fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 		assert.NoError(t, err)
 		assert.Equal(t, http.StatusUnauthorized, resp.StatusCode)
 	})
@@ -100,7 +101,7 @@ func TestSecurityMiddleware(t *testing.T) {
 			if header != "" {
 				req.Header.Set("Authorization", header)
 			}
-			resp, err := app.Test(req, -1)
+			resp, err := app.Test(req, fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 			assert.NoError(t, err)
 			assert.Equal(t, http.StatusUnauthorized, resp.StatusCode, "header case %q", name)
 		}
@@ -115,7 +116,7 @@ func TestSecurityMiddleware(t *testing.T) {
 			pathPrefix + "/token?redirect=/somewhere",
 		} {
 			req, _ := http.NewRequest("POST", target, nil)
-			resp, err := app.Test(req, -1)
+			resp, err := app.Test(req, fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 			assert.NoError(t, err)
 			assert.Equal(t, http.StatusOK, resp.StatusCode, "target %q", target)
 		}
