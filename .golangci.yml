@@ -1,0 +1,36 @@
+version: "2"
+
+run:
+  timeout: 5m
+
+linters:
+  default: standard
+  enable:
+    - bodyclose
+    - errorlint
+    - gosec
+    - misspell
+    - unconvert
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    rules:
+      # fiber's app.Test serves the response from memory, so an unclosed body
+      # in a test leaks nothing. bodyclose stays enforced on production code.
+      - path: _test\.go$
+        linters:
+          - bodyclose
+          - errcheck
+          - gosec
+      - path: (^|/)tests/
+        linters:
+          - errcheck
+          - gosec
+
+formatters:
+  enable:
+    - gofmt

@@ -43,15 +43,6 @@ func (s *UserRoleRepositorySuite) TearDownTest() {
 	s.mockCtrl.Finish()
 }
 
-func (s *UserRoleRepositorySuite) prepareDatabase(clean bool, scripts ...string) {
-	cleanScript := ""
-	if clean {
-		cleanScript = "clear-data.sql"
-	}
-	err := tests.DatasetTest(s.db, "./../../../..", cleanScript, scripts...)
-	s.NoError(err)
-}
-
 func (s *UserRoleRepositorySuite) TestAddUserRole() {
 	u := &entity.User{
 		Username:  "guest",

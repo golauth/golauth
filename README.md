@@ -1,10 +1,6 @@
 # golauth
 
-[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=golauth_golauth&metric=alert_status)](https://sonarcloud.io/dashboard?id=golauth_golauth)
-[![Bugs](https://sonarcloud.io/api/project_badges/measure?project=golauth_golauth&metric=bugs)](https://sonarcloud.io/dashboard?id=golauth_golauth)
-[![Code Smells](https://sonarcloud.io/api/project_badges/measure?project=golauth_golauth&metric=code_smells)](https://sonarcloud.io/dashboard?id=golauth_golauth)
-[![Coverage](https://sonarcloud.io/api/project_badges/measure?project=golauth_golauth&metric=coverage)](https://sonarcloud.io/dashboard?id=golauth_golauth)
-[![Lines of Code](https://sonarcloud.io/api/project_badges/measure?project=golauth_golauth&metric=ncloc)](https://sonarcloud.io/dashboard?id=golauth_golauth)
+[![Quality](https://github.com/golauth/golauth/actions/workflows/quality.yaml/badge.svg)](https://github.com/golauth/golauth/actions/workflows/quality.yaml)
 
 ---
 

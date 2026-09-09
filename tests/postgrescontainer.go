@@ -91,16 +91,14 @@ func DatasetTest(db database.Database, basePath string, clearDataFileName string
 		}
 	}
 
-	if scripts != nil {
-		for _, s := range scripts {
-			script, err := loadScript(basePath, s)
-			if err != nil {
-				return fmt.Errorf("could not load script: %w", err)
-			}
-			err = execScript(db, script)
-			if err != nil {
-				return fmt.Errorf("could not execute script: %w", err)
-			}
+	for _, s := range scripts {
+		script, err := loadScript(basePath, s)
+		if err != nil {
+			return fmt.Errorf("could not load script: %w", err)
+		}
+		err = execScript(db, script)
+		if err != nil {
+			return fmt.Errorf("could not execute script: %w", err)
 		}
 	}
 	return nil

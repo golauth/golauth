@@ -3,6 +3,7 @@ package database
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/postgres"
@@ -11,8 +12,6 @@ import (
 	"github.com/subosito/gotenv"
 	"os"
 )
-
-var instance *PGDatabase
 
 type PGDatabase struct {
 	db *sql.DB
@@ -79,12 +78,13 @@ func (d PGDatabase) migrate() error {
 		"file://"+sourceUrl,
 		"postgres", driver,
 	)
+	if err != nil {
+		return fmt.Errorf("database: could not prepare database migration: %w", err)
+	}
 
-	if m != nil {
-		err = m.Up()
-		if err != nil && err.Error() != "no change" {
-			return fmt.Errorf("database: error when executing database migration: %w", err)
-		}
+	err = m.Up()
+	if err != nil && !errors.Is(err, migrate.ErrNoChange) {
+		return fmt.Errorf("database: error when executing database migration: %w", err)
 	}
 	logrus.Info("finalizing migrations!")
 	return nil

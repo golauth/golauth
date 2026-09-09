@@ -96,7 +96,8 @@ func (s *RoutesSuite) login(authorities ...string) string {
 	req.Header.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSON)
 
 	resp, err := s.app.Test(req, -1)
-	s.NoError(err)
+	s.Require().NoError(err)
+	defer func() { _ = resp.Body.Close() }()
 	s.Equal(http.StatusOK, resp.StatusCode)
 
 	raw, err := io.ReadAll(resp.Body)
@@ -107,15 +108,18 @@ func (s *RoutesSuite) login(authorities ...string) string {
 	return tr.AccessToken
 }
 
-func (s *RoutesSuite) do(method, path, token string) *http.Response {
+// do issues a request and reports the status code. It owns the response body
+// so no caller has to remember to close it.
+func (s *RoutesSuite) do(method, path, token string) int {
 	req, _ := http.NewRequest(method, path, strings.NewReader("{}"))
 	req.Header.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSON)
 	if token != "" {
 		req.Header.Set(fiber.HeaderAuthorization, "Bearer "+token)
 	}
 	resp, err := s.app.Test(req, -1)
-	s.NoError(err)
-	return resp
+	s.Require().NoError(err)
+	defer func() { _ = resp.Body.Close() }()
+	return resp.StatusCode
 }
 
 // concretePath substitutes route parameters so a declared route can actually
@@ -139,8 +143,7 @@ func (s *RoutesSuite) TestEveryNonPublicRouteRequiresAuthentication() {
 			continue
 		}
 
-		resp := s.do(route.Method, concretePath(route.Path, s.userID), "")
-		s.Equal(http.StatusUnauthorized, resp.StatusCode,
+		s.Equal(http.StatusUnauthorized, s.do(route.Method, concretePath(route.Path, s.userID), ""),
 			"%s %s must reject an unauthenticated request", route.Method, route.Path)
 		checked++
 	}
@@ -163,7 +166,8 @@ func (s *RoutesSuite) TestPublicRoutesRemainReachable() {
 		req, _ := http.NewRequest(http.MethodPost, "/auth/signup", strings.NewReader(body))
 		req.Header.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSON)
 		resp, err := s.app.Test(req, -1)
-		s.NoError(err)
+		s.Require().NoError(err)
+		defer func() { _ = resp.Body.Close() }()
 		s.Equal(http.StatusCreated, resp.StatusCode)
 	})
 
@@ -175,8 +179,7 @@ func (s *RoutesSuite) TestPublicRoutesRemainReachable() {
 		// Reached its own handler, which reports the missing header as 400.
 		// A 401 here would mean the security middleware intercepted a public
 		// route -- the failure mode of a half-applied fix.
-		resp := s.do(http.MethodGet, "/auth/check_token", "")
-		s.Equal(http.StatusBadRequest, resp.StatusCode)
+		s.Equal(http.StatusBadRequest, s.do(http.MethodGet, "/auth/check_token", ""))
 	})
 }
 
@@ -185,17 +188,17 @@ func (s *RoutesSuite) TestPublicRoutesRemainReachable() {
 // escalation steps have to fail on authority, not just on the missing header.
 func (s *RoutesSuite) TestAdvisoryExploitChain() {
 	s.Run("unauthenticated", func() {
-		s.Equal(http.StatusUnauthorized, s.do(http.MethodGet, "/auth/roles/ADMIN", "").StatusCode)
+		s.Equal(http.StatusUnauthorized, s.do(http.MethodGet, "/auth/roles/ADMIN", ""))
 		s.Equal(http.StatusUnauthorized,
-			s.do(http.MethodPost, "/auth/users/"+s.userID.String()+"/add-role", "").StatusCode)
+			s.do(http.MethodPost, "/auth/users/"+s.userID.String()+"/add-role", ""))
 	})
 
 	s.Run("authenticated as plain USER", func() {
 		userToken := s.login("USER")
-		s.Equal(http.StatusForbidden, s.do(http.MethodGet, "/auth/roles/ADMIN", userToken).StatusCode,
+		s.Equal(http.StatusForbidden, s.do(http.MethodGet, "/auth/roles/ADMIN", userToken),
 			"ADMIN role lookup must be denied to a non-admin token")
 		s.Equal(http.StatusForbidden,
-			s.do(http.MethodPost, "/auth/users/"+s.userID.String()+"/add-role", userToken).StatusCode,
+			s.do(http.MethodPost, "/auth/users/"+s.userID.String()+"/add-role", userToken),
 			"self role assignment must be denied to a non-admin token")
 	})
 }
@@ -206,7 +209,7 @@ func (s *RoutesSuite) TestAdminMayManageRoles() {
 	s.roleRepository.EXPECT().FindByName(gomock.Any(), "ADMIN").
 		Return(&entity.Role{ID: roleID, Name: "ADMIN"}, nil).Times(1)
 
-	s.Equal(http.StatusOK, s.do(http.MethodGet, "/auth/roles/ADMIN", adminToken).StatusCode)
+	s.Equal(http.StatusOK, s.do(http.MethodGet, "/auth/roles/ADMIN", adminToken))
 }
 
 func (s *RoutesSuite) TestFindUserByIdIsSelfOrAdmin() {
@@ -215,13 +218,13 @@ func (s *RoutesSuite) TestFindUserByIdIsSelfOrAdmin() {
 		s.userRepository.EXPECT().FindByID(gomock.Any(), s.userID).
 			Return(&entity.User{ID: s.userID, Username: "admin"}, nil).Times(1)
 
-		s.Equal(http.StatusOK, s.do(http.MethodGet, "/auth/users/"+s.userID.String(), userToken).StatusCode)
+		s.Equal(http.StatusOK, s.do(http.MethodGet, "/auth/users/"+s.userID.String(), userToken))
 	})
 
 	s.Run("non admin cannot reach another user", func() {
 		userToken := s.login("USER")
 		s.Equal(http.StatusForbidden,
-			s.do(http.MethodGet, "/auth/users/"+uuid.New().String(), userToken).StatusCode)
+			s.do(http.MethodGet, "/auth/users/"+uuid.New().String(), userToken))
 	})
 
 	s.Run("admin reaches any user", func() {
@@ -230,7 +233,7 @@ func (s *RoutesSuite) TestFindUserByIdIsSelfOrAdmin() {
 		s.userRepository.EXPECT().FindByID(gomock.Any(), other).
 			Return(&entity.User{ID: other, Username: "other"}, nil).Times(1)
 
-		s.Equal(http.StatusOK, s.do(http.MethodGet, "/auth/users/"+other.String(), adminToken).StatusCode)
+		s.Equal(http.StatusOK, s.do(http.MethodGet, "/auth/users/"+other.String(), adminToken))
 	})
 }
 
@@ -242,6 +245,7 @@ func (s *RoutesSuite) TestPreflightIsNotAuthenticated() {
 	req.Header.Set("Access-Control-Request-Method", http.MethodGet)
 
 	resp, err := s.app.Test(req, -1)
-	s.NoError(err)
+	s.Require().NoError(err)
+	defer func() { _ = resp.Body.Close() }()
 	s.NotEqual(http.StatusUnauthorized, resp.StatusCode)
 }

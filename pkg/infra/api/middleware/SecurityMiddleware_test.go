@@ -12,6 +12,7 @@ import (
 	"github.com/golauth/golauth/pkg/infra/api/controller"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 	"net/http"
 	"testing"
@@ -71,7 +72,8 @@ func TestSecurityMiddleware(t *testing.T) {
 		findUserById.EXPECT().Execute(gomock.Any(), gomock.Any()).Return(&entity.User{ID: uuid.MustParse("37fe41b4-24bf-4da9-9124-615cc72865a5")}, nil)
 
 		resp, err := app.Test(req, -1)
-		assert.NoError(t, err)
+		require.NoError(t, err)
+		defer func() { _ = resp.Body.Close() }()
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 	})
 

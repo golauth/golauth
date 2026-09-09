@@ -4,6 +4,7 @@ prepare:
 	cp .env.example .env
 	go install github.com/ory/go-acc@latest
 	go install go.uber.org/mock/mockgen@latest
+	go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.12.2
 	go mod download
 	go mod tidy
 
@@ -24,6 +25,9 @@ run:
 
 fmt:
 	go fmt ./...
+
+lint: mock
+	golangci-lint run ./...
 
 test: mock
 	go-acc --covermode=set -o coverage.txt ./...

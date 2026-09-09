@@ -11,34 +11,40 @@ jobs:
     name: quality
     runs-on: ubuntu-24.04
     steps:
-      - name: Setup Go
-        uses: actions/setup-go@v4
-        with:
-          go-version: '1.24'
-
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: test
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+
+      - name: Generate mocks
         run: |
-          go install github.com/ory/go-acc@latest
           go install go.uber.org/mock/mockgen@latest
           go mod download
           go generate -v ./...
+
+      - name: Lint
+        uses: golangci/golangci-lint-action@v9
+        with:
+          version: v2.12.2
+
+      - name: Test
+        run: |
+          go install github.com/ory/go-acc@latest
           go-acc --covermode=set -o coverage.txt ./...
 
-      - name: SonarCloud Scan
-        uses: SonarSource/sonarqube-scan-action@v5
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      - name: Coverage summary
+        run: |
+          total=$(go tool cover -func=coverage.txt | awk '/^total:/ {print $3}')
+          echo "Total coverage: ${total}" >> "$GITHUB_STEP_SUMMARY"
+          echo "Total coverage: ${total}"
+
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
         with:
-          args: >
-            -Dsonar.organization=golauth
-            -Dsonar.projectKey=golauth_golauth
-            -Dsonar.sources=.
-            -Dsonar.exclusions=**/*_test.go,**/*.sql,**/*_mock.go,**/ops/**,src/infra/api/routes.go
-            -Dsonar.tests=.
-            -Dsonar.test.inclusions=**/*_test.go
-            -Dsonar.go.coverage.reportPaths=coverage.txt
+          name: coverage
+          path: coverage.txt

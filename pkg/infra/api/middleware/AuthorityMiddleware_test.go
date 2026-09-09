@@ -8,6 +8,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/golauth/golauth/pkg/infra/api/controller/model"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // withClaims stands in for SecurityMiddleware, publishing claims the way it
@@ -42,7 +43,8 @@ func TestRequireAuthority(t *testing.T) {
 
 			req, _ := http.NewRequest("GET", "/roles", nil)
 			resp, err := app.Test(req, -1)
-			assert.NoError(t, err)
+			require.NoError(t, err)
+			defer func() { _ = resp.Body.Close() }()
 			assert.Equal(t, tc.expected, resp.StatusCode)
 		})
 	}
@@ -81,7 +83,8 @@ func TestRequireSelfOrAuthority(t *testing.T) {
 
 			req, _ := http.NewRequest("GET", "/users/"+tc.target, nil)
 			resp, err := app.Test(req, -1)
-			assert.NoError(t, err)
+			require.NoError(t, err)
+			defer func() { _ = resp.Body.Close() }()
 			assert.Equal(t, tc.expected, resp.StatusCode)
 		})
 	}
