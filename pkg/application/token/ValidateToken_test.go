@@ -3,6 +3,7 @@ package token
 import (
 	"fmt"
 	"github.com/golauth/golauth/pkg/domain/entity"
+	"github.com/golauth/golauth/pkg/infra/keys"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -28,9 +29,9 @@ func TestValidateToken(t *testing.T) {
 func (s *ValidateTokenSuite) SetupTest() {
 	s.Assertions = require.New(s.T())
 	s.mockCtrl = gomock.NewController(s.T())
-	key := GeneratePrivateKey()
-	s.jwtToken = NewGenerateJwtToken(key)
-	s.validateToken = NewValidateToken(key)
+	ks := keys.Generate()
+	s.jwtToken = NewGenerateJwtToken(ks.Current)
+	s.validateToken = NewValidateToken(ks)
 
 	s.user = &entity.User{
 		ID:           uuid.New(),
@@ -75,4 +76,34 @@ func (s *ValidateTokenSuite) TestValidateTokenErrExpiredToken() {
 	s.Error(err)
 	s.Nil(claims)
 	s.ErrorIs(err, errExpiredToken)
+}
+
+// TestValidateTokenSignedWithPreviousKey is the rotation barrier: a token
+// signed by a key that has been retired to the verify-only slot still
+// validates, while the current key signs new tokens.
+func (s *ValidateTokenSuite) TestValidateTokenSignedWithPreviousKey() {
+	previous := keys.Generate().Current
+	current := keys.Generate().Current
+	ks := &keys.KeySet{Current: current, Previous: []*keys.SigningKey{previous}}
+
+	oldToken, err := NewGenerateJwtToken(previous).Execute(s.user, []string{"ADMIN"})
+	s.NoError(err)
+	claims, err := NewValidateToken(ks).Execute(oldToken)
+	s.NoError(err)
+	s.Equal(s.user.Username, claims.Username)
+
+	newToken, err := NewGenerateJwtToken(current).Execute(s.user, []string{"ADMIN"})
+	s.NoError(err)
+	_, err = NewValidateToken(ks).Execute(newToken)
+	s.NoError(err)
+}
+
+// TestValidateTokenUnknownKeyID rejects a token whose kid names no key we hold.
+func (s *ValidateTokenSuite) TestValidateTokenUnknownKeyID() {
+	strayToken, err := NewGenerateJwtToken(keys.Generate().Current).Execute(s.user, []string{"ADMIN"})
+	s.NoError(err)
+
+	claims, err := s.validateToken.Execute(strayToken)
+	s.Nil(claims)
+	s.ErrorIs(err, errUnknownKeyID)
 }

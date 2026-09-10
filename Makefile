@@ -22,6 +22,11 @@ build-image:
 run:
 	go run cmd/api/main.go
 
+# gen-key prints a fresh 2048-bit RSA private key in PKCS#8 PEM form. Feed it to
+# JWT_PRIVATE_KEY (inline) or JWT_PRIVATE_KEY_FILE (a mounted file).
+gen-key:
+	@openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048
+
 fmt:
 	go fmt ./...
 

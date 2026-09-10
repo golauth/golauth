@@ -8,11 +8,13 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/cristalhq/jwt/v3"
 	"github.com/gofiber/fiber/v3"
 	"github.com/golauth/golauth/pkg/domain/entity"
 	factorymock "github.com/golauth/golauth/pkg/domain/factory/mock"
 	repomock "github.com/golauth/golauth/pkg/domain/repository/mock"
 	"github.com/golauth/golauth/pkg/infra/api/controller/model"
+	"github.com/golauth/golauth/pkg/infra/keys"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -28,9 +30,10 @@ const (
 
 // publicPaths are the only paths the API is meant to serve without a token.
 var publicPaths = map[string]bool{
-	"/auth/token":       true,
-	"/auth/check_token": true,
-	"/auth/signup":      true,
+	"/auth/token":                 true,
+	"/auth/check_token":           true,
+	"/auth/signup":                true,
+	"/auth/.well-known/jwks.json": true,
 }
 
 // RoutesSuite exercises the router exactly as main.go builds it. The
@@ -47,6 +50,9 @@ type RoutesSuite struct {
 	roleRepository          *repomock.MockRoleRepository
 	userRoleRepository      *repomock.MockUserRoleRepository
 	userAuthorityRepository *repomock.MockUserAuthorityRepository
+
+	repoFactory *factorymock.MockRepositoryFactory
+	keySet      *keys.KeySet
 
 	app    *fiber.App
 	userID uuid.UUID
@@ -66,13 +72,15 @@ func (s *RoutesSuite) SetupTest() {
 	s.userAuthorityRepository = repomock.NewMockUserAuthorityRepository(s.ctrl)
 
 	repoFactory := factorymock.NewMockRepositoryFactory(s.ctrl)
+	s.repoFactory = repoFactory
 	repoFactory.EXPECT().NewUserRepository().Return(s.userRepository).AnyTimes()
 	repoFactory.EXPECT().NewRoleRepository().Return(s.roleRepository).AnyTimes()
 	repoFactory.EXPECT().NewUserRoleRepository().Return(s.userRoleRepository).AnyTimes()
 	repoFactory.EXPECT().NewUserAuthorityRepository().Return(s.userAuthorityRepository).AnyTimes()
 
 	s.userID = uuid.New()
-	s.app = NewRouter(repoFactory).Config()
+	s.keySet = keys.Generate()
+	s.app = NewRouter(repoFactory, s.keySet).Config()
 }
 
 func (s *RoutesSuite) TearDownTest() {
@@ -248,4 +256,54 @@ func (s *RoutesSuite) TestPreflightIsNotAuthenticated() {
 	s.Require().NoError(err)
 	defer func() { _ = resp.Body.Close() }()
 	s.NotEqual(http.StatusUnauthorized, resp.StatusCode)
+}
+
+// TestTokenValidatesOnASecondReplica is the regression barrier for the
+// multi-replica bug: NewRouter used to mint a fresh in-memory key per process,
+// so a token from one instance was rejected by every other. Two routers built
+// from the same key set must accept each other's tokens.
+func (s *RoutesSuite) TestTokenValidatesOnASecondReplica() {
+	replica := NewRouter(s.repoFactory, s.keySet).Config()
+
+	accessToken := s.login("USER") // minted by s.app
+
+	req, _ := http.NewRequest(http.MethodGet, "/auth/check_token", nil)
+	req.Header.Set(fiber.HeaderAuthorization, "Bearer "+accessToken)
+	resp, err := replica.Test(req, fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
+	s.Require().NoError(err)
+	defer func() { _ = resp.Body.Close() }()
+	s.Equal(http.StatusNoContent, resp.StatusCode)
+}
+
+// TestJWKSIsPublicAndMatchesMintedTokens checks the endpoint is reachable
+// without a token and that its kid is the one stamped on a freshly minted
+// token, so an offline consumer can pick the right key.
+func (s *RoutesSuite) TestJWKSIsPublicAndMatchesMintedTokens() {
+	req, _ := http.NewRequest(http.MethodGet, "/auth/.well-known/jwks.json", nil)
+	resp, err := s.app.Test(req, fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
+	s.Require().NoError(err)
+	defer func() { _ = resp.Body.Close() }()
+	s.Equal(http.StatusOK, resp.StatusCode)
+
+	var doc keys.JWKS
+	s.NoError(json.NewDecoder(resp.Body).Decode(&doc))
+	s.NotEmpty(doc.Keys)
+
+	accessToken := s.login("USER")
+	parsed, err := jwt.ParseString(accessToken)
+	s.NoError(err)
+	s.Equal(s.keySet.Current.KID, parsed.Header().KeyID)
+
+	found := false
+	for _, k := range doc.Keys {
+		if k.Kid == parsed.Header().KeyID {
+			found = true
+			s.Equal("RSA", k.Kty)
+			s.Equal("sig", k.Use)
+			s.Equal("RS512", k.Alg)
+			s.NotEmpty(k.N)
+			s.Equal("AQAB", k.E)
+		}
+	}
+	s.True(found, "minted token kid %q not present in JWKS", parsed.Header().KeyID)
 }

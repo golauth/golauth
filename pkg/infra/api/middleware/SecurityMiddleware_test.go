@@ -13,6 +13,7 @@ import (
 	mock2 "github.com/golauth/golauth/pkg/domain/factory/mock"
 	mock3 "github.com/golauth/golauth/pkg/domain/repository/mock"
 	"github.com/golauth/golauth/pkg/infra/api/controller"
+	"github.com/golauth/golauth/pkg/infra/keys"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -34,10 +35,10 @@ func TestSecurityMiddleware(t *testing.T) {
 	addUserRole := mock.NewMockAddUserRole(ctrl)
 	userController := controller.NewUserController(findUserById, addUserRole)
 
-	key := token.GeneratePrivateKey()
+	ks := keys.Generate()
 
 	app := fiber.New()
-	app.Use(NewSecurityMiddleware(token.NewValidateToken(key), pathPrefix).Apply())
+	app.Use(NewSecurityMiddleware(token.NewValidateToken(ks), pathPrefix).Apply())
 	app.Get(pathPrefix+"/users/:id", userController.FindById)
 	app.Post(pathPrefix+"/token", func(ctx fiber.Ctx) error {
 		return ctx.SendStatus(http.StatusOK)
@@ -58,7 +59,7 @@ func TestSecurityMiddleware(t *testing.T) {
 		userRepository.EXPECT().FindByUsername(gomock.Any(), "admin").Return(&entity.User{Username: username, Password: passwordEncoded}, nil)
 		userAuthorityRepository.EXPECT().FindAuthoritiesByUserID(gomock.Any(), gomock.Any()).Return([]string{"ADMIN"}, nil)
 
-		generateJwtToken := token.NewGenerateJwtToken(key)
+		generateJwtToken := token.NewGenerateJwtToken(ks.Current)
 		generateToken := token.NewGenerateToken(repoFactory, generateJwtToken)
 
 		tk, err := generateToken.Execute(context.Background(), username, password)
@@ -127,16 +128,17 @@ func TestIsPrivateURI(t *testing.T) {
 	s := NewSecurityMiddleware(nil, pathPrefix)
 
 	for path, private := range map[string]bool{
-		"/auth/token":            false,
-		"/auth/signup":           false,
-		"/auth/check_token":      false,
-		"/auth/users/some-id":    true,
-		"/auth/roles/ADMIN":      true,
-		"/auth/roles":            true,
-		"/token":                 true,
-		"/auth":                  true,
-		"/anything/unmapped":     true,
-		"/auth/token/../users/x": true,
+		"/auth/token":                 false,
+		"/auth/signup":                false,
+		"/auth/check_token":           false,
+		"/auth/users/some-id":         true,
+		"/auth/roles/ADMIN":           true,
+		"/auth/roles":                 true,
+		"/token":                      true,
+		"/auth":                       true,
+		"/anything/unmapped":          true,
+		"/auth/token/../users/x":      true,
+		"/auth/.well-known/jwks.json": false,
 	} {
 		assert.Equal(t, private, s.isPrivateURI(path), "path %q", path)
 	}

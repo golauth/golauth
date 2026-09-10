@@ -33,9 +33,10 @@ func NewSecurityMiddleware(validateToken token.ValidateToken, pathPrefix string)
 	return &SecurityMiddleware{
 		validateToken: validateToken,
 		publicURI: map[string]bool{
-			pathPrefix + "/token":       true,
-			pathPrefix + "/check_token": true,
-			pathPrefix + "/signup":      true,
+			pathPrefix + "/token":                 true,
+			pathPrefix + "/check_token":           true,
+			pathPrefix + "/signup":                true,
+			pathPrefix + "/.well-known/jwks.json": true,
 		},
 	}
 }

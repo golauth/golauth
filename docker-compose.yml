@@ -7,3 +7,27 @@ services:
       - POSTGRES_PASSWORD=postgres
       - POSTGRES_USER=postgres
       - POSTGRES_DB=golauth
+
+  # golauth is not started by `make start-db`. Bring it up explicitly to verify
+  # that two replicas sign interchangeably:
+  #   make gen-key > jwt-key.pem
+  #   docker compose up --build --scale golauth=2 golauth
+  golauth:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      - db
+    environment:
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_NAME=golauth
+      - DB_USERNAME=postgres
+      - DB_PASSWORD=postgres
+      - APP_ENV=production
+      - JWT_PRIVATE_KEY_FILE=/run/secrets/jwt-key.pem
+      - CORS_ALLOWED_ORIGINS=http://localhost:3000
+    volumes:
+      - ./jwt-key.pem:/run/secrets/jwt-key.pem:ro
+    ports:
+      - "8080"
