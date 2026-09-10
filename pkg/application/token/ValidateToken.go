@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/cristalhq/jwt/v3"
-	"github.com/golauth/golauth/pkg/infra/api/controller/model"
-	"github.com/golauth/golauth/pkg/infra/keys"
+	"github.com/golauth/golauth/pkg/application/keys"
+	"github.com/golauth/golauth/pkg/application/token/claims"
 )
 
 var (
@@ -18,7 +18,7 @@ var (
 )
 
 type ValidateToken interface {
-	Execute(token string) (*model.Claims, error)
+	Execute(token string) (*claims.Claims, error)
 }
 
 func NewValidateToken(ks *keys.KeySet) ValidateToken {
@@ -39,7 +39,7 @@ type validateToken struct {
 	fallback  jwt.Verifier
 }
 
-func (uc validateToken) Execute(strToken string) (*model.Claims, error) {
+func (uc validateToken) Execute(strToken string) (*claims.Claims, error) {
 	token, err := jwt.ParseString(strToken)
 	if err != nil {
 		return nil, fmt.Errorf("could not parse and verify strToken: %w", err)
@@ -60,14 +60,13 @@ func (uc validateToken) Execute(strToken string) (*model.Claims, error) {
 		return nil, fmt.Errorf("could not parse and verify strToken: %w", err)
 	}
 
-	claims := &model.Claims{}
-	err = json.Unmarshal(token.RawClaims(), &claims)
-	if err != nil {
+	c := &claims.Claims{}
+	if err = json.Unmarshal(token.RawClaims(), c); err != nil {
 		return nil, fmt.Errorf("could not unmarshal claims: %w", err)
 	}
-	if !claims.IsValidAt(time.Now()) {
+	if !c.IsValidAt(time.Now()) {
 		return nil, errExpiredToken
 	}
 
-	return claims, nil
+	return c, nil
 }

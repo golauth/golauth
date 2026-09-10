@@ -8,11 +8,11 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v3"
+	"github.com/golauth/golauth/pkg/application/keys"
 	"github.com/golauth/golauth/pkg/application/token"
 	"github.com/golauth/golauth/pkg/infra/api"
 	"github.com/golauth/golauth/pkg/infra/database"
 	"github.com/golauth/golauth/pkg/infra/factory"
-	"github.com/golauth/golauth/pkg/infra/keys"
 	"github.com/sirupsen/logrus"
 
 	"github.com/subosito/gotenv"

@@ -10,13 +10,13 @@ import (
 	"github.com/gofiber/fiber/v3/middleware/cors"
 	"github.com/gofiber/fiber/v3/middleware/limiter"
 	"github.com/gofiber/fiber/v3/middleware/recover"
+	"github.com/golauth/golauth/pkg/application/keys"
 	"github.com/golauth/golauth/pkg/application/token"
 	"github.com/golauth/golauth/pkg/application/user"
 	"github.com/golauth/golauth/pkg/domain/factory"
 	"github.com/golauth/golauth/pkg/infra/api/controller"
 	"github.com/golauth/golauth/pkg/infra/api/httperr"
 	"github.com/golauth/golauth/pkg/infra/api/middleware"
-	"github.com/golauth/golauth/pkg/infra/keys"
 	"github.com/sirupsen/logrus"
 )
 

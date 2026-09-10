@@ -9,9 +9,9 @@ import (
 
 	"github.com/cristalhq/jwt/v3"
 	"github.com/gofiber/fiber/v3"
+	"github.com/golauth/golauth/pkg/application/token/claims"
 	"github.com/golauth/golauth/pkg/application/token/mock"
 	"github.com/golauth/golauth/pkg/infra/api/apictx"
-	"github.com/golauth/golauth/pkg/infra/api/controller/model"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/mock/gomock"
@@ -23,7 +23,7 @@ type CheckTokenControllerSuite struct {
 	ctrl            *gomock.Controller
 	validateToken   *mock.MockValidateToken
 	app             *fiber.App
-	publishedClaims *model.Claims
+	publishedClaims *claims.Claims
 
 	ct CheckTokenController
 }
@@ -100,8 +100,8 @@ func (s *CheckTokenControllerSuite) TestCheckTokenOk() {
 	s.Equal(float64(1893456000), got["exp"])
 }
 
-func fullClaims() *model.Claims {
-	c := &model.Claims{
+func fullClaims() *claims.Claims {
+	c := &claims.Claims{
 		Username:    "admin",
 		FirstName:   "Ada",
 		LastName:    "Lovelace",
