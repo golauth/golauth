@@ -12,5 +12,8 @@ type Database interface {
 	Many(ctx context.Context, query string, params ...interface{}) (*sql.Rows, error)
 	One(ctx context.Context, query string, params ...interface{}) *sql.Row
 	Exec(ctx context.Context, query string, params ...interface{}) (sql.Result, error)
+	// Ping verifies a live connection to the database within ctx's deadline.
+	// The readiness probe calls it; nothing on the request path does.
+	Ping(ctx context.Context) error
 	Close()
 }
