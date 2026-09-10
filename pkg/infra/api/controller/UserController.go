@@ -1,10 +1,12 @@
 package controller
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/golauth/golauth/pkg/application/user"
+	"github.com/golauth/golauth/pkg/domain/apperr"
 	"github.com/golauth/golauth/pkg/infra/api/controller/model"
 	"github.com/google/uuid"
 )
@@ -21,11 +23,11 @@ func NewUserController(findById user.FindUserById, addUserRole user.AddUserRole)
 func (u UserController) FindById(ctx fiber.Ctx) error {
 	id, err := uuid.Parse(ctx.Params("id"))
 	if err != nil {
-		return fiber.NewError(http.StatusBadRequest, err.Error())
+		return fmt.Errorf("invalid user id %q: %w", ctx.Params("id"), apperr.ErrInvalidInput)
 	}
 	data, err := u.findById.Execute(ctx.Context(), id)
 	if err != nil {
-		return fiber.NewError(http.StatusInternalServerError, err.Error())
+		return err
 	}
 
 	return ctx.Status(http.StatusOK).JSON(model.NewUserResponseFromEntity(data))
@@ -34,20 +36,19 @@ func (u UserController) FindById(ctx fiber.Ctx) error {
 func (u UserController) AddRole(ctx fiber.Ctx) error {
 	userID, err := uuid.Parse(ctx.Params("id"))
 	if err != nil {
-		return fiber.NewError(http.StatusBadRequest, err.Error())
+		return fmt.Errorf("invalid user id %q: %w", ctx.Params("id"), apperr.ErrInvalidInput)
 	}
 	var userRole model.UserRoleRequest
 	if err := ctx.Bind().Body(&userRole); err != nil {
-		return fiber.NewError(http.StatusBadRequest, err.Error())
+		return fmt.Errorf("invalid request body: %w", apperr.ErrInvalidInput)
 	}
 	// The path is the source of truth: it is what the authorization layer saw.
 	// A body naming a different user is a mismatch, not an override.
 	if userRole.UserID != uuid.Nil && userRole.UserID != userID {
-		return fiber.NewError(http.StatusBadRequest, "userId does not match the request path")
+		return fmt.Errorf("body user id does not match the request path: %w", apperr.ErrInvalidInput)
 	}
-	err = u.addUserRole.Execute(ctx.Context(), userID, userRole.RoleID)
-	if err != nil {
-		return fiber.NewError(http.StatusInternalServerError, err.Error())
+	if err := u.addUserRole.Execute(ctx.Context(), userID, userRole.RoleID); err != nil {
+		return err
 	}
 
 	return ctx.SendStatus(http.StatusCreated)

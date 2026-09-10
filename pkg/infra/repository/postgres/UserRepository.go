@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+
+	"github.com/golauth/golauth/pkg/domain/apperr"
 	"github.com/golauth/golauth/pkg/domain/entity"
 	"github.com/golauth/golauth/pkg/domain/repository"
 	"github.com/golauth/golauth/pkg/infra/database"
@@ -27,6 +29,9 @@ func (ur UserRepositoryPostgres) FindByUsername(ctx context.Context, username st
 	var user entity.User
 	row := ur.db.One(ctx, "SELECT * FROM golauth_user WHERE username = $1", username)
 	err := row.Scan(&user.ID, &user.Username, &user.FirstName, &user.LastName, &user.Email, &user.Document, &user.Password, &user.Enabled, &user.CreationDate)
+	if errors.Is(err, database.ErrNoRows) {
+		return nil, fmt.Errorf("user %q: %w", username, apperr.ErrNotFound)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("could not find user by username [%s]: %w", username, err)
 	}
@@ -38,8 +43,11 @@ func (ur UserRepositoryPostgres) FindByID(ctx context.Context, id uuid.UUID) (*e
 	var phantomZone string
 	row := ur.db.One(ctx, "SELECT * FROM golauth_user WHERE id = $1", id)
 	err := row.Scan(&user.ID, &user.Username, &user.FirstName, &user.LastName, &user.Email, &user.Document, &phantomZone, &user.Enabled, &user.CreationDate)
+	if errors.Is(err, database.ErrNoRows) {
+		return nil, fmt.Errorf("user %s: %w", id, apperr.ErrNotFound)
+	}
 	if err != nil {
-		return nil, fmt.Errorf("could not find user by id [%d]: %w", id, err)
+		return nil, fmt.Errorf("could not find user by id [%s]: %w", id, err)
 	}
 	return &user, nil
 }

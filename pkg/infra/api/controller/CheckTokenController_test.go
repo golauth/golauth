@@ -3,14 +3,12 @@ package controller
 import (
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"testing"
 	"time"
 
 	"github.com/cristalhq/jwt/v3"
 	"github.com/gofiber/fiber/v3"
-	"github.com/golauth/golauth/pkg/application/token"
 	"github.com/golauth/golauth/pkg/application/token/mock"
 	"github.com/golauth/golauth/pkg/infra/api/apictx"
 	"github.com/golauth/golauth/pkg/infra/api/controller/model"
@@ -41,7 +39,7 @@ func (s *CheckTokenControllerSuite) SetupTest() {
 	s.publishedClaims = nil
 
 	s.ct = NewCheckTokenController(s.validateToken)
-	s.app = fiber.New()
+	s.app = newErrApp()
 	s.app.Get("/check_token", s.ct.CheckToken)
 	// /me reads claims the security middleware publishes; the stub here stands
 	// in for that middleware when s.publishedClaims is set.
@@ -62,9 +60,8 @@ func (s *CheckTokenControllerSuite) TestCheckTokenErrExtractToken() {
 	resp, err := s.app.Test(r, fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 	s.NoError(err)
 	s.Equal(http.StatusBadRequest, resp.StatusCode)
-	b, err := io.ReadAll(resp.Body)
-	s.NoError(err)
-	s.Equal(token.ErrBearerTokenExtract.Error(), string(b))
+	c, _ := readContract(resp)
+	s.Equal("invalid_input", c.Error.Code)
 }
 
 func (s *CheckTokenControllerSuite) TestCheckTokenInvalidToken() {
@@ -77,10 +74,9 @@ func (s *CheckTokenControllerSuite) TestCheckTokenInvalidToken() {
 	resp, err := s.app.Test(r, fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 	s.NoError(err)
 	s.Equal(http.StatusUnauthorized, resp.StatusCode)
-	expectedMsg := "parsed token invalid"
-	b, err := io.ReadAll(resp.Body)
-	s.NoError(err)
-	s.Equal(expectedMsg, string(b))
+	c, raw := readContract(resp)
+	s.Equal("unauthorized", c.Error.Code)
+	s.NotContains(raw, "parsed token invalid")
 }
 
 func (s *CheckTokenControllerSuite) TestCheckTokenOk() {
@@ -128,10 +124,11 @@ func (s *CheckTokenControllerSuite) TestCheckTokenExpiredLeaksNoClaims() {
 	s.NoError(err)
 	s.Equal(http.StatusUnauthorized, resp.StatusCode)
 
-	b, _ := io.ReadAll(resp.Body)
-	s.Equal("expired token", string(b))
-	s.NotContains(string(b), "username")
-	s.NotContains(string(b), "sub")
+	c, raw := readContract(resp)
+	s.Equal("unauthorized", c.Error.Code)
+	s.NotContains(raw, "expired token")
+	s.NotContains(raw, "username")
+	s.NotContains(raw, `"sub"`)
 }
 
 func (s *CheckTokenControllerSuite) TestMeReturnsPublishedClaims() {

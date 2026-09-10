@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"strings"
 	"testing"
@@ -12,6 +11,7 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/golauth/golauth/pkg/application/user/mock"
+	"github.com/golauth/golauth/pkg/domain/apperr"
 	"github.com/golauth/golauth/pkg/domain/entity"
 	"github.com/golauth/golauth/pkg/infra/api/controller/model"
 	"github.com/google/uuid"
@@ -42,7 +42,7 @@ func (s *UserControllerSuite) SetupTest() {
 	s.addUserRole = mock.NewMockAddUserRole(s.ctrl)
 
 	s.uc = NewUserController(s.findUserById, s.addUserRole)
-	s.app = fiber.New()
+	s.app = newErrApp()
 	s.app.Get("/users/:id", s.uc.FindById)
 	s.app.Post("/users/:id/add-role", s.uc.AddRole)
 }
@@ -105,7 +105,7 @@ func (s *UserControllerSuite) TestFindByIDErrParseUUID() {
 
 func (s *UserControllerSuite) TestFindByIDErrSvc() {
 	id := uuid.New()
-	errMessage := "could not find user by id"
+	errMessage := "could not find user by id: sql: connection done"
 
 	r, _ := http.NewRequest("GET", fmt.Sprintf("/users/%s", id), nil)
 	r.Header.Set("Content-Type", "application/json")
@@ -114,9 +114,26 @@ func (s *UserControllerSuite) TestFindByIDErrSvc() {
 
 	resp, _ := s.app.Test(r, fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 	s.Equal(http.StatusInternalServerError, resp.StatusCode)
-	b, _ := io.ReadAll(resp.Body)
-	defer resp.Body.Close()
-	s.Contains(string(b), errMessage)
+	c, raw := readContract(resp)
+	s.Equal("internal_error", c.Error.Code)
+	s.NotContains(raw, errMessage)
+	s.NotContains(raw, "sql:")
+}
+
+// A repository not-found (apperr.ErrNotFound) surfaces as 404, not 500.
+func (s *UserControllerSuite) TestFindByIDNotFound() {
+	id := uuid.New()
+
+	r, _ := http.NewRequest("GET", fmt.Sprintf("/users/%s", id), nil)
+	r.Header.Set("Content-Type", "application/json")
+
+	s.findUserById.EXPECT().Execute(r.Context(), id).
+		Return(nil, fmt.Errorf("user %s: %w", id, apperr.ErrNotFound)).Times(1)
+
+	resp, _ := s.app.Test(r, fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
+	s.Equal(http.StatusNotFound, resp.StatusCode)
+	c, _ := readContract(resp)
+	s.Equal("not_found", c.Error.Code)
 }
 
 func (s *UserControllerSuite) TestAddRoleErrSvc() {
@@ -135,6 +152,7 @@ func (s *UserControllerSuite) TestAddRoleErrSvc() {
 	resp, err := s.app.Test(r, fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 	s.Require().NoError(err)
 	s.Equal(http.StatusInternalServerError, resp.StatusCode)
-	b, _ := io.ReadAll(resp.Body)
-	s.Contains(string(b), errMessage)
+	c, raw := readContract(resp)
+	s.Equal("internal_error", c.Error.Code)
+	s.NotContains(raw, errMessage)
 }

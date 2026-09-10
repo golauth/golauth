@@ -1,10 +1,12 @@
 package controller
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/golauth/golauth/pkg/application/token"
+	"github.com/golauth/golauth/pkg/domain/apperr"
 	"github.com/golauth/golauth/pkg/infra/api/apictx"
 )
 
@@ -28,11 +30,13 @@ func NewCheckTokenController(validateToken token.ValidateToken) CheckTokenContro
 func (c checkTokenController) CheckToken(ctx fiber.Ctx) error {
 	t, err := token.ExtractToken(ctx.Get("Authorization"))
 	if err != nil {
-		return fiber.NewError(http.StatusBadRequest, err.Error())
+		return fmt.Errorf("missing or malformed bearer token: %w", apperr.ErrInvalidInput)
 	}
 	claims, err := c.validateToken.Execute(t)
 	if err != nil {
-		return fiber.NewError(http.StatusUnauthorized, err.Error())
+		// Deliberately vague: the real reason stays out of the response so the
+		// endpoint cannot be used to probe token or key state.
+		return fmt.Errorf("token verification failed: %w", apperr.ErrUnauthorized)
 	}
 	return ctx.Status(http.StatusOK).JSON(claims)
 }
@@ -43,7 +47,7 @@ func (c checkTokenController) CheckToken(ctx fiber.Ctx) error {
 func (c checkTokenController) Me(ctx fiber.Ctx) error {
 	claims, ok := apictx.ClaimsFromContext(ctx)
 	if !ok {
-		return fiber.NewError(http.StatusUnauthorized)
+		return fmt.Errorf("no authenticated principal: %w", apperr.ErrUnauthorized)
 	}
 	return ctx.Status(http.StatusOK).JSON(claims)
 }

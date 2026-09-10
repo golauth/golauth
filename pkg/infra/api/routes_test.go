@@ -177,6 +177,44 @@ func (s *RoutesSuite) TestEveryNonPublicRouteRequiresAuthentication() {
 	s.Greater(checked, 0, "no protected route was exercised; the guard would be vacuous")
 }
 
+// TestErrorContractOnEveryProtectedRoute drives the router's own route table and
+// asserts that the induced failure (a missing token) comes back as the one
+// documented error envelope on every route: a JSON body with error.code,
+// error.message and a request id that also appears in the X-Request-Id header.
+func (s *RoutesSuite) TestErrorContractOnEveryProtectedRoute() {
+	checked := 0
+	for _, route := range s.app.GetRoutes(true) {
+		if route.Method == http.MethodHead || route.Method == http.MethodOptions {
+			continue
+		}
+		if !strings.HasPrefix(route.Path, pathPrefix) || publicPaths[route.Path] {
+			continue
+		}
+
+		req, _ := http.NewRequest(route.Method, concretePath(route.Path, s.userID), strings.NewReader("{}"))
+		req.Header.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSON)
+		resp, err := s.app.Test(req, fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
+		s.Require().NoError(err)
+
+		var body struct {
+			Error struct {
+				Code, Message, RequestID string
+			} `json:"error"`
+		}
+		raw, _ := io.ReadAll(resp.Body)
+		_ = resp.Body.Close()
+		s.Require().NoError(json.Unmarshal(raw, &body), "%s %s: body is not the error envelope: %s", route.Method, route.Path, raw)
+
+		s.Equal("unauthorized", body.Error.Code, "%s %s", route.Method, route.Path)
+		s.NotEmpty(body.Error.Message, "%s %s", route.Method, route.Path)
+		s.NotEmpty(body.Error.RequestID, "%s %s: no request id in body", route.Method, route.Path)
+		s.Equal(resp.Header.Get("X-Request-Id"), body.Error.RequestID, "%s %s: body/header id mismatch", route.Method, route.Path)
+		s.NotContains(string(raw), "sql", "%s %s: sql fragment leaked", route.Method, route.Path)
+		checked++
+	}
+	s.Greater(checked, 0)
+}
+
 // TestPublicRoutesRemainReachable guards the other direction: fixing the path
 // comparison in isPrivateURI is what keeps login working once the middleware
 // actually runs.

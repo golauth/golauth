@@ -1,12 +1,12 @@
 package controller
 
 import (
-	"errors"
+	"fmt"
 	"net/http"
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/golauth/golauth/pkg/application/user"
-	"github.com/golauth/golauth/pkg/domain/repository"
+	"github.com/golauth/golauth/pkg/domain/apperr"
 	"github.com/golauth/golauth/pkg/infra/api/controller/model"
 )
 
@@ -25,28 +25,17 @@ func NewSignupController(createUser user.CreateUser) SignupController {
 func (s *signupController) CreateUser(ctx fiber.Ctx) error {
 	var decodedUser model.CreateUserRequest
 	if err := ctx.Bind().Body(&decodedUser); err != nil {
-		return fiber.NewError(http.StatusBadRequest, err.Error())
+		return fmt.Errorf("invalid request body: %w", apperr.ErrInvalidInput)
 	}
+	// The use case returns a *user.ValidationError for a bad field and
+	// repository.ErrUserAlreadyExists (which wraps apperr.ErrAlreadyExists) for a
+	// duplicate; the central handler maps both.
 	output, err := s.createUser.Execute(ctx.Context(), decodedUser.ToEntity())
 	if err != nil {
-		return signupError(ctx, err)
+		return err
 	}
 
 	// Serialize through UserResponse rather than the entity: the entity
 	// carries the bcrypt hash, and signup answers unauthenticated callers.
 	return ctx.Status(http.StatusCreated).JSON(model.NewUserResponseFromEntity(output))
-}
-
-// signupError turns a use-case error into an honest status code: 400 with the
-// field list for invalid input, 409 for a duplicate username or e-mail, and 500
-// for anything genuinely unexpected.
-func signupError(ctx fiber.Ctx, err error) error {
-	var ve *user.ValidationError
-	if errors.As(err, &ve) {
-		return ctx.Status(http.StatusBadRequest).JSON(ve)
-	}
-	if errors.Is(err, repository.ErrUserAlreadyExists) {
-		return fiber.NewError(http.StatusConflict, "username or e-mail already registered")
-	}
-	return fiber.NewError(http.StatusInternalServerError, err.Error())
 }

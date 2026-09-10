@@ -55,11 +55,13 @@ func (s *SecurityMiddleware) Apply() fiber.Handler {
 		bearerTk := ctx.Get(fiber.HeaderAuthorization, "")
 		t, err := token.ExtractToken(bearerTk)
 		if err != nil {
-			return fiber.NewError(http.StatusUnauthorized, err.Error())
+			// Fixed, uninformative message on purpose: a detailed reason here
+			// helps an attacker map the system.
+			return fiber.NewError(http.StatusUnauthorized, "unauthorized")
 		}
 		claims, err := s.validateToken.Execute(t)
 		if err != nil {
-			return fiber.NewError(http.StatusUnauthorized, err.Error())
+			return fiber.NewError(http.StatusUnauthorized, "unauthorized")
 		}
 
 		apictx.SetClaims(ctx, claims)
