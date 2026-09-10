@@ -174,7 +174,7 @@ func (s *RoutesSuite) TestPublicRoutesRemainReachable() {
 			Return(&entity.Role{ID: roleID, Name: "USER"}, nil).Times(1)
 		s.userRoleRepository.EXPECT().AddUserRole(gomock.Any(), newUser.ID, roleID).Return(nil).Times(1)
 
-		body := `{"username":"someone","firstName":"Some","lastName":"One","email":"some@one.test","document":"1","password":"pass123456"}`
+		body := `{"username":"someone","firstName":"Some","lastName":"One","email":"some@one.test","document":"1","password":"pass1234567890"}`
 		req, _ := http.NewRequest(http.MethodPost, "/auth/signup", strings.NewReader(body))
 		req.Header.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSON)
 		resp, err := s.app.Test(req, fiber.TestConfig{Timeout: 0, FailOnTimeout: false})

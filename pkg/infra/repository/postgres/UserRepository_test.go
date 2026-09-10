@@ -83,6 +83,31 @@ func (s *UserRepositorySuite) TestFindUserByIdWithoutPassword() {
 	s.Zero(u.Password)
 }
 
+// A second insert colliding with ui_golauth_user_username surfaces as the
+// domain ErrUserAlreadyExists (mapped to HTTP 409), not a raw driver error.
+func (s *UserRepositorySuite) TestCreateDuplicateUsernameIsAlreadyExists() {
+	s.prepareDatabase(true, "add-users.sql")
+	u := &entity.User{
+		Username: "admin", FirstName: "Dup", LastName: "User",
+		Email: "different@none.com", Document: "999", Password: "irrelevant",
+	}
+
+	_, err := s.repo.Create(context.Background(), u)
+	s.ErrorIs(err, repository.ErrUserAlreadyExists)
+}
+
+// Same guarantee for the ui_golauth_user_email unique index.
+func (s *UserRepositorySuite) TestCreateDuplicateEmailIsAlreadyExists() {
+	s.prepareDatabase(true, "add-users.sql")
+	u := &entity.User{
+		Username: "brand-new", FirstName: "Dup", LastName: "User",
+		Email: "admin@goauth.org", Document: "999", Password: "irrelevant",
+	}
+
+	_, err := s.repo.Create(context.Background(), u)
+	s.ErrorIs(err, repository.ErrUserAlreadyExists)
+}
+
 func (s *UserRepositorySuite) TestCreateNewUserOk() {
 	s.prepareDatabase(true, "add-users.sql")
 	u := &entity.User{
