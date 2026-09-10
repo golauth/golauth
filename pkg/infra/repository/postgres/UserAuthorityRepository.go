@@ -19,10 +19,9 @@ func NewUserAuthorityRepository(db database.Database) repository.UserAuthorityRe
 func (u UserAuthorityRepositoryPostgres) FindAuthoritiesByUserID(ctx context.Context, userId uuid.UUID) ([]string, error) {
 	var authorities []string
 	var err error
-	// A disabled role or a disabled authority contributes nothing: the
-	// enabled flags are the account-deactivation control. golauth_user_role
-	// has no enabled column yet; Plan 10 adds it and the predicate ur.enabled
-	// belongs in this same WHERE clause once it does.
+	// A disabled membership, a disabled role or a disabled authority
+	// contributes nothing: the enabled flags are the account-deactivation
+	// control.
 	var query = `
 		SELECT a.name
 		FROM golauth_authority a
@@ -30,6 +29,7 @@ func (u UserAuthorityRepositoryPostgres) FindAuthoritiesByUserID(ctx context.Con
 		    INNER JOIN golauth_user_role ur ON ur.role_id = ra.role_id
 		    INNER JOIN golauth_role r ON r.id = ra.role_id
 		WHERE ur.user_id = $1
+		    AND ur.enabled
 		    AND a.enabled
 		    AND r.enabled`
 

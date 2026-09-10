@@ -115,6 +115,37 @@ database fails the start instead of hanging it. Migrations run at boot unless
 `RUN_MIGRATIONS=false`, in which case run them as a separate job before rolling
 out the new binary.
 
+#### Referential-integrity migration
+
+`20260910130000_referential_integrity` adds foreign keys to `golauth_user_role`
+and `golauth_role_authority` (cascade on the user side, restrict on the role and
+authority sides), plus `golauth_user_role.enabled` and
+`golauth_role_authority.creation_date`.
+
+Foreign keys will not apply while an orphan join row exists. On an installation
+that has been running without them, inspect and clean first:
+
+```sql
+-- inspect
+SELECT ur.* FROM golauth_user_role ur
+ WHERE NOT EXISTS (SELECT 1 FROM golauth_user u WHERE u.id = ur.user_id)
+    OR NOT EXISTS (SELECT 1 FROM golauth_role r WHERE r.id = ur.role_id);
+SELECT ra.* FROM golauth_role_authority ra
+ WHERE NOT EXISTS (SELECT 1 FROM golauth_role r      WHERE r.id = ra.role_id)
+    OR NOT EXISTS (SELECT 1 FROM golauth_authority a WHERE a.id = ra.authority_id);
+
+-- the migration deletes exactly this set
+DELETE FROM golauth_user_role ur
+ WHERE NOT EXISTS (SELECT 1 FROM golauth_user u WHERE u.id = ur.user_id)
+    OR NOT EXISTS (SELECT 1 FROM golauth_role r WHERE r.id = ur.role_id);
+DELETE FROM golauth_role_authority ra
+ WHERE NOT EXISTS (SELECT 1 FROM golauth_role r      WHERE r.id = ra.role_id)
+    OR NOT EXISTS (SELECT 1 FROM golauth_authority a WHERE a.id = ra.authority_id);
+```
+
+After this, deleting a role or authority that is still referenced is refused;
+delete the memberships or mappings first.
+
 ### Signing keys and JWKS
 
 The JWT signing key is supplied by configuration so that it is identical across
