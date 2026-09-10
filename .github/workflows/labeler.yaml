@@ -2,12 +2,17 @@ name: labeler
 
 on: [pull_request]
 
+# Labelling and the oversize comment are the only writes.
+permissions:
+  contents: read
+  pull-requests: write
+
 jobs:
   labeler:
     runs-on: ubuntu-latest
     name: Label the PR size
     steps:
-      - uses: codelytv/pr-size-labeler@v1
+      - uses: codelytv/pr-size-labeler@095a41fca88b8764fd9e008ad269bcdb82bb38b9 # v1.10.4
         with:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           xs_label: 'size/xs'
