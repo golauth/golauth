@@ -8,12 +8,12 @@ package httperr
 
 import (
 	"errors"
+	"log/slog"
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/golauth/golauth/pkg/application/user"
 	"github.com/golauth/golauth/pkg/domain/apperr"
 	"github.com/golauth/golauth/pkg/infra/api/apictx"
-	"github.com/sirupsen/logrus"
 )
 
 // Detail is the error object. code is the stable, machine-readable key; message
@@ -49,17 +49,33 @@ func Handler(ctx fiber.Ctx, err error) error {
 	if status >= fiber.StatusInternalServerError {
 		// The only place the full error is allowed to exist: the server log,
 		// keyed by the same id the client is handed.
-		logrus.WithFields(logrus.Fields{
-			"event":      "request_error",
-			"request_id": reqID,
-			"method":     ctx.Method(),
-			"path":       ctx.Path(),
-			"status":     status,
-		}).Errorf("unhandled error: %v", err)
+		slog.ErrorContext(ctx.Context(), "unhandled error",
+			"event", "request_error",
+			"request_id", reqID,
+			"method", ctx.Method(),
+			"path", ctx.Path(),
+			"status", status,
+			"err", err.Error(),
+		)
 		return write(ctx, status, Body{Error: Detail{Code: code, Message: "internal server error", RequestID: reqID}})
 	}
 
 	return write(ctx, status, Body{Error: Detail{Code: code, Message: clientMessage(err, status), RequestID: reqID}})
+}
+
+// Status returns the HTTP status Handler would send for err. The access-log
+// middleware calls it so the status it records is the one the client received,
+// without re-deriving the mapping.
+func Status(err error) int {
+	if err == nil {
+		return fiber.StatusOK
+	}
+	var ve *user.ValidationError
+	if errors.As(err, &ve) {
+		return fiber.StatusBadRequest
+	}
+	status, _ := classify(err)
+	return status
 }
 
 func classify(err error) (int, string) {

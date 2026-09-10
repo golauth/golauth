@@ -5,15 +5,24 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"log/slog"
+	"os"
 	"time"
 
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/lib/pq"
-	"github.com/sirupsen/logrus"
 	"github.com/subosito/gotenv"
 )
+
+// fatal logs a boot-time failure and exits non-zero. The database handle is
+// built during process start, before there is anything to gracefully unwind, so
+// a hard exit is the honest behaviour; slog has no Fatal of its own.
+func fatal(msg string, err error) {
+	slog.Error(msg, "err", err.Error())
+	os.Exit(1)
+}
 
 type PGDatabase struct {
 	db *sql.DB
@@ -25,22 +34,22 @@ func NewPGDatabase() Database {
 
 	db, err := openPool(s)
 	if err != nil {
-		logrus.Fatal(err)
+		fatal("database: could not open connection pool", err)
 	}
 	// A wedged or unreachable database now fails the boot within pingTimeout
 	// instead of hanging it indefinitely on a bare db.Ping().
 	if err := verifyConnection(context.Background(), db, s.pingTimeout); err != nil {
 		_ = db.Close()
-		logrus.Fatal(err)
+		fatal("database: connection check failed", err)
 	}
 
 	pg := &PGDatabase{db: db}
 	if s.runMigrations {
 		if err := pg.migrate(s.migrationSourceURL); err != nil {
-			logrus.Fatal(err)
+			fatal("database: migration failed", err)
 		}
 	} else {
-		logrus.Warn("RUN_MIGRATIONS is false: skipping migrations at boot (run them as a separate job)")
+		slog.Warn("RUN_MIGRATIONS is false: skipping migrations at boot (run them as a separate job)")
 	}
 	return pg
 }
@@ -84,12 +93,12 @@ func verifyConnection(ctx context.Context, db *sql.DB, timeout time.Duration) er
 }
 
 func (d PGDatabase) migrate(sourceURL string) error {
-	logrus.Info("starting migration execution")
+	slog.Info("starting migration execution")
 	driver, err := postgres.WithInstance(d.db, &postgres.Config{})
 	if err != nil {
 		return fmt.Errorf("database: could not create migration connection: %w", err)
 	}
-	logrus.Infof("Executing migrations on path: %s", sourceURL)
+	slog.Info("executing migrations", "source", sourceURL)
 	m, err := migrate.NewWithDatabaseInstance(
 		"file://"+sourceURL,
 		"postgres", driver,
@@ -102,13 +111,12 @@ func (d PGDatabase) migrate(sourceURL string) error {
 	if err != nil && !errors.Is(err, migrate.ErrNoChange) {
 		return fmt.Errorf("database: error when executing database migration: %w", err)
 	}
-	logrus.Info("finalizing migrations!")
+	slog.Info("finalizing migrations")
 	return nil
 }
 
 func (d PGDatabase) Close() {
-	err := d.db.Close()
-	if err != nil {
-		logrus.Error(err)
+	if err := d.db.Close(); err != nil {
+		slog.Error("database: error closing connection pool", "err", err.Error())
 	}
 }

@@ -1,12 +1,11 @@
 package database
 
 import (
+	"log/slog"
 	"os"
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/sirupsen/logrus"
 )
 
 // Defaults for the connection pool and boot behaviour. Idle equal to open
@@ -91,7 +90,7 @@ func envInt(key string, def int) int {
 		if n, err := strconv.Atoi(v); err == nil && n > 0 {
 			return n
 		}
-		logrus.Warnf("invalid %s=%q, using default %d", key, os.Getenv(key), def)
+		slog.Warn("invalid env var, using default", "key", key, "value", os.Getenv(key), "default", def)
 	}
 	return def
 }
@@ -101,7 +100,8 @@ func envDuration(key string, def time.Duration) time.Duration {
 		if d, err := time.ParseDuration(v); err == nil && d > 0 {
 			return d
 		}
-		logrus.Warnf("invalid %s=%q (want a Go duration like \"30m\"), using default %s", key, os.Getenv(key), def)
+		slog.Warn("invalid duration env var, using default",
+			"key", key, "value", os.Getenv(key), "want", "a Go duration like \"30m\"", "default", def.String())
 	}
 	return def
 }
@@ -111,7 +111,8 @@ func envBool(key string, def bool) bool {
 		if b, err := strconv.ParseBool(v); err == nil {
 			return b
 		}
-		logrus.Warnf("invalid %s=%q (want true or false), using default %t", key, os.Getenv(key), def)
+		slog.Warn("invalid boolean env var, using default",
+			"key", key, "value", os.Getenv(key), "want", "true or false", "default", def)
 	}
 	return def
 }

@@ -2,10 +2,10 @@ package token
 
 import (
 	"context"
+	"log/slog"
 	"time"
 
 	"github.com/golauth/golauth/pkg/domain/repository"
-	"github.com/sirupsen/logrus"
 )
 
 // DefaultCleanupInterval is how often expired refresh-token rows are purged when
@@ -24,11 +24,11 @@ func StartRefreshTokenCleanup(ctx context.Context, repo repository.RefreshTokenR
 	purge := func() {
 		n, err := repo.DeleteExpired(context.Background(), time.Now())
 		if err != nil {
-			logrus.Warnf("refresh token cleanup failed: %v", err)
+			slog.Warn("refresh token cleanup failed", "err", err.Error())
 			return
 		}
 		if n > 0 {
-			logrus.Infof("refresh token cleanup removed %d expired row(s)", n)
+			slog.Info("refresh token cleanup removed expired rows", "rows", n)
 		}
 	}
 

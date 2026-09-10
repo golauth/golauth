@@ -3,6 +3,8 @@ package role
 
 import (
 	"context"
+
+	"github.com/golauth/golauth/pkg/application/audit"
 	"github.com/golauth/golauth/pkg/domain/entity"
 	"github.com/golauth/golauth/pkg/domain/factory"
 	"github.com/golauth/golauth/pkg/domain/repository"
@@ -25,5 +27,9 @@ func (uc addRole) Execute(ctx context.Context, input *entity.Role) (*entity.Role
 	if err != nil {
 		return nil, err
 	}
+	audit.Event(ctx, audit.RoleCreated,
+		"role_id", role.ID.String(),
+		"name", role.Name,
+	)
 	return role, nil
 }

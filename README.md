@@ -336,6 +336,43 @@ line. An inbound `X-Request-Id` is reused when it is short and non-empty.
 > (a missing resource or a duplicate was `500`). Clients that parsed the text
 > body, or only distinguished `200` from `500`, must move to the shape above.
 
+### Logging and audit events
+
+The service logs through `log/slog`. `APP_ENV=production` emits JSON on stdout
+for a log shipper; anything else emits human-readable text on stderr.
+`LOG_LEVEL` (`debug` | `info` | `warn` | `error`, default `info`) sets the
+minimum level.
+
+Two kinds of structured record are produced, on the one stream:
+
+- **Access log** -- one line per request, `event=request`, with `method`,
+  `path`, `status`, `duration`, `request_id`, `client_ip` and, when the request
+  carried a valid token, `subject`. A 4xx is logged at `warn`, a 5xx at
+  `error`. The `Authorization` header, request bodies and token values are
+  never logged.
+- **Audit events** -- one line per security-relevant transition, each with a
+  stable `event` key so alerts can match on it:
+
+  | `event` | emitted when |
+  |---|---|
+  | `login_succeeded` | credentials accepted, token issued |
+  | `login_failed` | login rejected (`outcome`: `unknown_user`, `bad_password`, `locked`, `disabled`) |
+  | `token_refreshed` | refresh token rotated for a fresh pair |
+  | `refresh_token_reuse` | a rotated refresh token was presented again; every session revoked (`warn`) |
+  | `refresh_denied` | refresh rejected for a disabled account |
+  | `logout` / `logout_all` | one session, or every session, revoked |
+  | `user_created` | signup completed |
+  | `role_created` | a role was created |
+  | `role_granted` | a role was granted to a user |
+  | `role_status_changed` | a role was enabled or disabled |
+
+Every record -- access or audit -- carries the same `request_id` that appears in
+the error body and the `X-Request-Id` response header, so one id ties a client
+report to the server-side lines.
+
+Log shipping, dashboards and alert rules are out of scope: they belong to
+whoever runs the service.
+
 ### Accessing
 
 Default user is `admin` and password `admin123`. **Change this password before

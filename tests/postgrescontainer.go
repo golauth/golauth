@@ -3,13 +3,14 @@ package tests
 import (
 	"context"
 	"fmt"
+	"log"
+	"log/slog"
+	"os"
+
 	"github.com/golauth/golauth/pkg/infra/database"
 	"github.com/moby/moby/api/types/network"
-	"github.com/sirupsen/logrus"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
-	"log"
-	"os"
 )
 
 var (
@@ -105,7 +106,7 @@ func DatasetTest(db database.Database, basePath string, clearDataFileName string
 }
 
 func cleanDatabase(db database.Database, basePath string, clearDataFileName string) error {
-	logrus.Info("cleaning database")
+	slog.Info("cleaning database")
 	script, err := clearDataScript(basePath, clearDataFileName)
 	if err != nil {
 		return err
@@ -114,7 +115,7 @@ func cleanDatabase(db database.Database, basePath string, clearDataFileName stri
 	if err != nil {
 		return err
 	}
-	logrus.Info("database cleaning successfully")
+	slog.Info("database cleaning successfully")
 	return nil
 }
 

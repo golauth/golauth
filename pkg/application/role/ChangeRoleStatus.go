@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/golauth/golauth/pkg/application/audit"
 	"github.com/golauth/golauth/pkg/domain/apperr"
 	"github.com/golauth/golauth/pkg/domain/repository"
 	"github.com/google/uuid"
@@ -30,5 +31,12 @@ func (uc changeRoleStatus) Execute(ctx context.Context, id uuid.UUID, enabled bo
 	if !exists {
 		return fmt.Errorf("role %s: %w", id, apperr.ErrNotFound)
 	}
-	return uc.repo.ChangeStatus(ctx, id, enabled)
+	if err := uc.repo.ChangeStatus(ctx, id, enabled); err != nil {
+		return err
+	}
+	audit.Event(ctx, audit.RoleStatusChanged,
+		"role_id", id.String(),
+		"enabled", enabled,
+	)
+	return nil
 }

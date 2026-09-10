@@ -5,13 +5,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"time"
 
+	"github.com/golauth/golauth/pkg/application/audit"
 	"github.com/golauth/golauth/pkg/domain/entity"
 	"github.com/golauth/golauth/pkg/domain/factory"
 	"github.com/golauth/golauth/pkg/domain/repository"
 	"github.com/google/uuid"
-	"github.com/sirupsen/logrus"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -66,7 +67,7 @@ func (uc generateToken) Execute(ctx context.Context, username, password, clientI
 		// so an unknown username is indistinguishable from a wrong password in
 		// latency, status and body.
 		_ = comparePassword([]byte(dummyBcryptHash), []byte(password))
-		logFailedLogin(username, clientIP, "unknown_user")
+		logFailedLogin(ctx, username, clientIP, "unknown_user")
 		return nil, ErrInvalidUsernameOrPassword
 	}
 
@@ -79,13 +80,13 @@ func (uc generateToken) Execute(ctx context.Context, username, password, clientI
 	// A locked account fails before bcrypt runs: this both enforces the lock
 	// and keeps a locked account from being a CPU-exhaustion lever.
 	if attempt != nil && attempt.Locked(now) {
-		logFailedLogin(username, clientIP, "locked")
+		logFailedLogin(ctx, username, clientIP, "locked")
 		return nil, ErrInvalidUsernameOrPassword
 	}
 
 	if comparePassword([]byte(user.Password), []byte(password)) != nil {
 		uc.registerFailure(ctx, user.ID, attempt, now)
-		logFailedLogin(username, clientIP, "bad_password")
+		logFailedLogin(ctx, username, clientIP, "bad_password")
 		return nil, ErrInvalidUsernameOrPassword
 	}
 
@@ -93,14 +94,14 @@ func (uc generateToken) Execute(ctx context.Context, username, password, clientI
 	// password on purpose, so the endpoint cannot be used to probe account
 	// state; the real reason is only in the log.
 	if !user.Enabled {
-		logFailedLogin(username, clientIP, "disabled")
+		logFailedLogin(ctx, username, clientIP, "disabled")
 		return nil, ErrInvalidUsernameOrPassword
 	}
 
 	// Correct password on an active account: clear the failure counter.
 	if attempt != nil {
 		if resetErr := uc.loginAttemptRepository.Reset(ctx, user.ID); resetErr != nil {
-			logrus.Warnf("could not reset login attempts for user %s: %v", user.ID, resetErr)
+			slog.WarnContext(ctx, "could not reset login attempts", "user_id", user.ID.String(), "err", resetErr.Error())
 		}
 	}
 
@@ -111,6 +112,12 @@ func (uc generateToken) Execute(ctx context.Context, username, password, clientI
 		}
 		return nil, err
 	}
+
+	audit.Event(ctx, audit.LoginSucceeded,
+		"user_id", user.ID.String(),
+		"username", user.Username,
+		"client_ip", clientIP,
+	)
 	return token, nil
 }
 
@@ -126,15 +133,17 @@ func (uc generateToken) registerFailure(ctx context.Context, userID uuid.UUID, p
 		lockedUntil = now.Add(d)
 	}
 	if err := uc.loginAttemptRepository.RegisterFailure(ctx, userID, lockedUntil); err != nil {
-		logrus.Warnf("could not register login failure for user %s: %v", userID, err)
+		slog.WarnContext(ctx, "could not register login failure", "user_id", userID.String(), "err", err.Error())
 	}
 }
 
-func logFailedLogin(username, clientIP, outcome string) {
-	logrus.WithFields(logrus.Fields{
-		"event":     "login_failed",
-		"username":  username,
-		"client_ip": clientIP,
-		"outcome":   outcome,
-	}).Info("login attempt failed")
+// logFailedLogin emits one audit event per rejected login. outcome is the real
+// reason (unknown_user, locked, bad_password, disabled); the caller still
+// returns the single vague error so the response leaks none of it.
+func logFailedLogin(ctx context.Context, username, clientIP, outcome string) {
+	audit.Event(ctx, audit.LoginFailed,
+		"username", username,
+		"client_ip", clientIP,
+		"outcome", outcome,
+	)
 }

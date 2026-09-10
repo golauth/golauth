@@ -5,12 +5,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"time"
 
+	"github.com/golauth/golauth/pkg/application/audit"
 	"github.com/golauth/golauth/pkg/domain/entity"
 	"github.com/golauth/golauth/pkg/domain/factory"
 	"github.com/golauth/golauth/pkg/domain/repository"
-	"github.com/sirupsen/logrus"
 )
 
 // ErrInvalidRefreshToken is the single failure the refresh endpoint reports.
@@ -57,13 +58,14 @@ func (uc refreshAccessToken) Execute(ctx context.Context, presented, clientIP, u
 	// the standard defence, and the reason replaced_by is stored.
 	if stored.Rotated() {
 		if _, rerr := uc.refreshTokenRepository.RevokeAllForUser(ctx, stored.UserID); rerr != nil {
-			logrus.Errorf("could not revoke refresh-token family for user %s: %v", stored.UserID, rerr)
+			slog.ErrorContext(ctx, "could not revoke refresh-token family",
+				"user_id", stored.UserID.String(), "err", rerr.Error())
 		}
-		logrus.WithFields(logrus.Fields{
-			"event":     "refresh_token_reuse",
-			"user_id":   stored.UserID.String(),
-			"client_ip": clientIP,
-		}).Warn("rotated refresh token presented again; revoked every session for the user")
+		audit.Warn(ctx, audit.RefreshTokenReuse,
+			"user_id", stored.UserID.String(),
+			"client_ip", clientIP,
+			"detail", "rotated refresh token presented again; every session revoked",
+		)
 		return nil, ErrInvalidRefreshToken
 	}
 
@@ -80,14 +82,14 @@ func (uc refreshAccessToken) Execute(ctx context.Context, presented, clientIP, u
 	// check into a real one, bounded by the access-token TTL.
 	if !user.Enabled {
 		if rerr := uc.refreshTokenRepository.Revoke(ctx, stored.ID); rerr != nil {
-			logrus.Warnf("could not revoke refresh token for disabled user %s: %v", user.ID, rerr)
+			slog.WarnContext(ctx, "could not revoke refresh token for disabled user",
+				"user_id", user.ID.String(), "err", rerr.Error())
 		}
-		logrus.WithFields(logrus.Fields{
-			"event":     "refresh_denied",
-			"user_id":   user.ID.String(),
-			"client_ip": clientIP,
-			"outcome":   "disabled",
-		}).Info("refresh denied for disabled user")
+		audit.Event(ctx, audit.RefreshDenied,
+			"user_id", user.ID.String(),
+			"client_ip", clientIP,
+			"outcome", "disabled",
+		)
 		return nil, ErrInvalidRefreshToken
 	}
 
@@ -105,5 +107,9 @@ func (uc refreshAccessToken) Execute(ctx context.Context, presented, clientIP, u
 		return nil, fmt.Errorf("could not rotate refresh token: %w", err)
 	}
 
+	audit.Event(ctx, audit.TokenRefreshed,
+		"user_id", user.ID.String(),
+		"client_ip", clientIP,
+	)
 	return token, nil
 }
