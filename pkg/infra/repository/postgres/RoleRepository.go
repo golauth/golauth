@@ -13,6 +13,10 @@ import (
 	"github.com/lib/pq"
 )
 
+// roleColumns is the full golauth_role column list, in the order FindByName's
+// scan expects. Naming the columns keeps the scan safe across schema changes.
+const roleColumns = "id, name, description, enabled, creation_date"
+
 type RoleRepositoryPostgres struct {
 	db database.Database
 }
@@ -23,7 +27,7 @@ func NewRoleRepository(db database.Database) repository.RoleRepository {
 
 func (r RoleRepositoryPostgres) FindByName(ctx context.Context, name string) (*entity.Role, error) {
 	role := entity.Role{}
-	row := r.db.One(ctx, "SELECT * FROM golauth_role WHERE name = $1", name)
+	row := r.db.One(ctx, "SELECT "+roleColumns+" FROM golauth_role WHERE name = $1", name)
 	err := row.Scan(&role.ID, &role.Name, &role.Description, &role.Enabled, &role.CreationDate)
 	if errors.Is(err, database.ErrNoRows) {
 		return nil, fmt.Errorf("role %q: %w", name, apperr.ErrNotFound)

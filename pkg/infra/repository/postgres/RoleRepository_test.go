@@ -140,6 +140,14 @@ func (s *RoleRepositorySuite) TestRoleRepositoryChangeStatusOk() {
 	s.False(edited.Enabled)
 }
 
+// A ChangeStatus against an id that matches no row is not-found (Plan 08 maps it
+// to 404), not a silent success and not a wrapped nil error.
+func (s *RoleRepositorySuite) TestRoleRepositoryChangeStatusIdNotFound() {
+	s.prepareDatabase(true)
+	err := s.repo.ChangeStatus(context.Background(), uuid.New(), false)
+	s.ErrorIs(err, apperr.ErrNotFound)
+}
+
 func (s *RoleRepositorySuite) TestRoleRepositoryExistsByID() {
 	s.prepareDatabase(true, "add-users.sql")
 	id, _ := uuid.Parse("c12b415b-c3ad-487f-9800-f548aa18cc58")
