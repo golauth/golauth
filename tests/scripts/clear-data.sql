@@ -1,3 +1,4 @@
+delete from golauth_refresh_token;
 delete from golauth_login_attempt;
 delete from golauth_user_role;
 delete from golauth_user;

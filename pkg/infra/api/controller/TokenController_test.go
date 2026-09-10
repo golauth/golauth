@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/gofiber/fiber/v3"
+	"github.com/golauth/golauth/pkg/application/token"
 	"github.com/golauth/golauth/pkg/application/token/mock"
 	"github.com/golauth/golauth/pkg/domain/entity"
 	repoMock "github.com/golauth/golauth/pkg/domain/repository/mock"
@@ -24,10 +25,12 @@ type TokenControllerSuite struct {
 	*require.Assertions
 	mockCtrl *gomock.Controller
 
-	ctx           context.Context
-	uRepo         *repoMock.MockUserRepository
-	uaRepo        *repoMock.MockUserAuthorityRepository
-	generateToken *mock.MockGenerateToken
+	ctx                context.Context
+	uRepo              *repoMock.MockUserRepository
+	uaRepo             *repoMock.MockUserAuthorityRepository
+	generateToken      *mock.MockGenerateToken
+	refreshAccessToken *mock.MockRefreshAccessToken
+	logout             *mock.MockLogout
 
 	ctrl TokenController
 	app  *fiber.App
@@ -44,10 +47,14 @@ func (s *TokenControllerSuite) SetupTest() {
 	s.uRepo = repoMock.NewMockUserRepository(s.mockCtrl)
 	s.uaRepo = repoMock.NewMockUserAuthorityRepository(s.mockCtrl)
 	s.generateToken = mock.NewMockGenerateToken(s.mockCtrl)
+	s.refreshAccessToken = mock.NewMockRefreshAccessToken(s.mockCtrl)
+	s.logout = mock.NewMockLogout(s.mockCtrl)
 
-	s.ctrl = NewTokenController(s.uRepo, s.uaRepo, s.generateToken)
+	s.ctrl = NewTokenController(s.uRepo, s.uaRepo, s.generateToken, s.refreshAccessToken, s.logout)
 	s.app = fiber.New()
 	s.app.Post("/token", s.ctrl.Token)
+	s.app.Post("/token/refresh", s.ctrl.Refresh)
+	s.app.Post("/logout", s.ctrl.Logout)
 }
 
 func (s *TokenControllerSuite) TearDownTest() {
@@ -62,7 +69,7 @@ func (s *TokenControllerSuite) TestTokenFormOk() {
 	r, _ := http.NewRequest("POST", "/token", strings.NewReader(fmt.Sprintf("username=%s&password=%s", username, password)))
 	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-	s.generateToken.EXPECT().Execute(r.Context(), username, password, gomock.Any()).Return(&entity.Token{AccessToken: token}, nil).Times(1)
+	s.generateToken.EXPECT().Execute(r.Context(), username, password, gomock.Any(), gomock.Any()).Return(&entity.Token{AccessToken: token}, nil).Times(1)
 
 	resp, _ := s.app.Test(r, fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 	s.Equal(http.StatusOK, resp.StatusCode)
@@ -85,7 +92,7 @@ func (s *TokenControllerSuite) TestTokenJsonOk() {
 	r, _ := http.NewRequest("POST", "/token", strings.NewReader(string(body)))
 	r.Header.Set("Content-Type", "application/json")
 
-	s.generateToken.EXPECT().Execute(r.Context(), username, password, gomock.Any()).Return(&entity.Token{AccessToken: token}, nil).Times(1)
+	s.generateToken.EXPECT().Execute(r.Context(), username, password, gomock.Any(), gomock.Any()).Return(&entity.Token{AccessToken: token}, nil).Times(1)
 
 	resp, _ := s.app.Test(r, fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 	s.Equal(http.StatusOK, resp.StatusCode)
@@ -135,8 +142,60 @@ func (s *TokenControllerSuite) TestTokenErrGenerateToken() {
 	r, _ := http.NewRequest("POST", "/token", strings.NewReader(fmt.Sprintf("username=%s&password=%s", username, password)))
 	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-	s.generateToken.EXPECT().Execute(s.ctx, username, password, gomock.Any()).Return(nil, fmt.Errorf("could not find user by username admin")).Times(1)
+	s.generateToken.EXPECT().Execute(s.ctx, username, password, gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("could not find user by username admin")).Times(1)
 
 	resp, _ := s.app.Test(r, fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 	s.Equal(http.StatusUnauthorized, resp.StatusCode)
+}
+
+func (s *TokenControllerSuite) postJSON(path, body string) *http.Response {
+	r, _ := http.NewRequest("POST", path, strings.NewReader(body))
+	r.Header.Set("Content-Type", "application/json")
+	resp, err := s.app.Test(r, fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
+	s.NoError(err)
+	return resp
+}
+
+func (s *TokenControllerSuite) TestRefreshOk() {
+	s.refreshAccessToken.EXPECT().
+		Execute(gomock.Any(), "opaque-refresh", gomock.Any(), gomock.Any()).
+		Return(&entity.Token{AccessToken: "a.b.c", RefreshToken: "next-opaque", ExpiresIn: 900}, nil).Times(1)
+
+	resp := s.postJSON("/token/refresh", `{"refresh_token":"opaque-refresh"}`)
+	s.Equal(http.StatusOK, resp.StatusCode)
+
+	var out model.TokenResponse
+	s.NoError(json.NewDecoder(resp.Body).Decode(&out))
+	s.Equal("a.b.c", out.AccessToken)
+	s.Equal("next-opaque", out.RefreshToken)
+	s.Equal("Bearer", out.TokenType)
+	s.Equal(900, out.ExpiresIn)
+}
+
+func (s *TokenControllerSuite) TestRefreshMissingToken() {
+	resp := s.postJSON("/token/refresh", `{}`)
+	s.Equal(http.StatusBadRequest, resp.StatusCode)
+	b, _ := io.ReadAll(resp.Body)
+	s.Contains(string(b), "missing refresh_token")
+}
+
+func (s *TokenControllerSuite) TestRefreshInvalidTokenIsUnauthorized() {
+	s.refreshAccessToken.EXPECT().
+		Execute(gomock.Any(), "bad", gomock.Any(), gomock.Any()).
+		Return(nil, token.ErrInvalidRefreshToken).Times(1)
+
+	resp := s.postJSON("/token/refresh", `{"refresh_token":"bad"}`)
+	s.Equal(http.StatusUnauthorized, resp.StatusCode)
+}
+
+func (s *TokenControllerSuite) TestLogoutRevokesPresentedToken() {
+	s.logout.EXPECT().Session(gomock.Any(), "opaque-refresh").Return(nil).Times(1)
+
+	resp := s.postJSON("/logout", `{"refresh_token":"opaque-refresh"}`)
+	s.Equal(http.StatusNoContent, resp.StatusCode)
+}
+
+func (s *TokenControllerSuite) TestLogoutMissingToken() {
+	resp := s.postJSON("/logout", `{}`)
+	s.Equal(http.StatusBadRequest, resp.StatusCode)
 }

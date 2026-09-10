@@ -31,32 +31,35 @@ const dummyBcryptHash = "$2a$10$A9DfQ7RA4ojiq1Pi0DCyJO5/yz4G2wZl1HhTBnRsizXcyKpt
 var comparePassword = bcrypt.CompareHashAndPassword
 
 type GenerateToken interface {
-	Execute(ctx context.Context, username string, password string, clientIP string) (*entity.Token, error)
+	Execute(ctx context.Context, username, password, clientIP, userAgent string) (*entity.Token, error)
 }
 
-func NewGenerateToken(repoFactory factory.RepositoryFactory, jwtToken GenerateJwtToken, lockout LockoutPolicy) GenerateToken {
+func NewGenerateToken(repoFactory factory.RepositoryFactory, jwtToken GenerateJwtToken, lockout LockoutPolicy, cfg Config) GenerateToken {
 	return generateToken{
-		userRepository:          repoFactory.NewUserRepository(),
-		roleRepository:          repoFactory.NewRoleRepository(),
-		userRoleRepository:      repoFactory.NewUserRoleRepository(),
-		userAuthorityRepository: repoFactory.NewUserAuthorityRepository(),
-		loginAttemptRepository:  repoFactory.NewLoginAttemptRepository(),
-		jwtToken:                jwtToken,
-		lockout:                 lockout.withDefaults(),
+		userRepository:         repoFactory.NewUserRepository(),
+		roleRepository:         repoFactory.NewRoleRepository(),
+		userRoleRepository:     repoFactory.NewUserRoleRepository(),
+		loginAttemptRepository: repoFactory.NewLoginAttemptRepository(),
+		lockout:                lockout.withDefaults(),
+		issuer: tokenIssuer{
+			refreshTokenRepository:  repoFactory.NewRefreshTokenRepository(),
+			userAuthorityRepository: repoFactory.NewUserAuthorityRepository(),
+			jwtToken:                jwtToken,
+			cfg:                     cfg,
+		},
 	}
 }
 
 type generateToken struct {
-	userRepository          repository.UserRepository
-	roleRepository          repository.RoleRepository
-	userRoleRepository      repository.UserRoleRepository
-	userAuthorityRepository repository.UserAuthorityRepository
-	loginAttemptRepository  repository.LoginAttemptRepository
-	jwtToken                GenerateJwtToken
-	lockout                 LockoutPolicy
+	userRepository         repository.UserRepository
+	roleRepository         repository.RoleRepository
+	userRoleRepository     repository.UserRoleRepository
+	loginAttemptRepository repository.LoginAttemptRepository
+	lockout                LockoutPolicy
+	issuer                 tokenIssuer
 }
 
-func (uc generateToken) Execute(ctx context.Context, username, password, clientIP string) (*entity.Token, error) {
+func (uc generateToken) Execute(ctx context.Context, username, password, clientIP, userAgent string) (*entity.Token, error) {
 	user, err := uc.userRepository.FindByUsername(ctx, username)
 	if err != nil {
 		// Pay the bcrypt cost even though there is nothing to compare against,
@@ -101,21 +104,14 @@ func (uc generateToken) Execute(ctx context.Context, username, password, clientI
 		}
 	}
 
-	// FindAuthoritiesByUserID already filters out disabled roles and
-	// authorities, so a user whose roles are all disabled comes back with an
-	// empty list. That is intended: an empty list makes generateJwtToken omit
-	// the "authorities" claim, and every RequireAuthority check then denies
-	// the request.
-	authorities, err := uc.userAuthorityRepository.FindAuthoritiesByUserID(ctx, user.ID)
+	token, _, err := uc.issuer.issuePair(ctx, user, clientIP, userAgent)
 	if err != nil {
-		return nil, fmt.Errorf("error when fetch authorities: %w", err)
+		if errors.Is(err, ErrGeneratingToken) {
+			return nil, ErrGeneratingToken
+		}
+		return nil, err
 	}
-
-	accessToken, err := uc.jwtToken.Execute(user, authorities)
-	if err != nil {
-		return nil, ErrGeneratingToken
-	}
-	return &entity.Token{AccessToken: accessToken}, nil
+	return token, nil
 }
 
 // registerFailure records one more consecutive failure and, once the policy

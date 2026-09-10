@@ -6,6 +6,7 @@ import (
 
 	"github.com/cristalhq/jwt/v3"
 	"github.com/gofiber/fiber/v3"
+	"github.com/golauth/golauth/pkg/infra/api/apictx"
 	"github.com/golauth/golauth/pkg/infra/api/controller/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -16,7 +17,7 @@ import (
 func withClaims(claims *model.Claims) fiber.Handler {
 	return func(ctx fiber.Ctx) error {
 		if claims != nil {
-			ctx.Locals(claimsKey{}, claims)
+			apictx.SetClaims(ctx, claims)
 		}
 		return ctx.Next()
 	}

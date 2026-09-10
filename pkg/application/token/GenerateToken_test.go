@@ -18,7 +18,10 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-const testClientIP = "198.51.100.9"
+const (
+	testClientIP  = "198.51.100.9"
+	testUserAgent = "Mozilla/5.0 (test)"
+)
 
 type GenerateTokenSuite struct {
 	suite.Suite
@@ -30,6 +33,7 @@ type GenerateTokenSuite struct {
 	userRoleRepository      *repoMock.MockUserRoleRepository
 	userAuthorityRepository *repoMock.MockUserAuthorityRepository
 	loginAttemptRepository  *repoMock.MockLoginAttemptRepository
+	refreshTokenRepository  *repoMock.MockRefreshTokenRepository
 	jwtToken                *tokenMock.MockGenerateJwtToken
 
 	repoFactory *factoryMock.MockRepositoryFactory
@@ -54,6 +58,7 @@ func (s *GenerateTokenSuite) SetupTest() {
 	s.userRoleRepository = repoMock.NewMockUserRoleRepository(s.mockCtrl)
 	s.userAuthorityRepository = repoMock.NewMockUserAuthorityRepository(s.mockCtrl)
 	s.loginAttemptRepository = repoMock.NewMockLoginAttemptRepository(s.mockCtrl)
+	s.refreshTokenRepository = repoMock.NewMockRefreshTokenRepository(s.mockCtrl)
 	s.jwtToken = tokenMock.NewMockGenerateJwtToken(s.mockCtrl)
 	s.repoFactory = factoryMock.NewMockRepositoryFactory(s.mockCtrl)
 	s.repoFactory.EXPECT().NewRoleRepository().AnyTimes().Return(s.roleRepository)
@@ -61,9 +66,10 @@ func (s *GenerateTokenSuite) SetupTest() {
 	s.repoFactory.EXPECT().NewUserAuthorityRepository().AnyTimes().Return(s.userAuthorityRepository)
 	s.repoFactory.EXPECT().NewUserRepository().AnyTimes().Return(s.userRepository)
 	s.repoFactory.EXPECT().NewLoginAttemptRepository().AnyTimes().Return(s.loginAttemptRepository)
+	s.repoFactory.EXPECT().NewRefreshTokenRepository().AnyTimes().Return(s.refreshTokenRepository)
 
 	s.ctx = context.Background()
-	s.generateToken = NewGenerateToken(s.repoFactory, s.jwtToken, DefaultLockoutPolicy)
+	s.generateToken = NewGenerateToken(s.repoFactory, s.jwtToken, DefaultLockoutPolicy, DefaultConfig())
 
 	s.mockUser = model.CreateUserRequest{
 		Username:  "admin",
@@ -114,18 +120,36 @@ func (s *GenerateTokenSuite) TestGenerateTokenOk() {
 	s.loginAttemptRepository.EXPECT().Get(s.ctx, user.ID).Return(nil, nil).Times(1)
 	s.userAuthorityRepository.EXPECT().FindAuthoritiesByUserID(s.ctx, user.ID).Return(authorities, nil).Times(1)
 	s.jwtToken.EXPECT().Execute(user, authorities).Return(token, nil).Times(1)
+	s.expectRefreshTokenCreated(user.ID)
 
-	tokenResponse, err := s.generateToken.Execute(s.ctx, "admin", "123456", testClientIP)
+	tokenResponse, err := s.generateToken.Execute(s.ctx, "admin", "123456", testClientIP, testUserAgent)
 	s.NoError(err)
 	s.NotEmpty(tokenResponse)
 	s.Equal(token, tokenResponse.AccessToken)
+	s.NotEmpty(tokenResponse.RefreshToken)
+	s.Equal(int(DefaultAccessTokenTTL.Seconds()), tokenResponse.ExpiresIn)
+}
+
+// expectRefreshTokenCreated asserts one refresh-token row is written for userID,
+// with the request metadata carried through, and echoes back a row with an id.
+func (s *GenerateTokenSuite) expectRefreshTokenCreated(userID uuid.UUID) {
+	s.refreshTokenRepository.EXPECT().Create(s.ctx, gomock.Any()).
+		DoAndReturn(func(_ context.Context, rt *entity.RefreshToken) (*entity.RefreshToken, error) {
+			s.Equal(userID, rt.UserID)
+			s.NotEmpty(rt.TokenHash)
+			s.Equal(testClientIP, rt.ClientIP)
+			s.Equal(testUserAgent, rt.UserAgent)
+			s.True(rt.ExpiresAt.After(time.Now()))
+			rt.ID = uuid.New()
+			return rt, nil
+		}).Times(1)
 }
 
 func (s *GenerateTokenSuite) TestGenerateTokenUserNotFound() {
 	s.userRepository.EXPECT().FindByUsername(s.ctx, "admin").
 		Return(nil, fmt.Errorf("could not find user by username admin")).Times(1)
 
-	tokenResponse, err := s.generateToken.Execute(s.ctx, "admin", "123456", testClientIP)
+	tokenResponse, err := s.generateToken.Execute(s.ctx, "admin", "123456", testClientIP, testUserAgent)
 	s.ErrorIs(err, ErrInvalidUsernameOrPassword)
 	s.Empty(tokenResponse)
 }
@@ -147,7 +171,7 @@ func (s *GenerateTokenSuite) TestGenerateTokenUnknownUserPaysBcryptCost() {
 	s.userRepository.EXPECT().FindByUsername(s.ctx, "ghost").
 		Return(nil, fmt.Errorf("no such user")).Times(1)
 
-	_, err := s.generateToken.Execute(s.ctx, "ghost", "guess", testClientIP)
+	_, err := s.generateToken.Execute(s.ctx, "ghost", "guess", testClientIP, testUserAgent)
 	s.ErrorIs(err, ErrInvalidUsernameOrPassword)
 	s.Equal(1, calls)
 	s.Equal(dummyBcryptHash, string(gotHash))
@@ -161,7 +185,7 @@ func (s *GenerateTokenSuite) TestGenerateTokenInvalidPassword() {
 	// One failure, below the default threshold: recorded, but no lock yet.
 	s.loginAttemptRepository.EXPECT().RegisterFailure(s.ctx, user.ID, time.Time{}).Return(nil).Times(1)
 
-	tokenResponse, err := s.generateToken.Execute(s.ctx, "admin", "123456", testClientIP)
+	tokenResponse, err := s.generateToken.Execute(s.ctx, "admin", "123456", testClientIP, testUserAgent)
 	s.ErrorIs(err, ErrInvalidUsernameOrPassword)
 	s.Empty(tokenResponse)
 }
@@ -173,7 +197,7 @@ func (s *GenerateTokenSuite) TestGenerateTokenErrFetchAuthorities() {
 	s.userAuthorityRepository.EXPECT().FindAuthoritiesByUserID(s.ctx, user.ID).
 		Return([]string{}, fmt.Errorf("could not find authorities by user admin")).Times(1)
 
-	tokenResponse, err := s.generateToken.Execute(s.ctx, "admin", "123456", testClientIP)
+	tokenResponse, err := s.generateToken.Execute(s.ctx, "admin", "123456", testClientIP, testUserAgent)
 	s.Error(err)
 	s.Equal("error when fetch authorities: could not find authorities by user admin", err.Error())
 	s.Empty(tokenResponse)
@@ -187,7 +211,7 @@ func (s *GenerateTokenSuite) TestGenerateTokenErrGeneratingToken() {
 	s.userAuthorityRepository.EXPECT().FindAuthoritiesByUserID(s.ctx, user.ID).Return(authorities, nil).Times(1)
 	s.jwtToken.EXPECT().Execute(user, authorities).Return("", fmt.Errorf("could not generate token")).Times(1)
 
-	tokenResponse, err := s.generateToken.Execute(s.ctx, "admin", "123456", testClientIP)
+	tokenResponse, err := s.generateToken.Execute(s.ctx, "admin", "123456", testClientIP, testUserAgent)
 	s.ErrorIs(err, ErrGeneratingToken)
 	s.Empty(tokenResponse)
 }
@@ -200,7 +224,7 @@ func (s *GenerateTokenSuite) TestGenerateTokenDisabledUser() {
 	s.userRepository.EXPECT().FindByUsername(s.ctx, "admin").Return(user, nil).Times(1)
 	s.loginAttemptRepository.EXPECT().Get(s.ctx, user.ID).Return(nil, nil).Times(1)
 
-	tokenResponse, err := s.generateToken.Execute(s.ctx, "admin", "123456", testClientIP)
+	tokenResponse, err := s.generateToken.Execute(s.ctx, "admin", "123456", testClientIP, testUserAgent)
 	s.ErrorIs(err, ErrInvalidUsernameOrPassword)
 	s.Empty(tokenResponse)
 
@@ -208,7 +232,7 @@ func (s *GenerateTokenSuite) TestGenerateTokenDisabledUser() {
 	s.userRepository.EXPECT().FindByUsername(s.ctx, "admin").Return(wrongPwUser, nil).Times(1)
 	s.loginAttemptRepository.EXPECT().Get(s.ctx, wrongPwUser.ID).Return(nil, nil).Times(1)
 	s.loginAttemptRepository.EXPECT().RegisterFailure(s.ctx, wrongPwUser.ID, time.Time{}).Return(nil).Times(1)
-	wrongResponse, wrongErr := s.generateToken.Execute(s.ctx, "admin", "not-the-password", testClientIP)
+	wrongResponse, wrongErr := s.generateToken.Execute(s.ctx, "admin", "not-the-password", testClientIP, testUserAgent)
 	s.Equal(err, wrongErr)
 	s.Equal(tokenResponse, wrongResponse)
 }
@@ -217,7 +241,7 @@ func (s *GenerateTokenSuite) TestGenerateTokenDisabledUser() {
 // is stored with a lock window in the future.
 func (s *GenerateTokenSuite) TestGenerateTokenLocksAfterThreshold() {
 	policy := LockoutPolicy{Threshold: 3, BaseDelay: time.Minute, MaxDelay: time.Hour}
-	uc := NewGenerateToken(s.repoFactory, s.jwtToken, policy)
+	uc := NewGenerateToken(s.repoFactory, s.jwtToken, policy, DefaultConfig())
 
 	user := userWithPassword("correct-horse")
 	s.userRepository.EXPECT().FindByUsername(s.ctx, "admin").Return(user, nil).Times(1)
@@ -231,7 +255,7 @@ func (s *GenerateTokenSuite) TestGenerateTokenLocksAfterThreshold() {
 			return nil
 		}).Times(1)
 
-	_, err := uc.Execute(s.ctx, "admin", "wrong", testClientIP)
+	_, err := uc.Execute(s.ctx, "admin", "wrong", testClientIP, testUserAgent)
 	s.ErrorIs(err, ErrInvalidUsernameOrPassword)
 	s.WithinDuration(time.Now().Add(time.Minute), lockedUntil, 5*time.Second)
 }
@@ -251,7 +275,7 @@ func (s *GenerateTokenSuite) TestGenerateTokenRejectsLockedAccount() {
 	s.loginAttemptRepository.EXPECT().Get(s.ctx, user.ID).
 		Return(&entity.LoginAttempt{UserID: user.ID, FailedCount: 9, LockedUntil: time.Now().Add(10 * time.Minute)}, nil).Times(1)
 
-	tokenResponse, err := s.generateToken.Execute(s.ctx, "admin", "correct-horse", testClientIP)
+	tokenResponse, err := s.generateToken.Execute(s.ctx, "admin", "correct-horse", testClientIP, testUserAgent)
 	s.ErrorIs(err, ErrInvalidUsernameOrPassword)
 	s.Empty(tokenResponse)
 }
@@ -267,8 +291,9 @@ func (s *GenerateTokenSuite) TestGenerateTokenResetsCounterOnSuccess() {
 	s.loginAttemptRepository.EXPECT().Reset(s.ctx, user.ID).Return(nil).Times(1)
 	s.userAuthorityRepository.EXPECT().FindAuthoritiesByUserID(s.ctx, user.ID).Return(authorities, nil).Times(1)
 	s.jwtToken.EXPECT().Execute(user, authorities).Return("a.b.c", nil).Times(1)
+	s.expectRefreshTokenCreated(user.ID)
 
-	tokenResponse, err := s.generateToken.Execute(s.ctx, "admin", "correct-horse", testClientIP)
+	tokenResponse, err := s.generateToken.Execute(s.ctx, "admin", "correct-horse", testClientIP, testUserAgent)
 	s.NoError(err)
 	s.Equal("a.b.c", tokenResponse.AccessToken)
 }

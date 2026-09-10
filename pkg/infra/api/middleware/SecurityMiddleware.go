@@ -7,21 +7,19 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/golauth/golauth/pkg/application/token"
+	"github.com/golauth/golauth/pkg/infra/api/apictx"
 	"github.com/golauth/golauth/pkg/infra/api/controller/model"
 )
-
-// claimsKey is the fiber Locals key under which the validated claims of the
-// current request are published. It is an unexported type so that no other
-// package can overwrite it by accident.
-type claimsKey struct{}
 
 // ClaimsFromContext returns the claims published by SecurityMiddleware for the
 // current request. The second result is false when the request did not go
 // through authentication, which authorization middlewares must treat as a
 // denial rather than as an anonymous-but-allowed request.
+//
+// It forwards to apictx.ClaimsFromContext, which owns the Locals key so that
+// controllers can read the claims without importing this package.
 func ClaimsFromContext(ctx fiber.Ctx) (*model.Claims, bool) {
-	claims, ok := ctx.Locals(claimsKey{}).(*model.Claims)
-	return claims, ok && claims != nil
+	return apictx.ClaimsFromContext(ctx)
 }
 
 type SecurityMiddleware struct {
@@ -34,6 +32,7 @@ func NewSecurityMiddleware(validateToken token.ValidateToken, pathPrefix string)
 		validateToken: validateToken,
 		publicURI: map[string]bool{
 			pathPrefix + "/token":                 true,
+			pathPrefix + "/token/refresh":         true,
 			pathPrefix + "/check_token":           true,
 			pathPrefix + "/signup":                true,
 			pathPrefix + "/.well-known/jwks.json": true,
@@ -63,7 +62,7 @@ func (s *SecurityMiddleware) Apply() fiber.Handler {
 			return fiber.NewError(http.StatusUnauthorized, err.Error())
 		}
 
-		ctx.Locals(claimsKey{}, claims)
+		apictx.SetClaims(ctx, claims)
 		return ctx.Next()
 	}
 }

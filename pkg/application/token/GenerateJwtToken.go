@@ -18,24 +18,30 @@ var (
 	errSignerGenerate     = errors.New("could not generate signer from private key")
 	errVerifierGenerate   = errors.New("could not generate verifier from public key")
 	keyAlgorithm          = jwt.RS512
-	TokenExpirationTime   = 60
 )
 
 type GenerateJwtToken interface {
 	Execute(user *entity.User, authorities []string) (string, error)
 }
 
-func NewGenerateJwtToken(key *keys.SigningKey) GenerateJwtToken {
-	return generateJwtToken{signer: GenerateSigner(key.Private), kid: key.KID}
+// NewGenerateJwtToken builds the access-token signer. accessTTL is the token
+// lifetime; a non-positive value falls back to DefaultAccessTokenTTL so a
+// misconfiguration cannot mint tokens that never (or instantly) expire.
+func NewGenerateJwtToken(key *keys.SigningKey, accessTTL time.Duration) GenerateJwtToken {
+	if accessTTL <= 0 {
+		accessTTL = DefaultAccessTokenTTL
+	}
+	return generateJwtToken{signer: GenerateSigner(key.Private), kid: key.KID, accessTTL: accessTTL}
 }
 
 type generateJwtToken struct {
-	signer jwt.Signer
-	kid    string
+	signer    jwt.Signer
+	kid       string
+	accessTTL time.Duration
 }
 
 func (uc generateJwtToken) Execute(user *entity.User, authorities []string) (string, error) {
-	expirationTime := time.Now().Add(time.Duration(TokenExpirationTime) * time.Minute)
+	expirationTime := time.Now().Add(uc.accessTTL)
 	claims := &model.Claims{
 		Username:    user.Username,
 		FirstName:   user.FirstName,

@@ -47,17 +47,20 @@ func NewRouter(repoFactory factory.RepositoryFactory, keySet *keys.KeySet) Route
 	uRepo := repoFactory.NewUserRepository()
 	urRepo := repoFactory.NewUserRoleRepository()
 	uaRepo := repoFactory.NewUserAuthorityRepository()
-	jwtToken := token.NewGenerateJwtToken(keySet.Current)
+	tokenCfg := tokenConfig()
+	jwtToken := token.NewGenerateJwtToken(keySet.Current, tokenCfg.AccessTokenTTL)
 
 	createUser := user.NewCreateUser(repoFactory, user.LoadPasswordDenylist())
 	findUserById := user.NewFindUserById(uRepo)
 	addUserRole := user.NewAddUserRole(urRepo)
-	generateToken := token.NewGenerateToken(repoFactory, jwtToken, lockoutPolicy())
+	generateToken := token.NewGenerateToken(repoFactory, jwtToken, lockoutPolicy(), tokenCfg)
+	refreshAccessToken := token.NewRefreshAccessToken(repoFactory, jwtToken, tokenCfg)
+	logout := token.NewLogout(repoFactory)
 	validateToken := token.NewValidateToken(keySet)
 
 	return &router{
 		signupController:     controller.NewSignupController(createUser),
-		tokenController:      controller.NewTokenController(uRepo, uaRepo, generateToken),
+		tokenController:      controller.NewTokenController(uRepo, uaRepo, generateToken, refreshAccessToken, logout),
 		checkTokenController: controller.NewCheckTokenController(validateToken),
 		userController:       controller.NewUserController(findUserById, addUserRole),
 		roleController:       controller.NewRoleController(repoFactory),
@@ -101,9 +104,16 @@ func (r *router) Config() *fiber.App {
 	// The token route is the credential-stuffing surface, so it -- and only it
 	// -- is rate limited per client IP. A busy authenticated API is untouched.
 	auth.Post("/token", loginRateLimiter(), r.tokenController.Token).Name("token")
+	// Public: exchange an opaque refresh token for a fresh access/refresh pair.
+	auth.Post("/token/refresh", r.tokenController.Refresh).Name("refreshToken")
 	auth.Get("/check_token", r.checkTokenController.CheckToken).Name("checkToken")
 	// Public: the public signing keys, so any service can verify a token offline.
 	auth.Get("/.well-known/jwks.json", r.jwksController.JWKS).Name("jwks")
+
+	// Authenticated: a caller revokes its own sessions. Any valid access token
+	// is enough -- no special authority.
+	auth.Post("/logout", r.tokenController.Logout).Name("logout")
+	auth.Post("/logout/all", r.tokenController.LogoutAll).Name("logoutAll")
 
 	// Authenticated, and authorized per route.
 	auth.Get("/users/:id",
@@ -136,6 +146,16 @@ func loginRateLimiter() fiber.Handler {
 			return fiber.NewError(fiber.StatusTooManyRequests, "too many login attempts, retry later")
 		},
 	})
+}
+
+// tokenConfig reads the token lifetimes. ACCESS_TOKEN_TTL and REFRESH_TOKEN_TTL
+// are Go durations; unset or invalid values fall back to the token package
+// defaults (15m and 7 days).
+func tokenConfig() token.Config {
+	return token.Config{
+		AccessTokenTTL:  durationEnv("ACCESS_TOKEN_TTL", token.DefaultAccessTokenTTL),
+		RefreshTokenTTL: durationEnv("REFRESH_TOKEN_TTL", token.DefaultRefreshTokenTTL),
+	}
 }
 
 // lockoutPolicy reads the per-account lockout knobs. Unset or invalid values
