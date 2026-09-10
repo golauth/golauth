@@ -30,6 +30,17 @@ running.
 CI also runs `govulncheck ./...`, two static analysers and a coverage floor; keep
 them green. See [Security scanning](#security-scanning) for what blocks a merge.
 
+### The API spec is not documentation
+
+`docs/openapi.yaml` drives the nightly DAST scan. `TestOpenAPISpecMatchesTheRouter`
+holds it to the router's own route table in both directions, so a new route means
+a new operation in the spec in the same PR. Skipping it does not fail loudly — it
+produces a clean, green DAST report that never touched your route, which reads as
+assurance and is worse than no scan at all.
+
+Suppressing a ZAP finding means a line in `.zap/rules.tsv`, and every line needs
+a justification; `TestZAPSuppressionsAreJustified` rejects a bare `IGNORE`.
+
 ## House rules
 
 ### Layering

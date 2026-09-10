@@ -195,3 +195,52 @@ func TestCrossCompileChainIsWiredEndToEnd(t *testing.T) {
 	require.Contains(t, mk, "GOOS=$(GOOS) GOARCH=$(GOARCH) go build",
 		"the build target must use the variables, not hardcode the arch")
 }
+
+// TestZAPSuppressionsAreJustified enforces the house rule from CONTRIBUTING.md
+// mechanically: a muted DAST finding must carry a reason.
+//
+// A suppression file is where a security tool goes to die. One IGNORE with no
+// explanation is indistinguishable from a real finding someone silenced to get
+// a build green, and six months later nobody can tell which it was. Requiring a
+// sentence makes that decision reviewable in the diff, where it belongs.
+func TestZAPSuppressionsAreJustified(t *testing.T) {
+	body, err := os.ReadFile("../.zap/rules.tsv")
+	require.NoError(t, err)
+
+	checked := 0
+	for i, line := range strings.Split(string(body), "\n") {
+		line = strings.TrimRight(line, "\r")
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		cols := strings.Split(line, "\t")
+		require.Len(t, cols, 3,
+			"line %d must be <rule id>\\t<action>\\t<justification>, got %q", i+1, line)
+		require.Contains(t, []string{"IGNORE", "WARN", "FAIL"}, cols[1],
+			"line %d: %q is not a ZAP action", i+1, cols[1])
+		require.Greater(t, len(strings.Fields(cols[2])), 5,
+			"rule %s is muted without a real reason; a few words is not a justification", cols[0])
+		checked++
+	}
+	require.Positive(t, checked, "no rules were scanned")
+}
+
+// TestDASTWorkflowScansBothPersonas guards the property that makes the scan
+// worth its ten minutes. An admin token may legitimately reach every route, so
+// a scan that only runs as admin proves nothing about authorization; the plain
+// user is the persona that can trip a broken-object-level-authorization bug on
+// the ADMIN routes.
+func TestDASTWorkflowScansBothPersonas(t *testing.T) {
+	body, err := os.ReadFile("../.github/workflows/dast.yaml")
+	require.NoError(t, err)
+	text := string(body)
+
+	require.Contains(t, text, "persona: [admin, user]",
+		"an admin-only scan does not exercise authorization")
+	require.Contains(t, text, "/health/ready",
+		"the scan must wait on readiness, not sleep")
+	require.Contains(t, text, "docs/openapi.yaml",
+		"the scan is driven by the spec; without it ZAP cannot navigate a JSON API")
+	require.Contains(t, text, "rules.tsv",
+		"the justified-suppression file must be passed to ZAP")
+}

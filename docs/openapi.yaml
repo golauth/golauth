@@ -1,0 +1,538 @@
+# OpenAPI 3.0.3, not 3.1: ZAP's OpenAPI add-on drives the DAST scan from this
+# file, and its 3.0 support is the mature one. If you move to 3.1, re-check that
+# the nightly scan still enumerates every operation below.
+#
+# This is transcribed from internal/infra/api/routes.go. The authorization
+# column in docs/authorization-model.md is the prose version of the `security`
+# blocks here; they have to agree, and routes_test.go is what enforces it on the
+# code side.
+openapi: 3.0.3
+
+info:
+  title: golauth
+  description: |
+    Authentication and authorization server.
+
+    Every route is protected by default: `SecurityMiddleware` runs before any
+    handler and rejects an unauthenticated request unless the path is on its
+    public allowlist. See `docs/authorization-model.md`.
+  version: 0.4.x
+  license:
+    name: MIT
+    url: https://github.com/golauth/golauth/blob/main/LICENSE
+
+servers:
+  - url: http://localhost:8080
+    description: Local / CI
+
+tags:
+  - name: health
+    description: Liveness and readiness probes. Public, and not access-logged.
+  - name: auth
+    description: Token issuance, refresh, introspection and logout.
+  - name: users
+    description: Account creation and role assignment.
+  - name: roles
+    description: Role administration. ADMIN authority throughout.
+
+security:
+  - bearerAuth: []
+
+paths:
+  /health/live:
+    get:
+      tags: [health]
+      summary: Liveness probe
+      description: Touches no dependency. 200 as long as the process is running.
+      security: []
+      responses:
+        '200':
+          description: Process is alive.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HealthStatus' }
+
+  /health/ready:
+    get:
+      tags: [health]
+      summary: Readiness probe
+      description: Pings Postgres and checks a signing key is loaded.
+      security: []
+      responses:
+        '200':
+          description: Dependencies are healthy.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HealthStatus' }
+        '503':
+          description: A dependency is unavailable.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HealthStatus' }
+
+  /auth/signup:
+    post:
+      tags: [users]
+      summary: Create an account
+      description: |
+        POST only. The GET variant was removed: credentials in a query string
+        leak into logs, browser history and proxies.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateUserRequest' }
+      responses:
+        '201':
+          description: Account created.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UserResponse' }
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '409':
+          $ref: '#/components/responses/Error'
+
+  /auth/token:
+    post:
+      tags: [auth]
+      summary: Exchange credentials for a token pair
+      description: |
+        Rate limited per client IP (`LOGIN_RATE_LIMIT` / `LOGIN_RATE_WINDOW`).
+        An unknown username, a wrong password, a locked account and a disabled
+        account all return the same 401 with the same latency; the real reason
+        is only in the audit log.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UserLoginRequest' }
+      responses:
+        '200':
+          description: Token pair issued.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TokenResponse' }
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '429':
+          $ref: '#/components/responses/Error'
+
+  /auth/token/refresh:
+    post:
+      tags: [auth]
+      summary: Rotate a refresh token
+      description: |
+        Returns a new pair and revokes the presented token. Presenting an
+        already-rotated token is treated as theft: every session for that user
+        is revoked. Unknown, expired, revoked, rotated and disabled-user all
+        collapse to one 401 so the endpoint cannot probe token state.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RefreshTokenRequest' }
+      responses:
+        '200':
+          description: New token pair issued.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TokenResponse' }
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+
+  /auth/check_token:
+    get:
+      tags: [auth]
+      summary: Introspect the presented access token
+      description: |
+        Reads the `Authorization` header and returns the verified claims. Public
+        but rate limited per client IP: it does public-key verification on every
+        call and must not be a free signature oracle.
+      security: []
+      parameters:
+        - name: Authorization
+          in: header
+          required: true
+          description: '`Bearer <access token>`'
+          schema: { type: string }
+      responses:
+        '200':
+          description: Token is valid; claims returned.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Claims' }
+        '401':
+          $ref: '#/components/responses/Error'
+        '429':
+          $ref: '#/components/responses/Error'
+
+  /auth/.well-known/jwks.json:
+    get:
+      tags: [auth]
+      summary: Public signing keys
+      description: Lets any service verify a golauth token offline.
+      security: []
+      responses:
+        '200':
+          description: The JWK Set.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/JWKS' }
+
+  /auth/me:
+    get:
+      tags: [auth]
+      summary: The caller's own claims
+      description: Reads the verified token; touches no database.
+      responses:
+        '200':
+          description: Claims of the presented token.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Claims' }
+        '401':
+          $ref: '#/components/responses/Error'
+
+  /auth/logout:
+    post:
+      tags: [auth]
+      summary: Revoke the presented refresh token
+      description: |
+        The current access token keeps working until it expires -- the
+        documented trade-off of not maintaining an access-token denylist.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RefreshTokenRequest' }
+      responses:
+        '204':
+          description: Session revoked.
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+
+  /auth/logout/all:
+    post:
+      tags: [auth]
+      summary: Revoke every refresh token of the caller
+      responses:
+        '204':
+          description: All sessions revoked.
+        '401':
+          $ref: '#/components/responses/Error'
+
+  /auth/users/{id}:
+    get:
+      tags: [users]
+      summary: Fetch a user
+      description: |
+        The caller must be that user, or hold the ADMIN authority. This is the
+        one route with a self-or-admin rule rather than a flat authority check,
+        which makes it the most interesting target in the suite for a
+        broken-object-level-authorization probe.
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      responses:
+        '200':
+          description: The user. Never includes the password hash.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UserResponse' }
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+
+  /auth/users/{id}/add-role:
+    post:
+      tags: [users]
+      summary: Grant a role to a user
+      description: Requires the ADMIN authority.
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UserRoleRequest' }
+      responses:
+        '201':
+          description: Role granted.
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+
+  /auth/roles:
+    post:
+      tags: [roles]
+      summary: Create a role
+      description: Requires the ADMIN authority.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RoleRequest' }
+      responses:
+        '201':
+          description: Role created.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RoleResponse' }
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+
+  /auth/roles/{name}:
+    get:
+      tags: [roles]
+      summary: Fetch a role by name
+      description: Requires the ADMIN authority.
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema: { type: string }
+          example: ADMIN
+      responses:
+        '200':
+          description: The role.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RoleResponse' }
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+
+  /auth/roles/{id}:
+    put:
+      tags: [roles]
+      summary: Edit a role
+      description: Requires the ADMIN authority.
+      parameters:
+        - $ref: '#/components/parameters/RoleId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RoleRequest' }
+      responses:
+        '200':
+          description: Role updated.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RoleResponse' }
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+
+  /auth/roles/{id}/change-status:
+    patch:
+      tags: [roles]
+      summary: Enable or disable a role
+      description: Requires the ADMIN authority.
+      parameters:
+        - $ref: '#/components/parameters/RoleId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RoleChangeStatus' }
+      responses:
+        '204':
+          description: Status changed.
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    UserId:
+      name: id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    RoleId:
+      name: id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+
+  responses:
+    Error:
+      description: Error envelope.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorBody' }
+    ValidationError:
+      description: Field-level validation failure.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorBody' }
+
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status: { type: string, example: OK }
+
+    CreateUserRequest:
+      type: object
+      required: [username, email, password]
+      properties:
+        username: { type: string, example: alice }
+        firstName: { type: string, example: Alice }
+        lastName: { type: string, example: Liddell }
+        email: { type: string, format: email, example: alice@example.com }
+        document: { type: string, example: '12345678901' }
+        password:
+          type: string
+          format: password
+          description: Minimum 12 characters and not on the denylist.
+          example: correct-horse-battery
+
+    UserLoginRequest:
+      type: object
+      required: [username, password]
+      properties:
+        username: { type: string, example: admin }
+        password: { type: string, format: password, example: change-me-please }
+
+    RefreshTokenRequest:
+      type: object
+      required: [refresh_token]
+      properties:
+        refresh_token: { type: string }
+
+    TokenResponse:
+      type: object
+      properties:
+        access_token: { type: string }
+        refresh_token: { type: string }
+        token_type: { type: string, example: Bearer }
+        expires_in: { type: integer, example: 900 }
+
+    Claims:
+      type: object
+      properties:
+        username: { type: string }
+        firstName: { type: string }
+        lastName: { type: string }
+        authorities:
+          type: array
+          items: { type: string }
+          example: [ADMIN]
+        sub: { type: string, format: uuid }
+        exp: { type: integer }
+        iat: { type: integer }
+        iss: { type: string }
+
+    UserResponse:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        username: { type: string }
+        firstName: { type: string }
+        lastName: { type: string }
+        email: { type: string, format: email }
+        document: { type: string }
+        enabled: { type: boolean }
+        creationDate: { type: string, format: date-time }
+
+    UserRoleRequest:
+      type: object
+      required: [userId, roleId]
+      properties:
+        userId: { type: string, format: uuid }
+        roleId: { type: string, format: uuid }
+
+    RoleRequest:
+      type: object
+      required: [name]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string, example: OPERATOR }
+        description: { type: string, example: Read-only operator }
+
+    RoleResponse:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        description: { type: string }
+        enabled: { type: boolean }
+        creationDate: { type: string, format: date-time }
+
+    RoleChangeStatus:
+      type: object
+      required: [enabled]
+      properties:
+        enabled: { type: boolean }
+
+    JWKS:
+      type: object
+      properties:
+        keys:
+          type: array
+          items:
+            type: object
+            properties:
+              kty: { type: string, example: RSA }
+              use: { type: string, example: sig }
+              kid: { type: string }
+              alg: { type: string, example: RS256 }
+              n: { type: string }
+              e: { type: string, example: AQAB }
+
+    ErrorBody:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code: { type: string, example: unauthorized }
+            message: { type: string }
+            requestId: { type: string }
+        fields:
+          type: array
+          items:
+            type: object
+            properties:
+              field: { type: string }
+              message: { type: string }

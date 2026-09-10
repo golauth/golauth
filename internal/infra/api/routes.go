@@ -129,6 +129,9 @@ func (r *router) Config() *fiber.App {
 	// exactly one structured line with that id.
 	app.Use(middleware.RequestID())
 	app.Use(middleware.AccessLog())
+	// Ahead of recover and the security middleware so a recovered panic and a
+	// 401 carry the headers too, not just the happy path.
+	app.Use(middleware.SecurityHeaders())
 	app.Use(recover.New())
 	app.Use(cors.New(cors.Config{
 		AllowOrigins: allowedOrigins(),

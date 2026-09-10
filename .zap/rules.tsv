@@ -1,0 +1,18 @@
+# ZAP rule configuration for the nightly DAST scan (.github/workflows/dast.yaml).
+#
+# Format: <rule id>	<IGNORE|WARN|FAIL>	<justification>
+# Tab separated. Anything not listed keeps its default action.
+#
+# The rule here is the same one CONTRIBUTING.md sets for #nosec and for
+# Security-tab dismissals: nothing is suppressed silently. Every line below says
+# why the finding does not apply, and a line with no reason is a bug in review,
+# not a passing scan. A DAST job that is red every morning gets muted within a
+# week -- but one that is green because the real findings were buried is worse,
+# because it reads as assurance.
+#
+# The two findings from the first run against a live instance were fixed, not
+# suppressed: X-Content-Type-Options [10021] and Cross-Origin-Resource-Policy
+# [90004] are now set by middleware.SecurityHeaders and pinned by
+# TestSecurityHeadersOnEveryResponse.
+
+10096	IGNORE	Unix timestamps in /auth/me and /auth/check_token are the JWT `exp` and `iat` claims, which RFC 7519 defines as NumericDate. They are the documented response contract, they belong to the caller's own token, and they are already public inside the JWT the caller presented.
