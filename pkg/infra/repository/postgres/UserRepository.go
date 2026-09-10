@@ -17,6 +17,15 @@ import (
 // conflict. Matching the code is stable; matching the message text is not.
 const pgUniqueViolation = "23505"
 
+// userColumns is the full golauth_user column list, in the order every scan in
+// this file expects. Naming the columns keeps a scan safe when a migration adds
+// or reorders one. userColumnsNoHash is the same list without the hash, for
+// callers that must never read it.
+const (
+	userColumns       = "id, username, first_name, last_name, email, document, password, enabled, creation_date"
+	userColumnsNoHash = "id, username, first_name, last_name, email, document, enabled, creation_date"
+)
+
 type UserRepositoryPostgres struct {
 	db database.Database
 }
@@ -27,7 +36,7 @@ func NewUserRepository(db database.Database) repository.UserRepository {
 
 func (ur UserRepositoryPostgres) FindByUsername(ctx context.Context, username string) (*entity.User, error) {
 	var user entity.User
-	row := ur.db.One(ctx, "SELECT * FROM golauth_user WHERE username = $1", username)
+	row := ur.db.One(ctx, "SELECT "+userColumns+" FROM golauth_user WHERE username = $1", username)
 	err := row.Scan(&user.ID, &user.Username, &user.FirstName, &user.LastName, &user.Email, &user.Document, &user.Password, &user.Enabled, &user.CreationDate)
 	if errors.Is(err, database.ErrNoRows) {
 		return nil, fmt.Errorf("user %q: %w", username, apperr.ErrNotFound)
@@ -40,9 +49,10 @@ func (ur UserRepositoryPostgres) FindByUsername(ctx context.Context, username st
 
 func (ur UserRepositoryPostgres) FindByID(ctx context.Context, id uuid.UUID) (*entity.User, error) {
 	var user entity.User
-	var phantomZone string
-	row := ur.db.One(ctx, "SELECT * FROM golauth_user WHERE id = $1", id)
-	err := row.Scan(&user.ID, &user.Username, &user.FirstName, &user.LastName, &user.Email, &user.Document, &phantomZone, &user.Enabled, &user.CreationDate)
+	// The password hash is deliberately not selected: no caller of FindByID
+	// needs it, and not fetching it is one fewer place it can leak.
+	row := ur.db.One(ctx, "SELECT "+userColumnsNoHash+" FROM golauth_user WHERE id = $1", id)
+	err := row.Scan(&user.ID, &user.Username, &user.FirstName, &user.LastName, &user.Email, &user.Document, &user.Enabled, &user.CreationDate)
 	if errors.Is(err, database.ErrNoRows) {
 		return nil, fmt.Errorf("user %s: %w", id, apperr.ErrNotFound)
 	}
