@@ -27,6 +27,11 @@ services:
       - APP_ENV=production
       - JWT_PRIVATE_KEY_FILE=/run/secrets/jwt-key.pem
       - CORS_ALLOWED_ORIGINS=http://localhost:3000
+      # DEVELOPMENT ONLY. The first boot creates this administrator because the
+      # image ships no default credential. Never reuse these values anywhere
+      # reachable from outside your machine.
+      - BOOTSTRAP_ADMIN_USER=admin
+      - BOOTSTRAP_ADMIN_PASSWORD=dev-only-change-me
     volumes:
       - ./jwt-key.pem:/run/secrets/jwt-key.pem:ro
     ports:

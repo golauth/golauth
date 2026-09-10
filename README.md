@@ -16,8 +16,15 @@ docker run -p 8180:8080 \
     -e DB_NAME=<database_name> \
     -e DB_USERNAME=<database_username> \
     -e DB_PASSWORD=<database_password> \
+    -e BOOTSTRAP_ADMIN_USER=<admin_username> \
+    -e BOOTSTRAP_ADMIN_PASSWORD=<strong_password> \
     golauth/golauth
 ```
+
+On a fresh database the first boot creates the administrator from
+`BOOTSTRAP_ADMIN_USER` / `BOOTSTRAP_ADMIN_PASSWORD` (see
+[The first administrator](#the-first-administrator)). There is no default
+credential, and the boot fails if the database has no admin and these are unset.
 
 Docker compose example with database creation:
 
@@ -59,43 +66,48 @@ networks:
 
 ##### Environment Variables
 
-| Env Variable             | Description                                                                                                                     |
-|--------------------------|---------------------------------------------------------------------------------------------------------------------------------|
-| DB_HOST                  | Database hostname                                                                                                               |
-| DB_PORT                  | Database port                                                                                                                   |
-| DB_NAME                  | Database name                                                                                                                   |
-| DB_USERNAME              | Database username                                                                                                               |
-| DB_PASSWORD              | Database password (spaces, quotes and backslashes are handled)                                                                  |
-| DB_SSLMODE               | TLS mode to Postgres: `disable` (current default), `require`, `verify-ca`, `verify-full`. **The default becomes `require` in a following release** — set it explicitly now. |
-| DB_SSLROOTCERT           | PEM bundle to verify the server certificate for `verify-ca` / `verify-full`.                                                     |
-| DB_MAX_OPEN_CONNS        | Max open connections in the pool (default 25).                                                                                   |
-| DB_MAX_IDLE_CONNS        | Max idle connections kept in the pool (default 25).                                                                              |
-| DB_CONN_MAX_LIFETIME     | Max lifetime of a connection, a Go duration (default `30m`).                                                                     |
-| DB_CONN_MAX_IDLE_TIME    | Max idle time before a connection is closed, a Go duration (default `5m`).                                                       |
-| DB_PING_TIMEOUT          | How long the boot waits for the first connection before failing, a Go duration (default `5s`).                                   |
-| RUN_MIGRATIONS           | Run schema migrations at boot (default `true`). Set `false` to run them as a separate job.                                       |
-| PORT                     | Application port (default 8080)                                                                                                 |
-| CORS_ALLOWED_ORIGINS     | Comma separated browser origins allowed to call the API (default `http://localhost:3000`)                                       |
-| APP_ENV                  | When `production`, the process refuses to start without a signing key. Unset or `dev` allows an ephemeral key.                  |
-| JWT_PRIVATE_KEY          | RSA private key (PKCS#1 or PKCS#8 PEM, min 2048 bits) used to sign tokens. Inline PEM content.                                  |
-| JWT_PRIVATE_KEY_FILE     | Path to a mounted PEM file, used when `JWT_PRIVATE_KEY` is unset. Preferred for Kubernetes secrets.                             |
-| JWT_PRIVATE_KEY_PREVIOUS | One or more concatenated PEM blocks kept for verification only, so key rotation is a rolling restart rather than a mass logout. |
-| TRUSTED_PROXIES          | Comma separated proxy IPs/CIDRs whose `X-Forwarded-For` is trusted for the client address. Empty means the header is ignored.   |
-| LOGIN_RATE_LIMIT         | Requests per window allowed on `POST /auth/token` per client IP (default 10).                                                   |
-| LOGIN_RATE_WINDOW        | Sliding window for `LOGIN_RATE_LIMIT`, as a Go duration (default `1m`).                                                         |
-| LOGIN_LOCKOUT_THRESHOLD  | Consecutive failed logins before an account is locked (default 5).                                                              |
-| LOGIN_LOCKOUT_BASE_DELAY | Lock duration at the threshold; doubles per further failure (default `1m`).                                                     |
-| LOGIN_LOCKOUT_MAX_DELAY  | Upper bound on the doubling lock duration (default `15m`).                                                                      |
-| PASSWORD_DENYLIST        | `off` (default) disables it; `on` enforces a small embedded common-password list; any other value is a path to a newline-delimited file of forbidden passwords. An unreadable path logs a warning and disables the check. |
-| ACCESS_TOKEN_TTL         | Access-token lifetime, a Go duration (default `15m`).                                                                            |
-| REFRESH_TOKEN_TTL        | Refresh-token lifetime, a Go duration (default `168h`, i.e. 7 days).                                                             |
-| REFRESH_TOKEN_CLEANUP_INTERVAL | How often expired refresh-token rows are purged, a Go duration (default `1h`).                                              |
-| LOG_LEVEL                | Minimum log level: `debug`, `info`, `warn`, `error` (default `info`). Format follows `APP_ENV`: JSON in `production`, text otherwise. |
-| SERVER_READ_TIMEOUT     | Max time to read a request, a Go duration (default `10s`). Bounds a slow client.                                               |
-| SERVER_WRITE_TIMEOUT    | Max time to write a response, a Go duration (default `10s`).                                                                   |
-| SERVER_IDLE_TIMEOUT     | Max time a keep-alive connection may sit idle, a Go duration (default `60s`).                                                  |
-| SERVER_BODY_LIMIT       | Max request body in bytes (default `65536`). Every endpoint takes only a small JSON document.                                  |
-| SERVER_SHUTDOWN_TIMEOUT | Drain window for in-flight requests after `SIGTERM`, a Go duration (default `15s`).                                            |
+| Env Variable                   | Description                                                                                                                                                                                                               |
+|--------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| APP_NAME                       | Application name reported by fiber (cosmetic).                                                                                                                                                                            |
+| MIGRATION_SOURCE_URL           | Directory holding the SQL migrations (default `./migrations`).                                                                                                                                                            |
+| DB_HOST                        | Database hostname                                                                                                                                                                                                         |
+| DB_PORT                        | Database port                                                                                                                                                                                                             |
+| DB_NAME                        | Database name                                                                                                                                                                                                             |
+| DB_USERNAME                    | Database username                                                                                                                                                                                                         |
+| DB_PASSWORD                    | Database password (spaces, quotes and backslashes are handled)                                                                                                                                                            |
+| DB_SSLMODE                     | TLS mode to Postgres: `disable` (current default), `require`, `verify-ca`, `verify-full`. **The default becomes `require` in a following release** — set it explicitly now.                                               |
+| DB_SSLROOTCERT                 | PEM bundle to verify the server certificate for `verify-ca` / `verify-full`.                                                                                                                                              |
+| DB_MAX_OPEN_CONNS              | Max open connections in the pool (default 25).                                                                                                                                                                            |
+| DB_MAX_IDLE_CONNS              | Max idle connections kept in the pool (default 25).                                                                                                                                                                       |
+| DB_CONN_MAX_LIFETIME           | Max lifetime of a connection, a Go duration (default `30m`).                                                                                                                                                              |
+| DB_CONN_MAX_IDLE_TIME          | Max idle time before a connection is closed, a Go duration (default `5m`).                                                                                                                                                |
+| DB_PING_TIMEOUT                | How long the boot waits for the first connection before failing, a Go duration (default `5s`).                                                                                                                            |
+| RUN_MIGRATIONS                 | Run schema migrations at boot (default `true`). Set `false` to run them as a separate job.                                                                                                                                |
+| PORT                           | Application port (default 8080)                                                                                                                                                                                           |
+| CORS_ALLOWED_ORIGINS           | Comma separated browser origins allowed to call the API (default `http://localhost:3000`)                                                                                                                                 |
+| APP_ENV                        | When `production`, the process refuses to start without a signing key, and logs are JSON. Unset or `dev` allows an ephemeral key and text logs.                                                                           |
+| BOOTSTRAP_ADMIN_USER           | Username for the first administrator, created at boot when the database holds no admin. Boot fails if unset and no admin exists.                                                                                          |
+| BOOTSTRAP_ADMIN_PASSWORD       | Password for that administrator. Must satisfy the full password policy (min 12 characters, not on the denylist).                                                                                                          |
+| BOOTSTRAP_ADMIN_EMAIL          | E-mail for that administrator (optional; defaults to `<user>@bootstrap.local`).                                                                                                                                           |
+| JWT_PRIVATE_KEY                | RSA private key (PKCS#1 or PKCS#8 PEM, min 2048 bits) used to sign tokens. Inline PEM content.                                                                                                                            |
+| JWT_PRIVATE_KEY_FILE           | Path to a mounted PEM file, used when `JWT_PRIVATE_KEY` is unset. Preferred for Kubernetes secrets.                                                                                                                       |
+| JWT_PRIVATE_KEY_PREVIOUS       | One or more concatenated PEM blocks kept for verification only, so key rotation is a rolling restart rather than a mass logout.                                                                                           |
+| TRUSTED_PROXIES                | Comma separated proxy IPs/CIDRs whose `X-Forwarded-For` is trusted for the client address. Empty means the header is ignored.                                                                                             |
+| LOGIN_RATE_LIMIT               | Requests per window allowed on `POST /auth/token` per client IP (default 10).                                                                                                                                             |
+| LOGIN_RATE_WINDOW              | Sliding window for `LOGIN_RATE_LIMIT`, as a Go duration (default `1m`).                                                                                                                                                   |
+| LOGIN_LOCKOUT_THRESHOLD        | Consecutive failed logins before an account is locked (default 5).                                                                                                                                                        |
+| LOGIN_LOCKOUT_BASE_DELAY       | Lock duration at the threshold; doubles per further failure (default `1m`).                                                                                                                                               |
+| LOGIN_LOCKOUT_MAX_DELAY        | Upper bound on the doubling lock duration (default `15m`).                                                                                                                                                                |
+| PASSWORD_DENYLIST              | `off` (default) disables it; `on` enforces a small embedded common-password list; any other value is a path to a newline-delimited file of forbidden passwords. An unreadable path logs a warning and disables the check. |
+| ACCESS_TOKEN_TTL               | Access-token lifetime, a Go duration (default `15m`).                                                                                                                                                                     |
+| REFRESH_TOKEN_TTL              | Refresh-token lifetime, a Go duration (default `168h`, i.e. 7 days).                                                                                                                                                      |
+| REFRESH_TOKEN_CLEANUP_INTERVAL | How often expired refresh-token rows are purged, a Go duration (default `1h`).                                                                                                                                            |
+| LOG_LEVEL                      | Minimum log level: `debug`, `info`, `warn`, `error` (default `info`). Format follows `APP_ENV`: JSON in `production`, text otherwise.                                                                                     |
+| SERVER_READ_TIMEOUT            | Max time to read a request, a Go duration (default `10s`). Bounds a slow client.                                                                                                                                          |
+| SERVER_WRITE_TIMEOUT           | Max time to write a response, a Go duration (default `10s`).                                                                                                                                                              |
+| SERVER_IDLE_TIMEOUT            | Max time a keep-alive connection may sit idle, a Go duration (default `60s`).                                                                                                                                             |
+| SERVER_BODY_LIMIT              | Max request body in bytes (default `65536`). Every endpoint takes only a small JSON document.                                                                                                                             |
+| SERVER_SHUTDOWN_TIMEOUT        | Drain window for in-flight requests after `SIGTERM`, a Go duration (default `15s`).                                                                                                                                       |
 
 `CORS_ALLOWED_ORIGINS` no longer defaults to `*`. Set it to the origins of your
 front-ends; a wildcard combined with the `authorization` header would let any
@@ -105,9 +117,9 @@ site drive the API with a token it obtained from a user.
 
 Two unauthenticated endpoints, for an orchestrator to probe:
 
-| Endpoint | Checks | Healthy | Unhealthy |
-|---|---|---|---|
-| `GET /health/live` | the process is up — no dependency checks | `200 {"status":"OK"}` | — |
+| Endpoint            | Checks                                                                | Healthy               | Unhealthy                              |
+|---------------------|-----------------------------------------------------------------------|-----------------------|----------------------------------------|
+| `GET /health/live`  | the process is up — no dependency checks                              | `200 {"status":"OK"}` | —                                      |
 | `GET /health/ready` | Postgres reachable (`PingContext`, 2s) **and** the signing key loaded | `200 {"status":"OK"}` | `503 {"status":"Service Unavailable"}` |
 
 Liveness never touches the database on purpose: a database blip must not make
@@ -260,14 +272,14 @@ field:
 
 Rules:
 
-| Field       | Rule                                                                                          |
-|-------------|----------------------------------------------------------------------------------------------|
-| `username`  | required, 3–50 characters, `a–z 0–9 . _ -` only, stored lower case                            |
-| `email`     | required, must parse as an e-mail address, stored lower case                                  |
-| `firstName` | required, trimmed, max 255 characters                                                        |
-| `lastName`  | required, trimmed, max 255 characters                                                        |
-| `document`  | required, trimmed, max 100 characters (the column is `NOT NULL`)                             |
-| `password`  | required, **minimum 12 characters**, maximum 72 bytes — bcrypt ignores every byte past 72    |
+| Field       | Rule                                                                                      |
+|-------------|-------------------------------------------------------------------------------------------|
+| `username`  | required, 3–50 characters, `a–z 0–9 . _ -` only, stored lower case                        |
+| `email`     | required, must parse as an e-mail address, stored lower case                              |
+| `firstName` | required, trimmed, max 255 characters                                                     |
+| `lastName`  | required, trimmed, max 255 characters                                                     |
+| `document`  | required, trimmed, max 100 characters (the column is `NOT NULL`)                          |
+| `password`  | required, **minimum 12 characters**, maximum 72 bytes — bcrypt ignores every byte past 72 |
 
 Optionally, `PASSWORD_DENYLIST` rejects the most common passwords.
 
@@ -300,11 +312,11 @@ Login (`POST /auth/token`) returns an OAuth-shaped body:
 
 Endpoints:
 
-| Endpoint | Auth | Effect |
-|---|---|---|
+| Endpoint                   | Auth   | Effect                                                                                                                                                                        |
+|----------------------------|--------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `POST /auth/token/refresh` | public | Exchange a refresh token for a **new** access + refresh pair. The presented refresh token is rotated: revoked and chained to its successor. Body: `{"refresh_token": "..."}`. |
-| `POST /auth/logout` | bearer | Revoke the presented refresh token. Body: `{"refresh_token": "..."}`. Idempotent. |
-| `POST /auth/logout/all` | bearer | Revoke every refresh token of the token subject. |
+| `POST /auth/logout`        | bearer | Revoke the presented refresh token. Body: `{"refresh_token": "..."}`. Idempotent.                                                                                             |
+| `POST /auth/logout/all`    | bearer | Revoke every refresh token of the token subject.                                                                                                                              |
 
 **Rotation and reuse detection.** Every refresh rotates the token. If a refresh token that has
 already been rotated away is presented again, that is the signature of a stolen token: golauth
@@ -329,11 +341,14 @@ deployment that prefers an external cron can set the interval very long and run
 
 ### Authorization
 
-Only `/auth/token`, `/auth/token/refresh`, `/auth/check_token`, `/auth/signup` and
-`/auth/.well-known/jwks.json` are public. Every other endpoint requires a
-`Bearer` token, and the role-management endpoints
+Only `/auth/token`, `/auth/token/refresh`, `/auth/check_token`, `/auth/signup`,
+`/auth/.well-known/jwks.json` and the `/health/*` probes are public. Every other
+endpoint requires a `Bearer` token, and the role-management endpoints
 (`/auth/roles*` and `/auth/users/:id/add-role`) additionally require the `ADMIN`
 authority. `GET /auth/users/:id` is available to the user itself or to an admin.
+
+The full route-by-route breakdown is in
+[`docs/authorization-model.md`](docs/authorization-model.md).
 
 ### Error contract
 
@@ -348,16 +363,16 @@ single error handler as one JSON shape:
 contains a driver error, a query fragment or an id. A field-level validation
 failure adds a top-level `fields` array (`[{ "field": "...", "message": "..." }]`).
 
-| Situation | Status | `code` |
-|---|---|---|
-| malformed uuid, unparseable body, mismatched ids | `400` | `invalid_input` |
-| missing / invalid token | `401` | `unauthorized` |
-| authenticated but lacking authority | `403` | `forbidden` |
-| user or role does not exist | `404` | `not_found` |
-| wrong content type on `POST /auth/token` | `405` | `method_not_allowed` |
-| duplicate username, e-mail or role name | `409` | `already_exists` |
-| rate limit exceeded | `429` | `rate_limited` |
-| anything unexpected | `500` | `internal_error` |
+| Situation                                        | Status | `code`               |
+|--------------------------------------------------|--------|----------------------|
+| malformed uuid, unparseable body, mismatched ids | `400`  | `invalid_input`      |
+| missing / invalid token                          | `401`  | `unauthorized`       |
+| authenticated but lacking authority              | `403`  | `forbidden`          |
+| user or role does not exist                      | `404`  | `not_found`          |
+| wrong content type on `POST /auth/token`         | `405`  | `method_not_allowed` |
+| duplicate username, e-mail or role name          | `409`  | `already_exists`     |
+| rate limit exceeded                              | `429`  | `rate_limited`       |
+| anything unexpected                              | `500`  | `internal_error`     |
 
 A `500` never leaks the cause: the full error is written to the server log,
 keyed by the same `requestId` that is in the body and in the `X-Request-Id`
@@ -385,18 +400,18 @@ Two kinds of structured record are produced, on the one stream:
 - **Audit events** -- one line per security-relevant transition, each with a
   stable `event` key so alerts can match on it:
 
-  | `event` | emitted when |
-  |---|---|
-  | `login_succeeded` | credentials accepted, token issued |
-  | `login_failed` | login rejected (`outcome`: `unknown_user`, `bad_password`, `locked`, `disabled`) |
-  | `token_refreshed` | refresh token rotated for a fresh pair |
-  | `refresh_token_reuse` | a rotated refresh token was presented again; every session revoked (`warn`) |
-  | `refresh_denied` | refresh rejected for a disabled account |
-  | `logout` / `logout_all` | one session, or every session, revoked |
-  | `user_created` | signup completed |
-  | `role_created` | a role was created |
-  | `role_granted` | a role was granted to a user |
-  | `role_status_changed` | a role was enabled or disabled |
+  | `event`                 | emitted when                                                                     |
+  |-------------------------|----------------------------------------------------------------------------------|
+  | `login_succeeded`       | credentials accepted, token issued                                               |
+  | `login_failed`          | login rejected (`outcome`: `unknown_user`, `bad_password`, `locked`, `disabled`) |
+  | `token_refreshed`       | refresh token rotated for a fresh pair                                           |
+  | `refresh_token_reuse`   | a rotated refresh token was presented again; every session revoked (`warn`)      |
+  | `refresh_denied`        | refresh rejected for a disabled account                                          |
+  | `logout` / `logout_all` | one session, or every session, revoked                                           |
+  | `user_created`          | signup completed                                                                 |
+  | `role_created`          | a role was created                                                               |
+  | `role_granted`          | a role was granted to a user                                                     |
+  | `role_status_changed`   | a role was enabled or disabled                                                   |
 
 Every record -- access or audit -- carries the same `request_id` that appears in
 the error body and the `X-Request-Id` response header, so one id ties a client
@@ -405,27 +420,52 @@ report to the server-side lines.
 Log shipping, dashboards and alert rules are out of scope: they belong to
 whoever runs the service.
 
-### Accessing
+### The first administrator
 
-Default user is `admin` and password `admin123`. **Change this password before
-exposing the service**: the credential is seeded by the bundled migrations and
-is therefore public.
+There is **no default credential**. The migrations create the `ADMIN` and
+`USER` roles but no user. On the first boot against a database with no
+administrator, the service creates one from:
+
+| Variable                   | Required | Notes                                  |
+|----------------------------|----------|----------------------------------------|
+| `BOOTSTRAP_ADMIN_USER`     | yes      | 3–50 characters, `a–z 0–9 . _ -`       |
+| `BOOTSTRAP_ADMIN_PASSWORD` | yes      | min 12 characters, not on the denylist |
+| `BOOTSTRAP_ADMIN_EMAIL`    | no       | defaults to `<user>@bootstrap.local`   |
+
+If the database has no admin **and** these are unset, the boot fails with
+`no administrator exists and BOOTSTRAP_ADMIN_USER / BOOTSTRAP_ADMIN_PASSWORD are
+not set`. Once an admin exists, the variables are ignored. An existing
+installation already has its admin and is unaffected.
+
+The bundled `docker-compose.yml` and `.env.example` set these to a well-known
+value **for local development only** — never deploy the published image with
+them.
+
+> **Upgrading (breaking):** the published image no longer boots with a usable
+> default password. The old `admin` / `admin123` account was seeded by a
+> migration whose bcrypt hash is public in this repository, so every untouched
+> install shipped a known administrator credential. New installations must set
+> `BOOTSTRAP_ADMIN_USER` and `BOOTSTRAP_ADMIN_PASSWORD`. An existing database
+> already has its `admin` user and is unaffected — change that password if you
+> have not.
+
+### Getting a token
 
 ```bash
 curl --request POST \
-    --url http://localhost:8180/auth/token \
+    --url http://localhost:8080/auth/token \
     --header 'content-type: application/json' \
-    --data '{"username": "admin","password": "admin123"}'
+    --data '{"username": "'"$BOOTSTRAP_ADMIN_USER"'", "password": "'"$BOOTSTRAP_ADMIN_PASSWORD"'"}'
 ```
 
-or 
+or form-encoded:
 
 ```bash
 curl --request POST \
-    --url http://localhost:8180/auth/token \
+    --url http://localhost:8080/auth/token \
     --header 'content-type: application/x-www-form-urlencoded' \
-    --data username=admin \
-    --data password=admin123
+    --data "username=$BOOTSTRAP_ADMIN_USER" \
+    --data "password=$BOOTSTRAP_ADMIN_PASSWORD"
 ```
 
 ---

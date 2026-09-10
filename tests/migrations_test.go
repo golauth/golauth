@@ -4,7 +4,10 @@ import (
 	"database/sql"
 	"fmt"
 	"os"
+	"path/filepath"
+	"regexp"
 	"sort"
+	"strings"
 	"testing"
 
 	"github.com/golang-migrate/migrate/v4"
@@ -24,6 +27,35 @@ var appTables = []string{
 	"golauth_role_authority",
 	"golauth_user",
 	"golauth_user_role",
+}
+
+// bcryptHash matches a bcrypt digest in any of its prefixes. A migration that
+// contains one is seeding a credential.
+var bcryptHash = regexp.MustCompile(`\$2[aby]\$[0-9]{2}\$`)
+
+// TestNoMigrationSeedsACredential is a crude but effective regression guard:
+// no migration may create a user or embed a password hash. The shipped default
+// admin (its hash was in version control, so every untouched install was
+// compromised) is exactly the thing this stops from coming back. Bootstrap the
+// first admin from BOOTSTRAP_ADMIN_* instead.
+func TestNoMigrationSeedsACredential(t *testing.T) {
+	files, err := filepath.Glob("../migrations/*.sql")
+	require.NoError(t, err)
+	require.NotEmpty(t, files, "no migration files found")
+
+	insertUser := regexp.MustCompile(`(?i)insert\s+into\s+golauth_user\b`)
+	checked := 0
+	for _, f := range files {
+		if strings.HasSuffix(f, ".down.sql") {
+			continue // a down file deletes rows; that is the point of it
+		}
+		body, err := os.ReadFile(f)
+		require.NoError(t, err)
+		require.False(t, insertUser.Match(body), "%s inserts into golauth_user", f)
+		require.False(t, bcryptHash.Match(body), "%s embeds a password hash", f)
+		checked++
+	}
+	require.Positive(t, checked, "no up migrations were scanned")
 }
 
 // TestMigrationsFullDownUpCycle proves every migration has a working down path:
