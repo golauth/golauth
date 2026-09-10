@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v3"
@@ -23,6 +24,12 @@ import (
 // the response later, by the central error handler.
 func AccessLog() fiber.Handler {
 	return func(ctx fiber.Ctx) error {
+		// Health probes fire every few seconds and carry no information worth a
+		// line each; skip them so the log stays about real traffic.
+		if strings.HasPrefix(ctx.Path(), "/health/") {
+			return ctx.Next()
+		}
+
 		start := time.Now()
 		err := ctx.Next()
 

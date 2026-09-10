@@ -36,6 +36,10 @@ func NewSecurityMiddleware(validateToken token.ValidateToken, pathPrefix string)
 			pathPrefix + "/check_token":           true,
 			pathPrefix + "/signup":                true,
 			pathPrefix + "/.well-known/jwks.json": true,
+			// Orchestrator probes: an unauthenticated liveness/readiness check
+			// is the whole point of them.
+			"/health/live":  true,
+			"/health/ready": true,
 		},
 	}
 }

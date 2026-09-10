@@ -18,9 +18,27 @@ import (
 	"github.com/golauth/golauth/pkg/infra/api/controller"
 	"github.com/golauth/golauth/pkg/infra/api/httperr"
 	"github.com/golauth/golauth/pkg/infra/api/middleware"
+	"github.com/golauth/golauth/pkg/infra/database"
 )
 
 const pathPrefix = "/auth"
+
+// Health probe paths. They sit outside pathPrefix and are opened explicitly in
+// the SecurityMiddleware allowlist.
+const (
+	livePath  = "/health/live"
+	readyPath = "/health/ready"
+)
+
+// Server-level limits. A slow or oversized client must not be able to hold a
+// connection open indefinitely, and no endpoint accepts more than a small JSON
+// document. Each is overridable through the environment.
+const (
+	defaultReadTimeout  = 10 * time.Second
+	defaultWriteTimeout = 10 * time.Second
+	defaultIdleTimeout  = 60 * time.Second
+	defaultBodyLimit    = 64 * 1024
+)
 
 // defaultAllowedOrigin is used when CORS_ALLOWED_ORIGINS names no usable origin.
 const defaultAllowedOrigin = "http://localhost:3000"
@@ -41,10 +59,11 @@ type router struct {
 	userController       controller.UserController
 	roleController       controller.RoleController
 	jwksController       controller.JWKSController
+	healthController     controller.HealthController
 	validateToken        token.ValidateToken
 }
 
-func NewRouter(repoFactory factory.RepositoryFactory, keySet *keys.KeySet) Router {
+func NewRouter(repoFactory factory.RepositoryFactory, keySet *keys.KeySet, db database.Database) Router {
 	uRepo := repoFactory.NewUserRepository()
 	urRepo := repoFactory.NewUserRoleRepository()
 	uaRepo := repoFactory.NewUserAuthorityRepository()
@@ -59,6 +78,10 @@ func NewRouter(repoFactory factory.RepositoryFactory, keySet *keys.KeySet) Route
 	logout := token.NewLogout(repoFactory)
 	validateToken := token.NewValidateToken(keySet)
 
+	keyLoaded := func() bool {
+		return keySet != nil && keySet.Current != nil && keySet.Current.Private != nil
+	}
+
 	return &router{
 		signupController:     controller.NewSignupController(createUser),
 		tokenController:      controller.NewTokenController(uRepo, uaRepo, generateToken, refreshAccessToken, logout),
@@ -66,6 +89,7 @@ func NewRouter(repoFactory factory.RepositoryFactory, keySet *keys.KeySet) Route
 		userController:       controller.NewUserController(findUserById, addUserRole),
 		roleController:       controller.NewRoleController(repoFactory),
 		jwksController:       controller.NewJWKSController(keySet),
+		healthController:     controller.NewHealthController(db, keyLoaded),
 		validateToken:        validateToken,
 	}
 }
@@ -82,6 +106,13 @@ func (r *router) Config() *fiber.App {
 		// keys on client IP, is bypassed by simply sending a new value each time.
 		TrustProxy:       len(proxies) > 0,
 		TrustProxyConfig: fiber.TrustProxyConfig{Proxies: proxies},
+		// Explicit server limits: a slow client cannot hold a connection open
+		// past ReadTimeout, and a request body is capped well under the 4 MB
+		// default since every endpoint takes only a small JSON document.
+		ReadTimeout:  durationEnv("SERVER_READ_TIMEOUT", defaultReadTimeout),
+		WriteTimeout: durationEnv("SERVER_WRITE_TIMEOUT", defaultWriteTimeout),
+		IdleTimeout:  durationEnv("SERVER_IDLE_TIMEOUT", defaultIdleTimeout),
+		BodyLimit:    intEnv("SERVER_BODY_LIMIT", defaultBodyLimit),
 	})
 
 	// Middlewares are registered before any route on purpose. The fiber router
@@ -105,6 +136,12 @@ func (r *router) Config() *fiber.App {
 		AllowHeaders: []string{"access-control-allow-headers", "access-control-allow-methods", "access-control-allow-origin", "authorization", "content-type"},
 	}))
 	app.Use(middleware.NewSecurityMiddleware(r.validateToken, pathPrefix).Apply())
+
+	// Health probes: public (opened in the SecurityMiddleware allowlist) and
+	// kept out of the access log so a probe every few seconds is not noise.
+	// Liveness never touches a dependency; readiness pings the database.
+	app.Get(livePath, r.healthController.Live).Name("healthLive")
+	app.Get(readyPath, r.healthController.Ready).Name("healthReady")
 
 	auth := app.Group(pathPrefix)
 

@@ -90,10 +90,36 @@ networks:
 | ACCESS_TOKEN_TTL         | Access-token lifetime, a Go duration (default `15m`).                                                                            |
 | REFRESH_TOKEN_TTL        | Refresh-token lifetime, a Go duration (default `168h`, i.e. 7 days).                                                             |
 | REFRESH_TOKEN_CLEANUP_INTERVAL | How often expired refresh-token rows are purged, a Go duration (default `1h`).                                              |
+| LOG_LEVEL                | Minimum log level: `debug`, `info`, `warn`, `error` (default `info`). Format follows `APP_ENV`: JSON in `production`, text otherwise. |
+| SERVER_READ_TIMEOUT     | Max time to read a request, a Go duration (default `10s`). Bounds a slow client.                                               |
+| SERVER_WRITE_TIMEOUT    | Max time to write a response, a Go duration (default `10s`).                                                                   |
+| SERVER_IDLE_TIMEOUT     | Max time a keep-alive connection may sit idle, a Go duration (default `60s`).                                                  |
+| SERVER_BODY_LIMIT       | Max request body in bytes (default `65536`). Every endpoint takes only a small JSON document.                                  |
+| SERVER_SHUTDOWN_TIMEOUT | Drain window for in-flight requests after `SIGTERM`, a Go duration (default `15s`).                                            |
 
 `CORS_ALLOWED_ORIGINS` no longer defaults to `*`. Set it to the origins of your
 front-ends; a wildcard combined with the `authorization` header would let any
 site drive the API with a token it obtained from a user.
+
+#### Health probes and shutdown
+
+Two unauthenticated endpoints, for an orchestrator to probe:
+
+| Endpoint | Checks | Healthy | Unhealthy |
+|---|---|---|---|
+| `GET /health/live` | the process is up — no dependency checks | `200 {"status":"OK"}` | — |
+| `GET /health/ready` | Postgres reachable (`PingContext`, 2s) **and** the signing key loaded | `200 {"status":"OK"}` | `503 {"status":"Service Unavailable"}` |
+
+Liveness never touches the database on purpose: a database blip must not make
+the orchestrator restart otherwise-healthy pods. Only readiness pulls a pod out
+of the load balancer. Both are excluded from the access log.
+
+The container image declares a `HEALTHCHECK` that runs `golauth -healthcheck` —
+the binary probes its own `/health/live` (the runtime image has no curl).
+
+On `SIGINT` / `SIGTERM` the server stops accepting new connections, lets
+in-flight requests finish within `SERVER_SHUTDOWN_TIMEOUT` (default `15s`), then
+closes the database pool and exits `0`.
 
 ### Database connection
 

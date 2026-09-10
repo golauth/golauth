@@ -19,6 +19,7 @@ import (
 	factorymock "github.com/golauth/golauth/pkg/domain/factory/mock"
 	repomock "github.com/golauth/golauth/pkg/domain/repository/mock"
 	"github.com/golauth/golauth/pkg/infra/api/controller/model"
+	dbmock "github.com/golauth/golauth/pkg/infra/database/mock"
 	"github.com/golauth/golauth/pkg/infra/logging"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
@@ -58,6 +59,7 @@ type RoutesSuite struct {
 	userAuthorityRepository *repomock.MockUserAuthorityRepository
 	loginAttemptRepository  *repomock.MockLoginAttemptRepository
 	refreshTokenRepository  *repomock.MockRefreshTokenRepository
+	db                      *dbmock.MockDatabase
 
 	repoFactory *factorymock.MockRepositoryFactory
 	keySet      *keys.KeySet
@@ -80,6 +82,7 @@ func (s *RoutesSuite) SetupTest() {
 	s.userAuthorityRepository = repomock.NewMockUserAuthorityRepository(s.ctrl)
 	s.loginAttemptRepository = repomock.NewMockLoginAttemptRepository(s.ctrl)
 	s.refreshTokenRepository = repomock.NewMockRefreshTokenRepository(s.ctrl)
+	s.db = dbmock.NewMockDatabase(s.ctrl)
 
 	repoFactory := factorymock.NewMockRepositoryFactory(s.ctrl)
 	s.repoFactory = repoFactory
@@ -92,7 +95,7 @@ func (s *RoutesSuite) SetupTest() {
 
 	s.userID = uuid.New()
 	s.keySet = keys.Generate()
-	s.app = NewRouter(repoFactory, s.keySet).Config()
+	s.app = NewRouter(repoFactory, s.keySet, s.db).Config()
 }
 
 func (s *RoutesSuite) TearDownTest() {
@@ -256,6 +259,26 @@ func (s *RoutesSuite) TestFailedLoginIsAuditedUnderTheRequestID() {
 	s.Equal(reqID, found["request_id"], "audit event not tied to the request id")
 }
 
+// TestHealthProbesDivergeUnderDatabaseOutage is the whole point of two
+// endpoints: with the database unreachable, liveness stays 200 (restarting the
+// pod would not help) while readiness turns 503 (pull it from the balancer).
+// Both are reachable with no token.
+func (s *RoutesSuite) TestHealthProbesDivergeUnderDatabaseOutage() {
+	s.db.EXPECT().Ping(gomock.Any()).Return(fmt.Errorf("connection refused")).AnyTimes()
+
+	s.Equal(http.StatusOK, s.do(http.MethodGet, "/health/live", ""),
+		"liveness must not depend on the database")
+	s.Equal(http.StatusServiceUnavailable, s.do(http.MethodGet, "/health/ready", ""),
+		"readiness must fail when the database is down")
+}
+
+// With the database reachable and the signing key loaded (keys.Generate in
+// SetupTest), readiness is 200.
+func (s *RoutesSuite) TestReadinessOKWhenDependenciesAreHealthy() {
+	s.db.EXPECT().Ping(gomock.Any()).Return(nil).AnyTimes()
+	s.Equal(http.StatusOK, s.do(http.MethodGet, "/health/ready", ""))
+}
+
 // TestPublicRoutesRemainReachable guards the other direction: fixing the path
 // comparison in isPrivateURI is what keeps login working once the middleware
 // actually runs.
@@ -384,7 +407,7 @@ func (s *RoutesSuite) TestPreflightIsNotAuthenticated() {
 // so a token from one instance was rejected by every other. Two routers built
 // from the same key set must accept each other's tokens.
 func (s *RoutesSuite) TestTokenValidatesOnASecondReplica() {
-	replica := NewRouter(s.repoFactory, s.keySet).Config()
+	replica := NewRouter(s.repoFactory, s.keySet, s.db).Config()
 
 	accessToken := s.login("USER") // minted by s.app
 

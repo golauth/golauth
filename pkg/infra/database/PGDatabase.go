@@ -66,6 +66,12 @@ func (d PGDatabase) Exec(ctx context.Context, query string, params ...interface{
 	return d.db.ExecContext(ctx, query, params...)
 }
 
+// Ping verifies the connection pool can reach Postgres, honouring ctx's
+// deadline (pq.Connector does; the string DSN form would not).
+func (d PGDatabase) Ping(ctx context.Context) error {
+	return d.db.PingContext(ctx)
+}
+
 // openPool builds the driver handle and applies the bounded pool configuration.
 // It goes through pq.NewConnector rather than sql.Open("postgres", dsn) so that
 // PingContext (and every later query) honours its context deadline: the string

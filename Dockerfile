@@ -21,4 +21,10 @@ COPY --from=builder --chown=golauth /build/golauth /app/
 COPY --from=builder --chown=golauth /build/migrations /app/migrations
 WORKDIR /app
 EXPOSE 8080
+
+# The runtime image has no curl or wget, so the binary probes itself: `-healthcheck`
+# does a GET against the local /health/live and exits non-zero on failure.
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD ["./golauth", "-healthcheck"]
+
 ENTRYPOINT ["./golauth"]
