@@ -10,9 +10,13 @@ RUN apk add --no-cache git make \
 FROM alpine:3.24 AS dist
 ENV MIGRATION_SOURCE_URL=./migrations
 
-# ca-certificates so DB_SSLMODE=require / verify-full can validate a server cert
-# signed by a public CA (e.g. RDS, Cloud SQL) without a bundled DB_SSLROOTCERT.
-RUN apk add --no-cache ca-certificates \
+# apk upgrade pulls the current Alpine security patches (the `3.24` tag lags the
+# repository, so a fixed OpenSSL etc. would otherwise ship stale and fail the
+# image scan). ca-certificates lets DB_SSLMODE=require / verify-full validate a
+# server cert signed by a public CA (e.g. RDS, Cloud SQL) without a bundled
+# DB_SSLROOTCERT.
+RUN apk upgrade --no-cache \
+    && apk add --no-cache ca-certificates \
     && mkdir /app && addgroup -S golauth && adduser -S golauth -G golauth \
     && chown -R golauth:golauth  /app
 

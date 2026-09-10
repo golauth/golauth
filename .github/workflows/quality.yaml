@@ -6,20 +6,27 @@ on:
   pull_request:
     types: [opened, synchronize, reopened]
 
+# The job only reads the repository. Nothing here writes back, so the token is
+# scoped down from the default.
+permissions:
+  contents: read
+
 jobs:
   test:
     name: quality
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           fetch-depth: 0
 
       - name: Setup Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
         with:
           go-version: '1.27'
+          # setup-go restores and saves the module and build cache keyed on
+          # go.sum, so a green run leaves CI warm for the next one.
 
       - name: Generate mocks
         run: |
@@ -28,22 +35,36 @@ jobs:
           go generate -v ./...
 
       - name: Lint
-        uses: golangci/golangci-lint-action@v9
+        uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
         with:
           version: v2.13.2
           install-mode: goinstall
 
+      - name: Vulnerability scan
+        # Fails the build on a known CVE reachable from the code -- the single
+        # most valuable check for an auth server. The vulnerability database is
+        # fetched fresh on every run, so a pinned scanner still catches new CVEs.
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@v1.8.0
+          govulncheck ./...
+
       - name: Test
         run: go test -covermode=set -coverpkg=./... -coverprofile=coverage.txt ./...
 
-      - name: Coverage summary
+      - name: Coverage gate
+        # The floor sits a little under the current total (83.6%). Raise it as
+        # coverage climbs; its only job is to stop coverage decaying unnoticed.
+        env:
+          COVERAGE_FLOOR: '82.0'
         run: |
           total=$(go tool cover -func=coverage.txt | awk '/^total:/ {print $3}')
-          echo "Total coverage: ${total}" >> "$GITHUB_STEP_SUMMARY"
-          echo "Total coverage: ${total}"
+          pct=${total%\%}
+          printf 'Total coverage: %s (floor %s%%)\n' "$total" "$COVERAGE_FLOOR" | tee -a "$GITHUB_STEP_SUMMARY"
+          awk -v c="$pct" -v f="$COVERAGE_FLOOR" \
+            'BEGIN { if (c + 0 < f + 0) { printf "FAIL: coverage %.1f%% is below the floor of %.1f%%\n", c, f; exit 1 } }'
 
       - name: Upload coverage
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: coverage
           path: coverage.txt
