@@ -72,7 +72,6 @@ func (s *GenerateTokenSuite) SetupTest() {
 		Email:     "em@il.com",
 		Document:  "1234",
 		Password:  "4567",
-		Enabled:   true,
 	}
 	s.mockSavedUser = entity.User{
 		ID:           uuid.New(),

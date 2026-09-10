@@ -4,6 +4,9 @@ import (
 	"github.com/golauth/golauth/pkg/domain/entity"
 )
 
+// CreateUserRequest is the public signup payload. It deliberately has no
+// "enabled" field: account activation is an administrative operation, and the
+// old field was decoded and then silently overwritten -- a misleading contract.
 type CreateUserRequest struct {
 	Username  string `json:"username"`
 	FirstName string `json:"firstName"`
@@ -11,7 +14,6 @@ type CreateUserRequest struct {
 	Email     string `json:"email"`
 	Document  string `json:"document"`
 	Password  string `json:"password,omitempty"`
-	Enabled   bool   `json:"enabled"`
 }
 
 func (u CreateUserRequest) ToEntity() *entity.User {
@@ -22,6 +24,5 @@ func (u CreateUserRequest) ToEntity() *entity.User {
 		Email:     u.Email,
 		Document:  u.Document,
 		Password:  u.Password,
-		Enabled:   u.Enabled,
 	}
 }

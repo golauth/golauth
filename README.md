@@ -78,6 +78,7 @@ networks:
 | LOGIN_LOCKOUT_THRESHOLD  | Consecutive failed logins before an account is locked (default 5).                                                              |
 | LOGIN_LOCKOUT_BASE_DELAY | Lock duration at the threshold; doubles per further failure (default `1m`).                                                     |
 | LOGIN_LOCKOUT_MAX_DELAY  | Upper bound on the doubling lock duration (default `15m`).                                                                      |
+| PASSWORD_DENYLIST        | `off` (default) disables it; `on` enforces a small embedded common-password list; any other value is a path to a newline-delimited file of forbidden passwords. An unreadable path logs a warning and disables the check. |
 
 `CORS_ALLOWED_ORIGINS` no longer defaults to `*`. Set it to the origins of your
 front-ends; a wildcard combined with the `authorization` header would let any
@@ -136,6 +137,36 @@ limited route, so an authenticated API under load is unaffected.
 An unknown username and a wrong password are indistinguishable in status code,
 body and response time: the unknown-user path runs the same bcrypt comparison
 against a fixed dummy hash.
+
+### Registration and input validation
+
+`POST /auth/signup` validates its body before anything is written. A rejected
+payload returns `400 Bad Request` with a `fields` array naming each offending
+field:
+
+```json
+{ "fields": [ { "field": "password", "message": "must be at least 12 characters" } ] }
+```
+
+Rules:
+
+| Field       | Rule                                                                                          |
+|-------------|----------------------------------------------------------------------------------------------|
+| `username`  | required, 3–50 characters, `a–z 0–9 . _ -` only, stored lower case                            |
+| `email`     | required, must parse as an e-mail address, stored lower case                                  |
+| `firstName` | required, trimmed, max 255 characters                                                        |
+| `lastName`  | required, trimmed, max 255 characters                                                        |
+| `document`  | required, trimmed, max 100 characters (the column is `NOT NULL`)                             |
+| `password`  | required, **minimum 12 characters**, maximum 72 bytes — bcrypt ignores every byte past 72    |
+
+Optionally, `PASSWORD_DENYLIST` rejects the most common passwords.
+
+The request body no longer accepts an `enabled` field; an account is created
+disabled-or-enabled purely by server policy (currently enabled), and activation
+is an administrative operation. Sending `enabled` is silently ignored.
+
+A `username` or `email` that already exists returns `409 Conflict`. The response
+never contains the password or its hash.
 
 ### Authorization
 

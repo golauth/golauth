@@ -50,7 +50,7 @@ func (s *CreateUserSuite) SetupTest() {
 	s.repoFactory.EXPECT().NewUserRepository().AnyTimes().Return(s.userRepository)
 
 	s.ctx = context.Background()
-	s.createUser = NewCreateUser(s.repoFactory)
+	s.createUser = NewCreateUser(s.repoFactory, nil)
 
 	s.input = &entity.User{
 		Username:  "admin",
@@ -58,8 +58,7 @@ func (s *CreateUserSuite) SetupTest() {
 		LastName:  "Name",
 		Email:     "em@il.com",
 		Document:  "1234",
-		Password:  "4567",
-		Enabled:   true,
+		Password:  "supersecret123",
 	}
 	s.mockSavedUser = &entity.User{
 		ID:           uuid.New(),
@@ -68,9 +67,22 @@ func (s *CreateUserSuite) SetupTest() {
 		LastName:     "Name",
 		Email:        "em@il.com",
 		Document:     "1234",
-		Password:     "4567",
+		Password:     "supersecret123",
 		Enabled:      true,
 		CreationDate: time.Now(),
+	}
+}
+
+// validInput returns a fresh entity that passes validateAndNormalize, so a test
+// exercising a downstream failure is not tripped by the input policy first.
+func (s *CreateUserSuite) validInput() *entity.User {
+	return &entity.User{
+		Username:  "admin",
+		FirstName: "User",
+		LastName:  "Name",
+		Email:     "em@il.com",
+		Document:  "1234",
+		Password:  "supersecret123",
 	}
 }
 
@@ -96,7 +108,7 @@ func (s *CreateUserSuite) TestCreateUserOk() {
 func (s *CreateUserSuite) TestCreateUserErrWhenSave() {
 	s.userRepository.EXPECT().Create(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("could not create user admin")).Times(1)
 
-	_, err := s.createUser.Execute(s.ctx, &entity.User{})
+	_, err := s.createUser.Execute(s.ctx, s.validInput())
 	s.EqualError(err, "could not save user: could not create user admin")
 }
 
@@ -125,7 +137,7 @@ func (s *CreateUserSuite) TestCreateUserErrAddUserRole() {
 
 func (s *CreateUserSuite) TestCreateUserErrGenerateHashPassword() {
 	bcryptDefaultCost = 50
-	_, err := s.createUser.Execute(s.ctx, &entity.User{Password: "1234"})
+	_, err := s.createUser.Execute(s.ctx, s.validInput())
 	s.ErrorContains(err, "could not generate password:")
 
 	// Match the cause by type, not by message: bcrypt owns the wording and

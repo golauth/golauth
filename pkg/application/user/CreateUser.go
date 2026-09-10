@@ -18,11 +18,12 @@ type CreateUser interface {
 	Execute(ctx context.Context, input *entity.User) (*entity.User, error)
 }
 
-func NewCreateUser(repoFactory factory.RepositoryFactory) CreateUser {
+func NewCreateUser(repoFactory factory.RepositoryFactory, passwordDenylist PasswordDenylist) CreateUser {
 	return createUser{
 		userRepository:     repoFactory.NewUserRepository(),
 		roleRepository:     repoFactory.NewRoleRepository(),
 		userRoleRepository: repoFactory.NewUserRoleRepository(),
+		passwordDenylist:   passwordDenylist,
 	}
 }
 
@@ -30,9 +31,19 @@ type createUser struct {
 	userRepository     repository.UserRepository
 	roleRepository     repository.RoleRepository
 	userRoleRepository repository.UserRoleRepository
+	passwordDenylist   PasswordDenylist
 }
 
 func (uc createUser) Execute(ctx context.Context, input *entity.User) (*entity.User, error) {
+	// Enforce the input policy before touching bcrypt or the database: an
+	// invalid payload is a 400, and this is the one place every transport
+	// reaches. validateAndNormalize also lower-cases username and email and
+	// trims the surrounding fields so the persisted row is canonical.
+	if err := validateAndNormalize(input, uc.passwordDenylist); err != nil {
+		return nil, err
+	}
+	// enabled is set here, never accepted from the caller: activating an
+	// account is an administrative act, not a self-service one.
 	input.Enabled = true
 	hash, err := bcrypt.GenerateFromPassword([]byte(input.Password), bcryptDefaultCost)
 	if err != nil {

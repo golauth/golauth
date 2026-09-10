@@ -2,12 +2,18 @@ package postgres
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"github.com/golauth/golauth/pkg/domain/entity"
 	"github.com/golauth/golauth/pkg/domain/repository"
 	"github.com/golauth/golauth/pkg/infra/database"
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 )
+
+// pgUniqueViolation is the SQLSTATE code Postgres reports for a unique-index
+// conflict. Matching the code is stable; matching the message text is not.
+const pgUniqueViolation = "23505"
 
 type UserRepositoryPostgres struct {
 	db database.Database
@@ -42,6 +48,13 @@ func (ur UserRepositoryPostgres) Create(ctx context.Context, user *entity.User) 
 	err := ur.db.One(ctx, "INSERT INTO golauth_user (username, first_name, last_name, email, document, password) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id;",
 		user.Username, user.FirstName, user.LastName, user.Email, user.Document, user.Password).Scan(&user.ID)
 	if err != nil {
+		var pqErr *pq.Error
+		if errors.As(err, &pqErr) && string(pqErr.Code) == pgUniqueViolation {
+			// The unique index on username / email is the real guard against a
+			// duplicate; a pre-check SELECT would only add a race. Surface it as
+			// a domain error the controller renders as 409.
+			return nil, fmt.Errorf("%s: %w", user.Username, repository.ErrUserAlreadyExists)
+		}
 		return nil, fmt.Errorf("could not create user %s: %w", user.Username, err)
 	}
 	return user, nil

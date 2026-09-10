@@ -49,7 +49,7 @@ func NewRouter(repoFactory factory.RepositoryFactory, keySet *keys.KeySet) Route
 	uaRepo := repoFactory.NewUserAuthorityRepository()
 	jwtToken := token.NewGenerateJwtToken(keySet.Current)
 
-	createUser := user.NewCreateUser(repoFactory)
+	createUser := user.NewCreateUser(repoFactory, user.LoadPasswordDenylist())
 	findUserById := user.NewFindUserById(uRepo)
 	addUserRole := user.NewAddUserRole(urRepo)
 	generateToken := token.NewGenerateToken(repoFactory, jwtToken, lockoutPolicy())
