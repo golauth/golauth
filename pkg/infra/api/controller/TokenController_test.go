@@ -62,7 +62,7 @@ func (s *TokenControllerSuite) TestTokenFormOk() {
 	r, _ := http.NewRequest("POST", "/token", strings.NewReader(fmt.Sprintf("username=%s&password=%s", username, password)))
 	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-	s.generateToken.EXPECT().Execute(r.Context(), username, password).Return(&entity.Token{AccessToken: token}, nil).Times(1)
+	s.generateToken.EXPECT().Execute(r.Context(), username, password, gomock.Any()).Return(&entity.Token{AccessToken: token}, nil).Times(1)
 
 	resp, _ := s.app.Test(r, fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 	s.Equal(http.StatusOK, resp.StatusCode)
@@ -85,7 +85,7 @@ func (s *TokenControllerSuite) TestTokenJsonOk() {
 	r, _ := http.NewRequest("POST", "/token", strings.NewReader(string(body)))
 	r.Header.Set("Content-Type", "application/json")
 
-	s.generateToken.EXPECT().Execute(r.Context(), username, password).Return(&entity.Token{AccessToken: token}, nil).Times(1)
+	s.generateToken.EXPECT().Execute(r.Context(), username, password, gomock.Any()).Return(&entity.Token{AccessToken: token}, nil).Times(1)
 
 	resp, _ := s.app.Test(r, fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 	s.Equal(http.StatusOK, resp.StatusCode)
@@ -135,7 +135,7 @@ func (s *TokenControllerSuite) TestTokenErrGenerateToken() {
 	r, _ := http.NewRequest("POST", "/token", strings.NewReader(fmt.Sprintf("username=%s&password=%s", username, password)))
 	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-	s.generateToken.EXPECT().Execute(s.ctx, username, password).Return(nil, fmt.Errorf("could not find user by username admin")).Times(1)
+	s.generateToken.EXPECT().Execute(s.ctx, username, password, gomock.Any()).Return(nil, fmt.Errorf("could not find user by username admin")).Times(1)
 
 	resp, _ := s.app.Test(r, fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 	s.Equal(http.StatusUnauthorized, resp.StatusCode)

@@ -53,7 +53,7 @@ func (s tokenController) Token(ctx fiber.Ctx) error {
 		return fiber.NewError(http.StatusBadRequest, ErrMissingBodyData.Error())
 	}
 
-	output, err := s.generateToken.Execute(ctx.Context(), userLogin.Username, userLogin.Password)
+	output, err := s.generateToken.Execute(ctx.Context(), userLogin.Username, userLogin.Password, ctx.IP())
 	if err != nil {
 		return fiber.NewError(http.StatusUnauthorized)
 	}
