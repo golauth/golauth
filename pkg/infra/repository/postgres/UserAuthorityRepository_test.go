@@ -68,3 +68,30 @@ func (s *UserAuthorityRepositorySuite) TestFindAuthoritiesByUserIDUserNotExists(
 	s.NoError(err)
 	s.Nil(a)
 }
+
+// TestFindAuthoritiesExcludesDisabledRoleAndAuthority is the observable effect
+// of PATCH /auth/roles/:id/change-status: a disabled role grants nothing, and
+// re-enabling it (through the same ChangeStatus the endpoint calls) brings the
+// authority back. A disabled authority is filtered too, even under an enabled
+// role.
+func (s *UserAuthorityRepositorySuite) TestFindAuthoritiesExcludesDisabledRoleAndAuthority() {
+	s.prepareDatabase(true, "add-user-disabled-role.sql")
+	ctx := context.Background()
+	adminRoleID, _ := uuid.Parse("7f68301e-df80-45bd-9532-23a58733ef2c")
+	roleRepo := NewRoleRepository(s.db)
+
+	a, err := s.repo.FindAuthoritiesByUserID(ctx, s.userAdminId)
+	s.NoError(err)
+	s.Empty(a)
+
+	s.NoError(roleRepo.ChangeStatus(ctx, adminRoleID, true))
+	a, err = s.repo.FindAuthoritiesByUserID(ctx, s.userAdminId)
+	s.NoError(err)
+	s.Equal([]string{"ADMIN"}, a)
+
+	_, err = s.db.Exec(ctx, "UPDATE golauth_authority SET enabled = false WHERE name = 'ADMIN'")
+	s.NoError(err)
+	a, err = s.repo.FindAuthoritiesByUserID(ctx, s.userAdminId)
+	s.NoError(err)
+	s.Empty(a)
+}

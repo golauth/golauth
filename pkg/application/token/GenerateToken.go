@@ -5,9 +5,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+
 	"github.com/golauth/golauth/pkg/domain/entity"
 	"github.com/golauth/golauth/pkg/domain/factory"
 	"github.com/golauth/golauth/pkg/domain/repository"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -49,6 +51,21 @@ func (uc generateToken) Execute(ctx context.Context, username string, password s
 		return nil, ErrInvalidUsernameOrPassword
 	}
 
+	// A deactivated account must not be able to log in. The caller gets the
+	// same error as a wrong password on purpose, so the endpoint cannot be
+	// used to probe whether an account exists or is disabled; the real reason
+	// is only in the log, keyed by user id and never by the password.
+	if !user.Enabled {
+		logrus.Infof("token request denied: user %s is disabled", user.ID)
+		return nil, ErrInvalidUsernameOrPassword
+	}
+
+	// FindAuthoritiesByUserID already filters out disabled roles and
+	// authorities, so a user whose roles are all disabled comes back with an
+	// empty list. That is intended: an empty list makes generateJwtToken omit
+	// the "authorities" claim, and every RequireAuthority check then denies
+	// the request. A token with no authority can still be minted -- it just
+	// cannot reach any authorized route.
 	authorities, err := uc.userAuthorityRepository.FindAuthoritiesByUserID(ctx, user.ID)
 	if err != nil {
 		return nil, fmt.Errorf("error when fetch authorities: %w", err)

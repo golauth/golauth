@@ -71,3 +71,20 @@ func (s *FindUserByIdSuite) TestFindByIDErr() {
 	s.Error(err)
 	s.ErrorAs(fmt.Errorf("could not find user"), &err)
 }
+
+// TestFindByIdReturnsDisabledUser: deactivating an account does not hide it
+// from an admin lookup; the payload carries enabled=false.
+func (s *FindUserByIdSuite) TestFindByIdReturnsDisabledUser() {
+	id := uuid.New()
+	disabled := &entity.User{
+		ID:       id,
+		Username: "retired",
+		Enabled:  false,
+	}
+	s.userRepository.EXPECT().FindByID(s.ctx, id).Return(disabled, nil).Times(1)
+
+	output, err := s.finding.Execute(s.ctx, id)
+	s.NoError(err)
+	s.NotNil(output)
+	s.False(output.Enabled)
+}
