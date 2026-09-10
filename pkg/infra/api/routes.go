@@ -1,18 +1,23 @@
 package api
 
 import (
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/middleware/cors"
-	"github.com/gofiber/fiber/v2/middleware/recover"
+	"os"
+	"strings"
+
+	"github.com/gofiber/fiber/v3"
+	"github.com/gofiber/fiber/v3/middleware/cors"
+	"github.com/gofiber/fiber/v3/middleware/recover"
 	"github.com/golauth/golauth/pkg/application/token"
 	"github.com/golauth/golauth/pkg/application/user"
 	"github.com/golauth/golauth/pkg/domain/factory"
 	"github.com/golauth/golauth/pkg/infra/api/controller"
 	"github.com/golauth/golauth/pkg/infra/api/middleware"
-	"os"
 )
 
 const pathPrefix = "/auth"
+
+// defaultAllowedOrigin is used when CORS_ALLOWED_ORIGINS names no usable origin.
+const defaultAllowedOrigin = "http://localhost:3000"
 
 type Router interface {
 	Config() *fiber.App
@@ -51,10 +56,7 @@ func NewRouter(repoFactory factory.RepositoryFactory) Router {
 }
 
 func (r *router) Config() *fiber.App {
-	app := fiber.New(fiber.Config{
-		AppName:               os.Getenv("APP_NAME"),
-		DisableStartupMessage: true,
-	})
+	app := fiber.New(fiber.Config{AppName: os.Getenv("APP_NAME")})
 
 	// Middlewares are registered before any route on purpose. The fiber router
 	// serves the first matching stack entry and stops, so a middleware added
@@ -65,8 +67,8 @@ func (r *router) Config() *fiber.App {
 	app.Use(recover.New())
 	app.Use(cors.New(cors.Config{
 		AllowOrigins: allowedOrigins(),
-		AllowMethods: "POST, GET, OPTIONS, PUT, PATCH, DELETE",
-		AllowHeaders: "access-control-allow-headers,access-control-allow-methods,access-control-allow-origin,authorization,content-type",
+		AllowMethods: []string{"POST", "GET", "OPTIONS", "PUT", "PATCH", "DELETE"},
+		AllowHeaders: []string{"access-control-allow-headers", "access-control-allow-methods", "access-control-allow-origin", "authorization", "content-type"},
 	}))
 	app.Use(middleware.NewSecurityMiddleware(r.validateToken, pathPrefix).Apply())
 
@@ -101,9 +103,19 @@ func (r *router) Config() *fiber.App {
 // deliberately does not fall back to "*": combined with the authorization
 // header being allowed, a wildcard lets any site drive the API with a token it
 // coaxed out of a user.
-func allowedOrigins() string {
-	if origins := os.Getenv("CORS_ALLOWED_ORIGINS"); origins != "" {
-		return origins
+// Returning an empty slice would be that wildcard: fiber v3 reads no configured
+// origin as permission to allow every one of them.
+func allowedOrigins() []string {
+	// The variable stays comma separated, as it was under fiber v2, while the
+	// middleware now takes a slice.
+	var allowed []string
+	for _, origin := range strings.Split(os.Getenv("CORS_ALLOWED_ORIGINS"), ",") {
+		if origin = strings.TrimSpace(origin); origin != "" {
+			allowed = append(allowed, origin)
+		}
 	}
-	return "http://localhost:3000"
+	if len(allowed) == 0 {
+		return []string{defaultAllowedOrigin}
+	}
+	return allowed
 }

@@ -4,7 +4,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/gofiber/fiber/v2"
+	"io"
+	"net/http"
+	"strings"
+	"testing"
+	time "time"
+
+	"github.com/gofiber/fiber/v3"
 	"github.com/golauth/golauth/pkg/application/user/mock"
 	"github.com/golauth/golauth/pkg/domain/entity"
 	"github.com/golauth/golauth/pkg/infra/api/controller/model"
@@ -12,11 +18,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/mock/gomock"
-	"io"
-	"net/http"
-	"strings"
-	"testing"
-	time "time"
 )
 
 type UserControllerSuite struct {
@@ -67,7 +68,7 @@ func (s *UserControllerSuite) TestFindByIDOk() {
 
 	s.findUserById.EXPECT().Execute(r.Context(), user.ID).Return(user, nil).Times(1)
 
-	resp, _ := s.app.Test(r, -1)
+	resp, _ := s.app.Test(r, fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 	s.Equal(http.StatusOK, resp.StatusCode)
 	var userResponse model.UserResponse
 	s.NoError(json.NewDecoder(resp.Body).Decode(&userResponse))
@@ -90,7 +91,7 @@ func (s *UserControllerSuite) TestAddRoleOk() {
 
 	s.addUserRole.EXPECT().Execute(r.Context(), userRole.UserID, userRole.RoleID).Return(nil).Times(1)
 
-	resp, _ := s.app.Test(r, -1)
+	resp, _ := s.app.Test(r, fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 	s.Equal(http.StatusCreated, resp.StatusCode)
 }
 
@@ -98,7 +99,7 @@ func (s *UserControllerSuite) TestFindByIDErrParseUUID() {
 	r, _ := http.NewRequest("GET", "/users/abc", nil)
 	r.Header.Set("Content-Type", "application/json")
 
-	resp, _ := s.app.Test(r, -1)
+	resp, _ := s.app.Test(r, fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 	s.Equal(http.StatusBadRequest, resp.StatusCode)
 }
 
@@ -111,7 +112,7 @@ func (s *UserControllerSuite) TestFindByIDErrSvc() {
 
 	s.findUserById.EXPECT().Execute(r.Context(), id).Return(nil, errors.New(errMessage)).Times(1)
 
-	resp, _ := s.app.Test(r, -1)
+	resp, _ := s.app.Test(r, fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 	s.Equal(http.StatusInternalServerError, resp.StatusCode)
 	b, _ := io.ReadAll(resp.Body)
 	defer resp.Body.Close()
@@ -131,7 +132,7 @@ func (s *UserControllerSuite) TestAddRoleErrSvc() {
 
 	s.addUserRole.EXPECT().Execute(r.Context(), userId, roleId).Return(errors.New(errMessage)).Times(1)
 
-	resp, err := s.app.Test(r, -1)
+	resp, err := s.app.Test(r, fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 	s.Require().NoError(err)
 	s.Equal(http.StatusInternalServerError, resp.StatusCode)
 	b, _ := io.ReadAll(resp.Body)

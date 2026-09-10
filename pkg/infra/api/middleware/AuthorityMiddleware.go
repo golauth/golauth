@@ -3,7 +3,7 @@ package middleware
 import (
 	"net/http"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/golauth/golauth/pkg/infra/api/controller/model"
 )
 
@@ -16,7 +16,7 @@ const AdminAuthority = "ADMIN"
 // any self-registered account holds a valid token, so without this check the
 // role-management routes remain a privilege-escalation sink.
 func RequireAuthority(authority string) fiber.Handler {
-	return func(ctx *fiber.Ctx) error {
+	return func(ctx fiber.Ctx) error {
 		claims, ok := ClaimsFromContext(ctx)
 		if !ok || !hasAuthority(claims, authority) {
 			return fiber.NewError(http.StatusForbidden, "insufficient authority")
@@ -29,7 +29,7 @@ func RequireAuthority(authority string) fiber.Handler {
 // the token subject, and otherwise demands the given authority. The user id is
 // read from the named route parameter.
 func RequireSelfOrAuthority(param string, authority string) fiber.Handler {
-	return func(ctx *fiber.Ctx) error {
+	return func(ctx fiber.Ctx) error {
 		claims, ok := ClaimsFromContext(ctx)
 		if !ok {
 			return fiber.NewError(http.StatusForbidden, "insufficient authority")
