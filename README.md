@@ -120,6 +120,28 @@ signed by the old key keep validating until they expire; new tokens use the new
 key; the JWKS lists both. The first rollout that sets `JWT_PRIVATE_KEY` is a
 one-time mass logout — the last one.
 
+### Token introspection
+
+**Offline verification through JWKS is the recommended integration.** A consumer
+service fetches `/auth/.well-known/jwks.json` once (cache it, keyed by `kid`),
+verifies the access-token signature locally, and reads the claims from the JWT.
+No per-request call to golauth, no shared secret.
+
+Two convenience endpoints exist for callers that cannot verify locally:
+
+| Endpoint                | Auth                                  | Success | Body                                                                                  |
+|-------------------------|---------------------------------------|---------|---------------------------------------------------------------------------------------|
+| `GET /auth/check_token` | bearer in `Authorization`             | `200`   | the verified claims: `sub`, `username`, `firstName`, `lastName`, `authorities`, `exp` |
+| `GET /auth/me`          | bearer (standard authenticated route) | `200`   | same shape, read from the token the middleware already verified — no database access  |
+
+A missing or non-bearer `Authorization` header is `400`; an invalid or expired
+token is `401` with no claims in the body. `check_token` is public and does
+public-key crypto per call, so it is rate limited per client IP with the same
+`LOGIN_RATE_LIMIT` / `LOGIN_RATE_WINDOW` budget as the token route.
+
+> **Upgrading:** `check_token` used to answer `204 No Content`. It now answers
+> `200` with the claims. A client that only checked for `204` must accept `200`.
+
 ### Login throttling
 
 `POST /auth/token` is the credential-stuffing surface and is the only rate
