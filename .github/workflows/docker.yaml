@@ -16,12 +16,36 @@ permissions:
 
 jobs:
   docker:
-    name: Build, scan and publish the image
+    name: ${{ matrix.variant }}
     runs-on: ubuntu-24.04
+    strategy:
+      # One variant failing its scan should not hide the state of the other two.
+      fail-fast: false
+      matrix:
+        include:
+          # The default. Empty flavor means no tag suffix: this is what becomes
+          # `latest` and `X.Y.Z`. It is the only variant built for two
+          # architectures -- see the Publish step for why that is cheap here.
+          - variant: distroless
+            target: dist-distroless
+            flavor: ''
+            platforms: linux/amd64,linux/arm64
+          - variant: alpine
+            target: dist-alpine
+            flavor: suffix=-alpine,onlatest=true
+            platforms: linux/amd64
+          - variant: debian
+            target: dist-debian
+            flavor: suffix=-debian,onlatest=true
+            platforms: linux/amd64
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      # No setup-qemu-action on purpose. The builder stage runs on
+      # $BUILDPLATFORM and cross-compiles via TARGETOS/TARGETARCH, which for a
+      # CGO_ENABLED=0 Go binary is free. Emulating arm64 instead would multiply
+      # the build time by three or four for no gain.
       - name: Set up Buildx
         uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
 
@@ -40,27 +64,35 @@ jobs:
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         with:
           images: golauth/golauth
+          flavor: ${{ matrix.flavor }}
           tags: |
             type=raw,value=latest,enable=${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
             type=raw,value=${{ github.event.release.tag_name }},enable=${{ github.event_name == 'release' }}
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
 
+      # `load: true` cannot load a multi-platform build, so the scan build is
+      # always single-platform. Consequence worth stating plainly: Trivy sees
+      # the amd64 image only, and the arm64 manifest of the default variant
+      # ships unscanned. Same source, same base, different arch layer -- the
+      # residual risk is small, but it is not zero.
       - name: Build (load locally for scanning)
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           context: .
+          target: ${{ matrix.target }}
+          platforms: linux/amd64
           load: true
           push: false
-          tags: golauth/golauth:ci
+          tags: golauth/golauth:ci-${{ matrix.variant }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=local,src=${{ runner.temp }}/buildx-cache
-          cache-to: type=local,dest=${{ runner.temp }}/buildx-cache,mode=max
+          cache-from: type=local,src=${{ runner.temp }}/buildx-cache-${{ matrix.variant }}
+          cache-to: type=local,dest=${{ runner.temp }}/buildx-cache-${{ matrix.variant }},mode=max
 
       - name: Scan image for vulnerabilities
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
-          image-ref: golauth/golauth:ci
+          image-ref: golauth/golauth:ci-${{ matrix.variant }}
           format: table
           exit-code: '1'
           ignore-unfixed: true
@@ -72,23 +104,38 @@ jobs:
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           context: .
+          target: ${{ matrix.target }}
+          platforms: ${{ matrix.platforms }}
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          # The layers were just built; this reuses them and only pushes.
-          cache-from: type=local,src=${{ runner.temp }}/buildx-cache
+          # The amd64 layers were just built; this reuses them and compiles the
+          # arm64 binary on top.
+          cache-from: type=local,src=${{ runner.temp }}/buildx-cache-${{ matrix.variant }}
 
   sbom:
-    name: SBOM
+    name: SBOM (${{ matrix.variant }})
     needs: docker
     if: ${{ github.event_name == 'release' }}
     runs-on: ubuntu-24.04
     permissions:
       contents: write # attach the SBOM as a release asset
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # One document per published variant. Two of the three would otherwise
+          # ship with no bill of materials at all.
+          - variant: distroless
+            suffix: ''
+          - variant: alpine
+            suffix: '-alpine'
+          - variant: debian
+            suffix: '-debian'
     steps:
       - name: Generate and attach the SBOM
         uses: anchore/sbom-action@3ad7283483fc7af8ff2b4ea19663c2d5ca935e26 # v0.24.2
         with:
-          image: golauth/golauth:${{ github.event.release.tag_name }}
+          image: golauth/golauth:${{ github.event.release.tag_name }}${{ matrix.suffix }}
           format: spdx-json
-          artifact-name: golauth-${{ github.event.release.tag_name }}.spdx.json
+          artifact-name: golauth-${{ github.event.release.tag_name }}${{ matrix.suffix }}.spdx.json

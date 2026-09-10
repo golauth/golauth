@@ -64,6 +64,36 @@ networks:
   golauthnet:
 ```
 
+### Image variants
+
+The same binary ships on three bases. Pick by what your platform requires; if
+nothing requires anything, take the default.
+
+| Tag | Base | Size | Platforms | Pick it when |
+|-----|------|------|-----------|--------------|
+| `golauth/golauth:X.Y.Z`<br>`:latest` | `distroless/static-debian13` | ~23 MB | `amd64`, `arm64` | Default. Smallest attack surface: no shell, no package manager, no libc. |
+| `golauth/golauth:X.Y.Z-alpine`<br>`:latest-alpine` | `alpine:3.24` | ~40 MB | `amd64` | You need a shell in the container, or you use the image as a base for your own. |
+| `golauth/golauth:X.Y.Z-debian`<br>`:latest-debian` | `debian:13-slim` | ~150 MB | `amd64` | Your security team only certifies glibc/Debian bases. |
+
+All three are built from one `Dockerfile`, run as a non-root user, carry the
+same `HEALTHCHECK`, and must pass the same Trivy gate (no fixable HIGH or
+CRITICAL) before they publish.
+
+> **Upgrading (breaking):** `latest` and `X.Y.Z` were Alpine images and are now
+> distroless. Distroless has no shell and no package manager, so this breaks you
+> if you `docker exec … sh` into the container, use `golauth/golauth` as the
+> `FROM` of your own image, or wrap the entrypoint in a shell script. The fix is
+> one line — pin the variant you were already getting:
+>
+> ```diff
+> - image: golauth/golauth:X.Y.Z
+> + image: golauth/golauth:X.Y.Z-alpine
+> ```
+>
+> Nothing else changes: same binary, same environment variables, same port, same
+> healthcheck. If you only ever ran the container and talked to it over HTTP,
+> there is nothing to do.
+
 ##### Environment Variables
 
 | Env Variable                   | Description                                                                                                                                                                                                               |
