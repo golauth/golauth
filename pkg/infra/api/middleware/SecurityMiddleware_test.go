@@ -139,6 +139,7 @@ func TestIsPrivateURI(t *testing.T) {
 		"/auth/token/refresh":         false,
 		"/auth/logout":                true,
 		"/auth/logout/all":            true,
+		"/auth/me":                    true,
 		"/auth/signup":                false,
 		"/auth/check_token":           false,
 		"/auth/users/some-id":         true,

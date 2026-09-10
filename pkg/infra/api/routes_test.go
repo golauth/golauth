@@ -314,7 +314,32 @@ func (s *RoutesSuite) TestTokenValidatesOnASecondReplica() {
 	resp, err := replica.Test(req, fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 	s.Require().NoError(err)
 	defer func() { _ = resp.Body.Close() }()
-	s.Equal(http.StatusNoContent, resp.StatusCode)
+	s.Equal(http.StatusOK, resp.StatusCode)
+
+	var claims model.Claims
+	s.NoError(json.NewDecoder(resp.Body).Decode(&claims))
+	s.Equal(s.userID.String(), claims.Subject, "introspection returns the verified subject")
+}
+
+// TestMeReturnsTheAuthenticatedIdentity: /auth/me is behind the security
+// middleware (401 without a token) and, with one, echoes the claims the
+// middleware verified -- no database call.
+func (s *RoutesSuite) TestMeReturnsTheAuthenticatedIdentity() {
+	s.Equal(http.StatusUnauthorized, s.do(http.MethodGet, "/auth/me", ""))
+
+	accessToken := s.login("USER")
+	req, _ := http.NewRequest(http.MethodGet, "/auth/me", nil)
+	req.Header.Set(fiber.HeaderAuthorization, "Bearer "+accessToken)
+	resp, err := s.app.Test(req, fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
+	s.Require().NoError(err)
+	defer func() { _ = resp.Body.Close() }()
+	s.Equal(http.StatusOK, resp.StatusCode)
+
+	var claims model.Claims
+	s.NoError(json.NewDecoder(resp.Body).Decode(&claims))
+	s.Equal(s.userID.String(), claims.Subject)
+	s.Equal("admin", claims.Username)
+	s.Equal([]string{"USER"}, claims.Authorities)
 }
 
 // TestJWKSIsPublicAndMatchesMintedTokens checks the endpoint is reachable

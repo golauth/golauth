@@ -106,7 +106,9 @@ func (r *router) Config() *fiber.App {
 	auth.Post("/token", loginRateLimiter(), r.tokenController.Token).Name("token")
 	// Public: exchange an opaque refresh token for a fresh access/refresh pair.
 	auth.Post("/token/refresh", r.tokenController.Refresh).Name("refreshToken")
-	auth.Get("/check_token", r.checkTokenController.CheckToken).Name("checkToken")
+	// Public and does public-key crypto per call, so it is rate limited per
+	// client IP like the token route.
+	auth.Get("/check_token", publicCryptoRateLimiter(), r.checkTokenController.CheckToken).Name("checkToken")
 	// Public: the public signing keys, so any service can verify a token offline.
 	auth.Get("/.well-known/jwks.json", r.jwksController.JWKS).Name("jwks")
 
@@ -114,6 +116,8 @@ func (r *router) Config() *fiber.App {
 	// is enough -- no special authority.
 	auth.Post("/logout", r.tokenController.Logout).Name("logout")
 	auth.Post("/logout/all", r.tokenController.LogoutAll).Name("logoutAll")
+	// Authenticated: return the caller's own verified claims, no database.
+	auth.Get("/me", r.checkTokenController.Me).Name("me")
 
 	// Authenticated, and authorized per route.
 	auth.Get("/users/:id",
@@ -137,13 +141,25 @@ func (r *router) Config() *fiber.App {
 // "1m"); a sliding window avoids the burst-at-the-boundary weakness of a fixed
 // one.
 func loginRateLimiter() fiber.Handler {
+	return ipRateLimiter("too many login attempts, retry later")
+}
+
+// publicCryptoRateLimiter throttles GET /auth/check_token per client IP. It is
+// public and runs public-key verification on every call, so it must not be a
+// free signature oracle. It shares the LOGIN_RATE_* knobs and keeps its own
+// per-IP budget.
+func publicCryptoRateLimiter() fiber.Handler {
+	return ipRateLimiter("too many requests, retry later")
+}
+
+func ipRateLimiter(limitReachedMsg string) fiber.Handler {
 	return limiter.New(limiter.Config{
 		Max:               intEnv("LOGIN_RATE_LIMIT", defaultLoginRateLimit),
 		Expiration:        durationEnv("LOGIN_RATE_WINDOW", defaultLoginRateWindow),
 		LimiterMiddleware: limiter.SlidingWindow{},
 		KeyGenerator:      func(c fiber.Ctx) string { return c.IP() },
 		LimitReached: func(c fiber.Ctx) error {
-			return fiber.NewError(fiber.StatusTooManyRequests, "too many login attempts, retry later")
+			return fiber.NewError(fiber.StatusTooManyRequests, limitReachedMsg)
 		},
 	})
 }
