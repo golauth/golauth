@@ -51,3 +51,25 @@ func TestQualityWorkflowHasSupplyChainGates(t *testing.T) {
 	require.Contains(t, text, "govulncheck", "the vulnerability scan step is gone")
 	require.Contains(t, text, "COVERAGE_FLOOR", "the coverage gate is gone")
 }
+
+// TestSASTWorkflowKeepsItsTeeth guards the two properties of the CodeQL job that
+// are easy to "simplify" away and silent when they break.
+//
+// build-mode: manual is load-bearing. This tree does not compile from a clean
+// checkout -- the mocks are gitignored and generated -- so autobuild produces a
+// green run that analysed nothing. Nothing else in CI would notice.
+//
+// security-extended is the difference between the queries every repository gets
+// and the ones worth paying triage for on an auth server.
+func TestSASTWorkflowKeepsItsTeeth(t *testing.T) {
+	body, err := os.ReadFile("../.github/workflows/sast.yaml")
+	require.NoError(t, err)
+	text := string(body)
+	require.Contains(t, text, "build-mode: manual",
+		"CodeQL autobuild cannot build this tree; the mocks are generated")
+	require.Contains(t, text, "queries: security-extended",
+		"the extended query suite is the point of running CodeQL here")
+	require.Contains(t, text, "go generate -v ./...",
+		"the manual build must generate mocks or it analyses an empty tree")
+	require.Contains(t, text, "gosec", "the gosec SARIF job is gone")
+}

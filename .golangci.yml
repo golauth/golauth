@@ -26,7 +26,11 @@ linters:
           - bodyclose
           - errcheck
           - gosec
-      - path: (^|/)tests/
+      # Test wiring, held to the same relaxed bar as the _test.go files it serves.
+      # internal/testsupport/ is listed explicitly because the pkg -> internal
+      # move took postgrescontainer.go out from under tests/ and silently out
+      # from under this rule with it.
+      - path: (^|/)(tests|internal/testsupport)/
         linters:
           - errcheck
           - gosec
