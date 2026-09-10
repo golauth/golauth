@@ -196,3 +196,36 @@ func (s *GenerateTokenSuite) TestGenerateTokenErrGeneratingToken() {
 	s.ErrorIs(err, ErrGeneratingToken)
 	s.Empty(tokenResponse)
 }
+
+// TestGenerateTokenDisabledUser: a deactivated account with the correct
+// password is refused, and the refusal is byte-for-byte the wrong-password
+// refusal so the endpoint is not an account-state oracle.
+func (s *GenerateTokenSuite) TestGenerateTokenDisabledUser() {
+	username := "admin"
+	password := "123456"
+	encodedPassword, _ := bcrypt.GenerateFromPassword([]byte("123456"), bcrypt.DefaultCost)
+	user := &entity.User{
+		ID:           uuid.New(),
+		Username:     username,
+		FirstName:    "User",
+		LastName:     "Name",
+		Email:        "em@ail.com",
+		Document:     "1234",
+		Password:     string(encodedPassword),
+		Enabled:      false,
+		CreationDate: time.Now().AddDate(-1, 0, 0),
+	}
+	s.userRepository.EXPECT().FindByUsername(s.ctx, username).Return(user, nil).Times(1)
+	// No authority lookup and no token minting once the account is disabled.
+
+	tokenResponse, err := s.generateToken.Execute(s.ctx, username, password)
+	s.ErrorIs(err, ErrInvalidUsernameOrPassword)
+	s.Empty(tokenResponse)
+
+	// Same error a wrong password produces: the two cases are indistinguishable.
+	wrongPwUser := &entity.User{ID: uuid.New(), Username: username, Password: string(encodedPassword), Enabled: true}
+	s.userRepository.EXPECT().FindByUsername(s.ctx, username).Return(wrongPwUser, nil).Times(1)
+	wrongResponse, wrongErr := s.generateToken.Execute(s.ctx, username, "not-the-password")
+	s.Equal(err, wrongErr)
+	s.Equal(tokenResponse, wrongResponse)
+}

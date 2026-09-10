@@ -92,7 +92,7 @@ func (s *RoutesSuite) TearDownTest() {
 func (s *RoutesSuite) login(authorities ...string) string {
 	s.userRepository.EXPECT().
 		FindByUsername(gomock.Any(), "admin").
-		Return(&entity.User{ID: s.userID, Username: "admin", Password: adminPasswordHash}, nil).
+		Return(&entity.User{ID: s.userID, Username: "admin", Password: adminPasswordHash, Enabled: true}, nil).
 		Times(1)
 	s.userAuthorityRepository.EXPECT().
 		FindAuthoritiesByUserID(gomock.Any(), s.userID).
@@ -306,4 +306,21 @@ func (s *RoutesSuite) TestJWKSIsPublicAndMatchesMintedTokens() {
 		}
 	}
 	s.True(found, "minted token kid %q not present in JWKS", parsed.Header().KeyID)
+}
+
+// TestTokenSurvivesPrincipalDeactivation documents a known limitation: token
+// validation checks only the signature and expiry, never the current enabled
+// state of the user or its roles. A token minted while the account was active
+// keeps working until it expires even after the account is disabled in the
+// database. Immediate revocation is Plan 05's job.
+func (s *RoutesSuite) TestTokenSurvivesPrincipalDeactivation() {
+	adminToken := s.login("ADMIN", "USER")
+
+	// No repository call re-checks enabled here; the middleware only verifies
+	// the token. A second admin action with the same token still authorizes.
+	roleID := uuid.New()
+	s.roleRepository.EXPECT().FindByName(gomock.Any(), "ADMIN").
+		Return(&entity.Role{ID: roleID, Name: "ADMIN"}, nil).Times(1)
+
+	s.Equal(http.StatusOK, s.do(http.MethodGet, "/auth/roles/ADMIN", adminToken))
 }

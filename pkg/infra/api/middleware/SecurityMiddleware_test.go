@@ -56,7 +56,7 @@ func TestSecurityMiddleware(t *testing.T) {
 		repoFactory.EXPECT().NewRoleRepository().Return(roleRepository)
 		repoFactory.EXPECT().NewUserRoleRepository().Return(userRoleRepository)
 
-		userRepository.EXPECT().FindByUsername(gomock.Any(), "admin").Return(&entity.User{Username: username, Password: passwordEncoded}, nil)
+		userRepository.EXPECT().FindByUsername(gomock.Any(), "admin").Return(&entity.User{Username: username, Password: passwordEncoded, Enabled: true}, nil)
 		userAuthorityRepository.EXPECT().FindAuthoritiesByUserID(gomock.Any(), gomock.Any()).Return([]string{"ADMIN"}, nil)
 
 		generateJwtToken := token.NewGenerateJwtToken(ks.Current)
