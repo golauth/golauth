@@ -1,5 +1,11 @@
 STACK_NAME=golauth
 
+# `?=` so the environment wins: the Dockerfile builder passes buildx's
+# TARGETOS/TARGETARCH through to cross-compile, while a bare `make build` still
+# produces the linux/amd64 binary it always has.
+GOOS ?= linux
+GOARCH ?= amd64
+
 prepare:
 	cp .env.example .env
 	go install go.uber.org/mock/mockgen@latest
@@ -16,8 +22,13 @@ stop-db:
 down-db:
 	docker compose -p ${STACK_NAME} down -v
 
+# No --target: the last stage in the Dockerfile is the default (distroless),
+# which is what the pipeline publishes as `latest`. Pass VARIANT to get another:
+#   make build-image VARIANT=alpine
+VARIANT ?=
 build-image:
-	docker build -t golauth/golauth:dev -f Dockerfile .
+	docker build $(if $(VARIANT),--target dist-$(VARIANT),) \
+		-t golauth/golauth:dev$(if $(VARIANT),-$(VARIANT),) -f Dockerfile .
 
 run:
 	go run cmd/api/main.go
@@ -37,7 +48,7 @@ test: mock
 	go test -covermode=set -coverpkg=./... -coverprofile=coverage.txt ./...
 
 build:
-	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-w -s" -o golauth ./cmd/api/main.go
+	CGO_ENABLED=0 GOOS=$(GOOS) GOARCH=$(GOARCH) go build -ldflags="-w -s" -o golauth ./cmd/api/main.go
 
 cover:
 	go tool cover -html coverage.txt

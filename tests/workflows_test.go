@@ -73,3 +73,125 @@ func TestSASTWorkflowKeepsItsTeeth(t *testing.T) {
 		"the manual build must generate mocks or it analyses an empty tree")
 	require.Contains(t, text, "gosec", "the gosec SARIF job is gone")
 }
+
+// dockerStages splits a Dockerfile into its named build stages.
+func dockerStages(body string) (map[string]string, []string) {
+	stages := map[string]string{}
+	var order []string
+	var cur string
+	var sb strings.Builder
+
+	from := regexp.MustCompile(`(?i)^FROM\s+.*\sAS\s+(\S+)`)
+	flush := func() {
+		if cur != "" {
+			stages[cur] = sb.String()
+		}
+	}
+	for _, line := range strings.Split(body, "\n") {
+		if m := from.FindStringSubmatch(strings.TrimSpace(line)); m != nil {
+			flush()
+			cur = m[1]
+			order = append(order, cur)
+			sb.Reset()
+			continue
+		}
+		sb.WriteString(line + "\n")
+	}
+	flush()
+	return stages, order
+}
+
+// TestDockerfileRuntimeStagesAgree guards the block each runtime stage repeats.
+// Docker cannot share instructions between stages built on different bases, so
+// ENV/WORKDIR/EXPOSE/HEALTHCHECK/ENTRYPOINT exist three times over and can drift
+// apart silently -- a variant that boots but never reports healthy, or listens
+// on the wrong port, looks perfectly fine right up until someone deploys it.
+//
+// The exec-form CMD is the load-bearing one. The distroless variant has no
+// /bin/sh, so rewriting it as `HEALTHCHECK CMD ./golauth -healthcheck` would
+// leave that image permanently unhealthy while the other two stayed green.
+func TestDockerfileRuntimeStagesAgree(t *testing.T) {
+	body, err := os.ReadFile("../Dockerfile")
+	require.NoError(t, err)
+
+	stages, order := dockerStages(string(body))
+	for _, want := range []string{"dist-alpine", "dist-debian", "dist-distroless"} {
+		require.Contains(t, stages, want, "runtime stage %s is missing", want)
+	}
+
+	required := []string{
+		"ENV MIGRATION_SOURCE_URL=./migrations",
+		"WORKDIR /app",
+		"EXPOSE 8080",
+		`CMD ["./golauth", "-healthcheck"]`,
+		`ENTRYPOINT ["./golauth"]`,
+	}
+	for name, stage := range stages {
+		if !strings.HasPrefix(name, "dist-") {
+			continue
+		}
+		for _, r := range required {
+			require.Contains(t, stage, r, "runtime stage %s is missing %q", name, r)
+		}
+		require.Regexp(t, `(?m)^USER \S`, stage,
+			"runtime stage %s must drop to a non-root user", name)
+	}
+
+	// A bare `docker build .` -- which is what docker-compose and
+	// `make build-image` do -- produces the last stage. That has to be the
+	// variant published as `latest`.
+	require.Equal(t, "dist-distroless", order[len(order)-1],
+		"the default (last) stage must be the distroless one")
+}
+
+// TestDockerWorkflowCoversEveryVariant fails if a runtime stage exists in the
+// Dockerfile but nothing builds it, which would publish two variants and
+// silently drop the third.
+func TestDockerWorkflowCoversEveryVariant(t *testing.T) {
+	body, err := os.ReadFile("../.github/workflows/docker.yaml")
+	require.NoError(t, err)
+	text := string(body)
+
+	dockerfile, err := os.ReadFile("../Dockerfile")
+	require.NoError(t, err)
+	stages, _ := dockerStages(string(dockerfile))
+
+	for name := range stages {
+		if !strings.HasPrefix(name, "dist-") {
+			continue
+		}
+		require.Contains(t, text, "target: "+name,
+			"the docker workflow never builds runtime stage %s", name)
+	}
+	require.Contains(t, text, "linux/arm64",
+		"the default variant is meant to be multi-arch")
+}
+
+// TestCrossCompileChainIsWiredEndToEnd guards the three links that carry the
+// target architecture from buildx down to the compiler. Break any one of them
+// and the arm64 build still succeeds -- it just publishes an amd64 binary under
+// an arm64 manifest, which nothing downstream notices until it fails to exec on
+// a real arm64 host. This exact mistake was made and caught by hand once.
+func TestCrossCompileChainIsWiredEndToEnd(t *testing.T) {
+	dockerfile, err := os.ReadFile("../Dockerfile")
+	require.NoError(t, err)
+	df := string(dockerfile)
+
+	require.Contains(t, df, "FROM --platform=$BUILDPLATFORM",
+		"the builder must pin to the build platform and cross-compile, not be emulated")
+	require.Contains(t, df, "ARG TARGETOS")
+	require.Contains(t, df, "ARG TARGETARCH")
+	require.Contains(t, df, "GOOS=${TARGETOS} GOARCH=${TARGETARCH} make build",
+		"the builder must pass buildx's target platform into the build")
+
+	makefile, err := os.ReadFile("../Makefile")
+	require.NoError(t, err)
+	mk := string(makefile)
+
+	require.Regexp(t, `(?m)^GOOS \?= linux`, mk,
+		"GOOS must default with ?= so the Dockerfile's environment wins")
+	require.Regexp(t, `(?m)^GOARCH \?= amd64`, mk,
+		"GOARCH must default with ?= so the Dockerfile's environment wins")
+	require.Contains(t, mk, "GOOS=$(GOOS) GOARCH=$(GOARCH) go build",
+		"the build target must use the variables, not hardcode the arch")
+}
