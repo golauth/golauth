@@ -12,11 +12,14 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v3"
+	"github.com/golauth/golauth/pkg/application/bootstrap"
 	"github.com/golauth/golauth/pkg/application/keys"
 	"github.com/golauth/golauth/pkg/application/token"
+	"github.com/golauth/golauth/pkg/application/user"
+	"github.com/golauth/golauth/pkg/domain/factory"
 	"github.com/golauth/golauth/pkg/infra/api"
 	"github.com/golauth/golauth/pkg/infra/database"
-	"github.com/golauth/golauth/pkg/infra/factory"
+	infrafactory "github.com/golauth/golauth/pkg/infra/factory"
 	"github.com/golauth/golauth/pkg/infra/logging"
 
 	"github.com/subosito/gotenv"
@@ -60,10 +63,18 @@ func run() error {
 	}
 
 	db := database.NewPGDatabase()
-	rf := factory.NewPostgresRepositoryFactory(db)
+	rf := infrafactory.NewPostgresRepositoryFactory(db)
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
+
+	// Create the first administrator from configuration when the database has
+	// none. There is no shipped default credential, so a fresh install that did
+	// not set BOOTSTRAP_ADMIN_* fails here instead of booting unreachable.
+	if err := ensureAdmin(ctx, rf); err != nil {
+		db.Close()
+		return err
+	}
 
 	// Purge expired refresh-token rows now and on a timer so the table stays
 	// bounded. REFRESH_TOKEN_CLEANUP_INTERVAL (a Go duration) overrides the 1h
@@ -73,6 +84,22 @@ func run() error {
 
 	app := api.NewRouter(rf, keySet, db).Config()
 	return serve(ctx, app, ":"+port, shutdownTimeout(), db)
+}
+
+// ensureAdmin runs the start-up administrator bootstrap against the real
+// repositories.
+func ensureAdmin(ctx context.Context, rf factory.RepositoryFactory) error {
+	return bootstrap.EnsureAdmin(ctx,
+		rf.NewUserRepository(),
+		user.NewCreateUser(rf, user.LoadPasswordDenylist()),
+		rf.NewRoleRepository(),
+		user.NewAddUserRole(rf.NewUserRoleRepository()),
+		bootstrap.Config{
+			Username: os.Getenv("BOOTSTRAP_ADMIN_USER"),
+			Password: os.Getenv("BOOTSTRAP_ADMIN_PASSWORD"),
+			Email:    os.Getenv("BOOTSTRAP_ADMIN_EMAIL"),
+		},
+	)
 }
 
 // shutdownTimeout reads SERVER_SHUTDOWN_TIMEOUT (a Go duration), falling back to

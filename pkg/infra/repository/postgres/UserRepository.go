@@ -17,6 +17,10 @@ import (
 // conflict. Matching the code is stable; matching the message text is not.
 const pgUniqueViolation = "23505"
 
+// adminAuthorityName is the authority a user must ultimately hold to administer
+// the service.
+const adminAuthorityName = "ADMIN"
+
 // userColumns is the full golauth_user column list, in the order every scan in
 // this file expects. Naming the columns keeps a scan safe when a migration adds
 // or reorders one. userColumnsNoHash is the same list without the hash, for
@@ -60,6 +64,27 @@ func (ur UserRepositoryPostgres) FindByID(ctx context.Context, id uuid.UUID) (*e
 		return nil, fmt.Errorf("could not find user by id [%s]: %w", id, err)
 	}
 	return &user, nil
+}
+
+// AdminExists reports whether any enabled user holds the ADMIN authority
+// through an enabled role. A disabled user or a disabled role does not count:
+// the service would still be without a usable administrator.
+func (ur UserRepositoryPostgres) AdminExists(ctx context.Context) (bool, error) {
+	const q = `
+		SELECT EXISTS (
+			SELECT 1
+			FROM golauth_user_role ur
+			JOIN golauth_user u            ON u.id = ur.user_id
+			JOIN golauth_role r            ON r.id = ur.role_id
+			JOIN golauth_role_authority ra ON ra.role_id = r.id
+			JOIN golauth_authority a       ON a.id = ra.authority_id
+			WHERE a.name = $1 AND ur.enabled AND u.enabled AND r.enabled AND a.enabled
+		)`
+	var exists bool
+	if err := ur.db.One(ctx, q, adminAuthorityName).Scan(&exists); err != nil {
+		return false, fmt.Errorf("could not check for an administrator: %w", err)
+	}
+	return exists, nil
 }
 
 func (ur UserRepositoryPostgres) Create(ctx context.Context, user *entity.User) (*entity.User, error) {

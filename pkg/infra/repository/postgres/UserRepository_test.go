@@ -74,6 +74,37 @@ func (s *UserRepositorySuite) TestFindUserWithPassword() {
 	s.NotEmpty(u.Password)
 }
 
+// AdminExists drives the start-up bootstrap: true once a user holds the ADMIN
+// authority (add-users seeds admin with the ADMIN role), false on an empty
+// database.
+func (s *UserRepositorySuite) TestAdminExists() {
+	s.prepareDatabase(true, "add-users.sql")
+	has, err := s.repo.AdminExists(context.Background())
+	s.NoError(err)
+	s.True(has)
+
+	s.prepareDatabase(true) // clear-data only: no roles, no users
+	has, err = s.repo.AdminExists(context.Background())
+	s.NoError(err)
+	s.False(has)
+}
+
+// A disabled admin membership does not count: the service is still without a
+// usable administrator, so the bootstrap must run.
+func (s *UserRepositorySuite) TestAdminExistsIgnoresDisabledMembership() {
+	s.prepareDatabase(true, "add-users.sql")
+	ctx := context.Background()
+
+	_, err := s.db.Exec(ctx,
+		`UPDATE golauth_user_role SET enabled = false
+		 WHERE role_id = (SELECT id FROM golauth_role WHERE name = 'ADMIN')`)
+	s.NoError(err)
+
+	has, err := s.repo.AdminExists(ctx)
+	s.NoError(err)
+	s.False(has)
+}
+
 // A missing row is translated to apperr.ErrNotFound (mapped to HTTP 404), not a
 // raw sql.ErrNoRows.
 func (s *UserRepositorySuite) TestFindByIDMissingIsAppErrNotFound() {
