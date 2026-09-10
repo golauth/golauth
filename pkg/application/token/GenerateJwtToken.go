@@ -2,14 +2,15 @@
 package token
 
 import (
-	"crypto/rand"
 	"crypto/rsa"
 	"errors"
 	"fmt"
+	"time"
+
 	"github.com/cristalhq/jwt/v3"
 	"github.com/golauth/golauth/pkg/domain/entity"
 	"github.com/golauth/golauth/pkg/infra/api/controller/model"
-	"time"
+	"github.com/golauth/golauth/pkg/infra/keys"
 )
 
 var (
@@ -24,12 +25,13 @@ type GenerateJwtToken interface {
 	Execute(user *entity.User, authorities []string) (string, error)
 }
 
-func NewGenerateJwtToken(key *rsa.PrivateKey) GenerateJwtToken {
-	return generateJwtToken{signer: GenerateSigner(key)}
+func NewGenerateJwtToken(key *keys.SigningKey) GenerateJwtToken {
+	return generateJwtToken{signer: GenerateSigner(key.Private), kid: key.KID}
 }
 
 type generateJwtToken struct {
 	signer jwt.Signer
+	kid    string
 }
 
 func (uc generateJwtToken) Execute(user *entity.User, authorities []string) (string, error) {
@@ -44,7 +46,10 @@ func (uc generateJwtToken) Execute(user *entity.User, authorities []string) (str
 			ExpiresAt: jwt.NewNumericDate(expirationTime),
 		},
 	}
-	builder := jwt.NewBuilder(uc.signer)
+	// The kid header lets a verifier -- another replica, or an offline
+	// consumer reading the JWKS -- pick the right public key without trying
+	// each one.
+	builder := jwt.NewBuilder(uc.signer, jwt.WithKeyID(uc.kid))
 	tk, err := builder.Build(claims)
 	if err != nil {
 		return "", fmt.Errorf("could not build token with claims: %w", err)
@@ -59,14 +64,6 @@ func GenerateSigner(key *rsa.PrivateKey) jwt.Signer {
 		panic(errSignerGenerate)
 	}
 	return signer
-}
-
-func GeneratePrivateKey() *rsa.PrivateKey {
-	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
-	if err != nil {
-		panic(fmt.Errorf("could not generate private key: %w", err))
-	}
-	return privateKey
 }
 
 func GenerateVerifier(key *rsa.PrivateKey) jwt.Verifier {

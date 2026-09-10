@@ -59,24 +59,62 @@ networks:
 
 ##### Environment Variables
 
-| Env Variable         | Description                                                                               |
-|----------------------|-------------------------------------------------------------------------------------------|
-| DB_HOST              | Database hostname                                                                         |
-| DB_PORT              | Database port                                                                             |
-| DB_NAME              | Database name                                                                             |
-| DB_USERNAME          | Database username                                                                         |
-| DB_PASSWORD          | Database password                                                                         |
-| PORT                 | Application port (default 8080)                                                           |
-| CORS_ALLOWED_ORIGINS | Comma separated browser origins allowed to call the API (default `http://localhost:3000`) |
+| Env Variable             | Description                                                                                                                     |
+|--------------------------|---------------------------------------------------------------------------------------------------------------------------------|
+| DB_HOST                  | Database hostname                                                                                                               |
+| DB_PORT                  | Database port                                                                                                                   |
+| DB_NAME                  | Database name                                                                                                                   |
+| DB_USERNAME              | Database username                                                                                                               |
+| DB_PASSWORD              | Database password                                                                                                               |
+| PORT                     | Application port (default 8080)                                                                                                 |
+| CORS_ALLOWED_ORIGINS     | Comma separated browser origins allowed to call the API (default `http://localhost:3000`)                                       |
+| APP_ENV                  | When `production`, the process refuses to start without a signing key. Unset or `dev` allows an ephemeral key.                  |
+| JWT_PRIVATE_KEY          | RSA private key (PKCS#1 or PKCS#8 PEM, min 2048 bits) used to sign tokens. Inline PEM content.                                  |
+| JWT_PRIVATE_KEY_FILE     | Path to a mounted PEM file, used when `JWT_PRIVATE_KEY` is unset. Preferred for Kubernetes secrets.                             |
+| JWT_PRIVATE_KEY_PREVIOUS | One or more concatenated PEM blocks kept for verification only, so key rotation is a rolling restart rather than a mass logout. |
 
 `CORS_ALLOWED_ORIGINS` no longer defaults to `*`. Set it to the origins of your
 front-ends; a wildcard combined with the `authorization` header would let any
 site drive the API with a token it obtained from a user.
 
+### Signing keys and JWKS
+
+The JWT signing key is supplied by configuration so that it is identical across
+replicas and survives restarts. Resolution order:
+
+1. `JWT_PRIVATE_KEY` — inline PEM content;
+2. `JWT_PRIVATE_KEY_FILE` — path to a mounted PEM file;
+3. nothing set and `APP_ENV` unset or `dev` — an ephemeral key is generated and
+   a warning is logged. Every restart invalidates all outstanding tokens and a
+   second replica cannot verify them;
+4. nothing set and `APP_ENV=production` — the process exits without starting.
+
+Generate a key with:
+
+```bash
+make gen-key > jwt-key.pem
+```
+
+Each key carries a `kid` derived deterministically from its public half, and the
+public keys are served, unauthenticated, at:
+
+```
+GET /auth/.well-known/jwks.json
+```
+
+so any service can verify a token offline.
+
+**Rotation** is a rolling restart: put the new key in `JWT_PRIVATE_KEY` (or its
+file), move the old one into `JWT_PRIVATE_KEY_PREVIOUS`, and restart. Tokens
+signed by the old key keep validating until they expire; new tokens use the new
+key; the JWKS lists both. The first rollout that sets `JWT_PRIVATE_KEY` is a
+one-time mass logout — the last one.
+
 ### Authorization
 
-Only `/auth/token`, `/auth/check_token` and `/auth/signup` are public. Every
-other endpoint requires a `Bearer` token, and the role-management endpoints
+Only `/auth/token`, `/auth/check_token`, `/auth/signup` and
+`/auth/.well-known/jwks.json` are public. Every other endpoint requires a
+`Bearer` token, and the role-management endpoints
 (`/auth/roles*` and `/auth/users/:id/add-role`) additionally require the `ADMIN`
 authority. `GET /auth/users/:id` is available to the user itself or to an admin.
 

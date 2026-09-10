@@ -12,6 +12,7 @@ import (
 	"github.com/golauth/golauth/pkg/domain/factory"
 	"github.com/golauth/golauth/pkg/infra/api/controller"
 	"github.com/golauth/golauth/pkg/infra/api/middleware"
+	"github.com/golauth/golauth/pkg/infra/keys"
 )
 
 const pathPrefix = "/auth"
@@ -29,21 +30,21 @@ type router struct {
 	checkTokenController controller.CheckTokenController
 	userController       controller.UserController
 	roleController       controller.RoleController
+	jwksController       controller.JWKSController
 	validateToken        token.ValidateToken
 }
 
-func NewRouter(repoFactory factory.RepositoryFactory) Router {
+func NewRouter(repoFactory factory.RepositoryFactory, keySet *keys.KeySet) Router {
 	uRepo := repoFactory.NewUserRepository()
 	urRepo := repoFactory.NewUserRoleRepository()
 	uaRepo := repoFactory.NewUserAuthorityRepository()
-	key := token.GeneratePrivateKey()
-	jwtToken := token.NewGenerateJwtToken(key)
+	jwtToken := token.NewGenerateJwtToken(keySet.Current)
 
 	createUser := user.NewCreateUser(repoFactory)
 	findUserById := user.NewFindUserById(uRepo)
 	addUserRole := user.NewAddUserRole(urRepo)
 	generateToken := token.NewGenerateToken(repoFactory, jwtToken)
-	validateToken := token.NewValidateToken(key)
+	validateToken := token.NewValidateToken(keySet)
 
 	return &router{
 		signupController:     controller.NewSignupController(createUser),
@@ -51,6 +52,7 @@ func NewRouter(repoFactory factory.RepositoryFactory) Router {
 		checkTokenController: controller.NewCheckTokenController(validateToken),
 		userController:       controller.NewUserController(findUserById, addUserRole),
 		roleController:       controller.NewRoleController(repoFactory),
+		jwksController:       controller.NewJWKSController(keySet),
 		validateToken:        validateToken,
 	}
 }
@@ -81,6 +83,8 @@ func (r *router) Config() *fiber.App {
 	auth.Get("/signup", r.signupController.CreateUser).Name("signupDeprecated")
 	auth.Post("/token", r.tokenController.Token).Name("token")
 	auth.Get("/check_token", r.checkTokenController.CheckToken).Name("checkToken")
+	// Public: the public signing keys, so any service can verify a token offline.
+	auth.Get("/.well-known/jwks.json", r.jwksController.JWKS).Name("jwks")
 
 	// Authenticated, and authorized per route.
 	auth.Get("/users/:id",
