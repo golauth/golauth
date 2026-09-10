@@ -50,6 +50,7 @@ type RoutesSuite struct {
 	roleRepository          *repomock.MockRoleRepository
 	userRoleRepository      *repomock.MockUserRoleRepository
 	userAuthorityRepository *repomock.MockUserAuthorityRepository
+	loginAttemptRepository  *repomock.MockLoginAttemptRepository
 
 	repoFactory *factorymock.MockRepositoryFactory
 	keySet      *keys.KeySet
@@ -70,6 +71,7 @@ func (s *RoutesSuite) SetupTest() {
 	s.roleRepository = repomock.NewMockRoleRepository(s.ctrl)
 	s.userRoleRepository = repomock.NewMockUserRoleRepository(s.ctrl)
 	s.userAuthorityRepository = repomock.NewMockUserAuthorityRepository(s.ctrl)
+	s.loginAttemptRepository = repomock.NewMockLoginAttemptRepository(s.ctrl)
 
 	repoFactory := factorymock.NewMockRepositoryFactory(s.ctrl)
 	s.repoFactory = repoFactory
@@ -77,6 +79,7 @@ func (s *RoutesSuite) SetupTest() {
 	repoFactory.EXPECT().NewRoleRepository().Return(s.roleRepository).AnyTimes()
 	repoFactory.EXPECT().NewUserRoleRepository().Return(s.userRoleRepository).AnyTimes()
 	repoFactory.EXPECT().NewUserAuthorityRepository().Return(s.userAuthorityRepository).AnyTimes()
+	repoFactory.EXPECT().NewLoginAttemptRepository().Return(s.loginAttemptRepository).AnyTimes()
 
 	s.userID = uuid.New()
 	s.keySet = keys.Generate()
@@ -98,6 +101,7 @@ func (s *RoutesSuite) login(authorities ...string) string {
 		FindAuthoritiesByUserID(gomock.Any(), s.userID).
 		Return(authorities, nil).
 		Times(1)
+	s.loginAttemptRepository.EXPECT().Get(gomock.Any(), s.userID).Return(nil, nil).Times(1)
 
 	body := fmt.Sprintf(`{"username":"admin","password":%q}`, adminPassword)
 	req, _ := http.NewRequest(http.MethodPost, "/auth/token", strings.NewReader(body))
@@ -323,4 +327,54 @@ func (s *RoutesSuite) TestTokenSurvivesPrincipalDeactivation() {
 		Return(&entity.Role{ID: roleID, Name: "ADMIN"}, nil).Times(1)
 
 	s.Equal(http.StatusOK, s.do(http.MethodGet, "/auth/roles/ADMIN", adminToken))
+}
+
+// burstLogin fires n token requests through the real app, applying mutate to
+// each, and returns the status of the last one.
+func (s *RoutesSuite) burstLogin(n int, mutate func(*http.Request)) int {
+	body := fmt.Sprintf(`{"username":"admin","password":%q}`, adminPassword)
+	last := 0
+	for i := 0; i < n; i++ {
+		req, _ := http.NewRequest(http.MethodPost, "/auth/token", strings.NewReader(body))
+		req.Header.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSON)
+		if mutate != nil {
+			mutate(req)
+		}
+		resp, err := s.app.Test(req, fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
+		s.Require().NoError(err)
+		last = resp.StatusCode
+		_ = resp.Body.Close()
+	}
+	return last
+}
+
+// TestTokenEndpointIsRateLimited: with the default limit of 10 per window, the
+// eleventh request in the window is rejected with 429 before the use case runs
+// -- proved by the repository mocks expecting exactly ten calls.
+func (s *RoutesSuite) TestTokenEndpointIsRateLimited() {
+	s.userRepository.EXPECT().FindByUsername(gomock.Any(), "admin").
+		Return(&entity.User{ID: s.userID, Username: "admin", Password: adminPasswordHash, Enabled: true}, nil).Times(10)
+	s.userAuthorityRepository.EXPECT().FindAuthoritiesByUserID(gomock.Any(), s.userID).
+		Return([]string{"USER"}, nil).Times(10)
+	s.loginAttemptRepository.EXPECT().Get(gomock.Any(), s.userID).Return(nil, nil).Times(10)
+
+	s.Equal(http.StatusTooManyRequests, s.burstLogin(11, nil))
+}
+
+// TestForgedForwardedForDoesNotBypassRateLimit: TRUSTED_PROXIES is unset, so
+// X-Forwarded-For is ignored and a new forged client address per request does
+// not buy a fresh limiter bucket.
+func (s *RoutesSuite) TestForgedForwardedForDoesNotBypassRateLimit() {
+	s.userRepository.EXPECT().FindByUsername(gomock.Any(), "admin").
+		Return(&entity.User{ID: s.userID, Username: "admin", Password: adminPasswordHash, Enabled: true}, nil).Times(10)
+	s.userAuthorityRepository.EXPECT().FindAuthoritiesByUserID(gomock.Any(), s.userID).
+		Return([]string{"USER"}, nil).Times(10)
+	s.loginAttemptRepository.EXPECT().Get(gomock.Any(), s.userID).Return(nil, nil).Times(10)
+
+	i := 0
+	status := s.burstLogin(11, func(req *http.Request) {
+		req.Header.Set("X-Forwarded-For", fmt.Sprintf("10.0.0.%d", i))
+		i++
+	})
+	s.Equal(http.StatusTooManyRequests, status)
 }

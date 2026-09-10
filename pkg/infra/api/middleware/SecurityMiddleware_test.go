@@ -49,20 +49,23 @@ func TestSecurityMiddleware(t *testing.T) {
 		userAuthorityRepository := mock3.NewMockUserAuthorityRepository(ctrl)
 		roleRepository := mock3.NewMockRoleRepository(ctrl)
 		userRoleRepository := mock3.NewMockUserRoleRepository(ctrl)
+		loginAttemptRepository := mock3.NewMockLoginAttemptRepository(ctrl)
 
 		repoFactory := mock2.NewMockRepositoryFactory(ctrl)
 		repoFactory.EXPECT().NewUserRepository().Return(userRepository)
 		repoFactory.EXPECT().NewUserAuthorityRepository().Return(userAuthorityRepository)
 		repoFactory.EXPECT().NewRoleRepository().Return(roleRepository)
 		repoFactory.EXPECT().NewUserRoleRepository().Return(userRoleRepository)
+		repoFactory.EXPECT().NewLoginAttemptRepository().Return(loginAttemptRepository)
 
 		userRepository.EXPECT().FindByUsername(gomock.Any(), "admin").Return(&entity.User{Username: username, Password: passwordEncoded, Enabled: true}, nil)
 		userAuthorityRepository.EXPECT().FindAuthoritiesByUserID(gomock.Any(), gomock.Any()).Return([]string{"ADMIN"}, nil)
+		loginAttemptRepository.EXPECT().Get(gomock.Any(), gomock.Any()).Return(nil, nil)
 
 		generateJwtToken := token.NewGenerateJwtToken(ks.Current)
-		generateToken := token.NewGenerateToken(repoFactory, generateJwtToken)
+		generateToken := token.NewGenerateToken(repoFactory, generateJwtToken, token.DefaultLockoutPolicy)
 
-		tk, err := generateToken.Execute(context.Background(), username, password)
+		tk, err := generateToken.Execute(context.Background(), username, password, "203.0.113.7")
 		assert.NoError(t, err)
 
 		req, err := http.NewRequest("GET", pathPrefix+"/users/37fe41b4-24bf-4da9-9124-615cc72865a5", nil)

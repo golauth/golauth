@@ -10,4 +10,5 @@ type RepositoryFactory interface {
 	NewUserAuthorityRepository() repository.UserAuthorityRepository
 	NewUserRepository() repository.UserRepository
 	NewUserRoleRepository() repository.UserRoleRepository
+	NewLoginAttemptRepository() repository.LoginAttemptRepository
 }
