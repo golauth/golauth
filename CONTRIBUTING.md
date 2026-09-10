@@ -23,8 +23,9 @@ make lint        # golangci-lint, must be clean
 make test        # go test ./... with the coverage profile
 ```
 
-The integration tests under `pkg/infra/repository/postgres` and `tests/` start
-throwaway Postgres containers with testcontainers, so Docker must be running.
+The integration tests under `internal/infra/repository/postgres` and `tests/`
+start throwaway Postgres containers with testcontainers, so Docker must be
+running.
 
 CI also runs `govulncheck ./...` and enforces a coverage floor; keep both green.
 
@@ -33,10 +34,10 @@ CI also runs `govulncheck ./...` and enforces a coverage floor; keep both green.
 ### Layering
 
 The dependency rule is `domain → application → infra`; an inner layer must not
-import an outer one. `pkg/application` must not import `pkg/infra` at all — this
-is enforced by `TestApplicationDoesNotImportInfra` in
-`pkg/application/layering_test.go`. The route-level authorization model is in
-[`docs/authorization-model.md`](docs/authorization-model.md).
+import an outer one. `internal/application` must not import `internal/infra` at
+all — this is enforced by `TestApplicationDoesNotImportInfra` in
+`internal/application/layering_test.go`. The route-level authorization model is
+in [`docs/authorization-model.md`](docs/authorization-model.md).
 
 ### Constructors
 
@@ -48,8 +49,8 @@ type. Callers depend on the interface; the struct stays private.
 One file per principal type or use case, named after it. Two conventions are in
 use and each package must pick one and stay uniform:
 
-- `pkg/domain/entity` uses **lowerCamelCase** after the type: `refreshToken.go`,
-  `loginAttempt.go`, `user.go`.
+- `internal/domain/entity` uses **lowerCamelCase** after the type:
+  `refreshToken.go`, `loginAttempt.go`, `user.go`.
 - Everywhere else uses **PascalCase** matching the type or use case:
   `RefreshAccessToken.go`, `UserRepository.go`, `HealthController.go`.
 
@@ -59,30 +60,18 @@ Do not mix them within a package. When in doubt, match the files already there.
 
 Entities may carry small, pure behaviours that name an invariant
 (`func (u *User) IsActive() bool`). Request/response shapes and transport
-concerns belong in `pkg/infra/api/controller/model`, not in `entity`.
+concerns belong in `internal/infra/api/controller/model`, not in `entity`.
 
-## `pkg/` versus `internal/`
-
-**Decision: the tree stays under `pkg/` for now.**
+## `internal/`, not `pkg/`
 
 golauth is a deployable service (`cmd/api`), not a library, and nothing outside
-this module imports it. Go's `internal/` would compiler-enforce that and make
-exposing a public API a deliberate act rather than an accident, which is the
-better end state. It is not done yet only because the rename touches every
-import in ~80 files and would swamp any change it rides along with; it should
-land as its own isolated PR:
+this module imports it. The whole tree therefore lives under `internal/`, so the
+Go toolchain refuses any import of it from another module: exposing a public API
+has to be a deliberate move of code out of `internal/`, never an accident.
 
-```sh
-git mv pkg internal
-grep -rl 'golauth/golauth/pkg/' --include='*.go' . \
-  | xargs sed -i 's#golauth/golauth/pkg/#golauth/golauth/internal/#g'
-# update the two prefixes in pkg/application/layering_test.go
-make mock && make test
-```
+There is no stable public API. Do not add a `pkg/` directory back without a
+concrete external consumer and a versioning commitment to go with it.
 
-Until then, treat everything under `pkg/` as private to this module. There is no
-stable public API.
-
-`tests/postgrescontainer.go` is a non-test helper package sitting next to the
-root integration tests. When the move above happens it should become
-`internal/testsupport` so a consumer of the module cannot import it.
+`internal/testsupport` (the testcontainers Postgres helper) is under `internal/`
+for the same reason — it is wiring for this module's own tests, not something a
+consumer should be able to pull in.

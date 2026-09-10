@@ -13,6 +13,7 @@ import (
 	"github.com/golang-migrate/migrate/v4"
 	migratepg "github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
+	"github.com/golauth/golauth/internal/testsupport"
 	_ "github.com/lib/pq"
 	"github.com/stretchr/testify/require"
 )
@@ -61,9 +62,9 @@ func TestNoMigrationSeedsACredential(t *testing.T) {
 // TestMigrationsFullDownUpCycle proves every migration has a working down path:
 // apply all, roll all back, apply all again, against a real container.
 func TestMigrationsFullDownUpCycle(t *testing.T) {
-	ctx, err := ContainerDBStart("./..")
+	ctx, err := testsupport.ContainerDBStart("./..")
 	require.NoError(t, err)
-	defer ContainerDBStop(ctx)
+	defer testsupport.ContainerDBStop(ctx)
 
 	db, err := sql.Open("postgres", dsnFromEnv())
 	require.NoError(t, err)
