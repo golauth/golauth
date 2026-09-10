@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	"github.com/gofiber/fiber/v3"
-	"github.com/golauth/golauth/pkg/infra/api/controller/model"
+	"github.com/golauth/golauth/pkg/application/token/claims"
 )
 
 // AdminAuthority is the authority granted by the ADMIN role, as seeded by the
@@ -17,8 +17,8 @@ const AdminAuthority = "ADMIN"
 // role-management routes remain a privilege-escalation sink.
 func RequireAuthority(authority string) fiber.Handler {
 	return func(ctx fiber.Ctx) error {
-		claims, ok := ClaimsFromContext(ctx)
-		if !ok || !hasAuthority(claims, authority) {
+		c, ok := ClaimsFromContext(ctx)
+		if !ok || !hasAuthority(c, authority) {
 			return fiber.NewError(http.StatusForbidden, "insufficient authority")
 		}
 		return ctx.Next()
@@ -30,22 +30,22 @@ func RequireAuthority(authority string) fiber.Handler {
 // read from the named route parameter.
 func RequireSelfOrAuthority(param string, authority string) fiber.Handler {
 	return func(ctx fiber.Ctx) error {
-		claims, ok := ClaimsFromContext(ctx)
+		c, ok := ClaimsFromContext(ctx)
 		if !ok {
 			return fiber.NewError(http.StatusForbidden, "insufficient authority")
 		}
-		if claims.Subject != "" && claims.Subject == ctx.Params(param) {
+		if c.Subject != "" && c.Subject == ctx.Params(param) {
 			return ctx.Next()
 		}
-		if hasAuthority(claims, authority) {
+		if hasAuthority(c, authority) {
 			return ctx.Next()
 		}
 		return fiber.NewError(http.StatusForbidden, "insufficient authority")
 	}
 }
 
-func hasAuthority(claims *model.Claims, authority string) bool {
-	for _, a := range claims.Authorities {
+func hasAuthority(c *claims.Claims, authority string) bool {
+	for _, a := range c.Authorities {
 		if a == authority {
 			return true
 		}

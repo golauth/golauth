@@ -7,8 +7,8 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/golauth/golauth/pkg/application/token"
+	"github.com/golauth/golauth/pkg/application/token/claims"
 	"github.com/golauth/golauth/pkg/infra/api/apictx"
-	"github.com/golauth/golauth/pkg/infra/api/controller/model"
 )
 
 // ClaimsFromContext returns the claims published by SecurityMiddleware for the
@@ -18,7 +18,7 @@ import (
 //
 // It forwards to apictx.ClaimsFromContext, which owns the Locals key so that
 // controllers can read the claims without importing this package.
-func ClaimsFromContext(ctx fiber.Ctx) (*model.Claims, bool) {
+func ClaimsFromContext(ctx fiber.Ctx) (*claims.Claims, bool) {
 	return apictx.ClaimsFromContext(ctx)
 }
 

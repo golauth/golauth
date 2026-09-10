@@ -6,7 +6,7 @@ package apictx
 
 import (
 	"github.com/gofiber/fiber/v3"
-	"github.com/golauth/golauth/pkg/infra/api/controller/model"
+	"github.com/golauth/golauth/pkg/application/token/claims"
 )
 
 // claimsKey is the Locals key for the current request's validated claims. The
@@ -16,15 +16,15 @@ type claimsKey struct{}
 
 // SetClaims publishes the validated claims of the current request. Only the
 // authentication middleware should call it.
-func SetClaims(ctx fiber.Ctx, claims *model.Claims) {
-	ctx.Locals(claimsKey{}, claims)
+func SetClaims(ctx fiber.Ctx, c *claims.Claims) {
+	ctx.Locals(claimsKey{}, c)
 }
 
 // ClaimsFromContext returns the claims published by the authentication
 // middleware. The second result is false when the request never went through
 // authentication, which authorization code must treat as a denial rather than
 // as an anonymous-but-allowed request.
-func ClaimsFromContext(ctx fiber.Ctx) (*model.Claims, bool) {
-	claims, ok := ctx.Locals(claimsKey{}).(*model.Claims)
-	return claims, ok && claims != nil
+func ClaimsFromContext(ctx fiber.Ctx) (*claims.Claims, bool) {
+	c, ok := ctx.Locals(claimsKey{}).(*claims.Claims)
+	return c, ok && c != nil
 }

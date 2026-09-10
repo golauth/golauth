@@ -8,9 +8,9 @@ import (
 	"time"
 
 	"github.com/cristalhq/jwt/v3"
+	"github.com/golauth/golauth/pkg/application/keys"
+	"github.com/golauth/golauth/pkg/application/token/claims"
 	"github.com/golauth/golauth/pkg/domain/entity"
-	"github.com/golauth/golauth/pkg/infra/api/controller/model"
-	"github.com/golauth/golauth/pkg/infra/keys"
 )
 
 var (
@@ -42,7 +42,7 @@ type generateJwtToken struct {
 
 func (uc generateJwtToken) Execute(user *entity.User, authorities []string) (string, error) {
 	expirationTime := time.Now().Add(uc.accessTTL)
-	claims := &model.Claims{
+	c := &claims.Claims{
 		Username:    user.Username,
 		FirstName:   user.FirstName,
 		LastName:    user.LastName,
@@ -56,7 +56,7 @@ func (uc generateJwtToken) Execute(user *entity.User, authorities []string) (str
 	// consumer reading the JWKS -- pick the right public key without trying
 	// each one.
 	builder := jwt.NewBuilder(uc.signer, jwt.WithKeyID(uc.kid))
-	tk, err := builder.Build(claims)
+	tk, err := builder.Build(c)
 	if err != nil {
 		return "", fmt.Errorf("could not build token with claims: %w", err)
 	}

@@ -10,7 +10,6 @@ import (
 	"github.com/golauth/golauth/pkg/domain/entity"
 	factoryMock "github.com/golauth/golauth/pkg/domain/factory/mock"
 	repoMock "github.com/golauth/golauth/pkg/domain/repository/mock"
-	"github.com/golauth/golauth/pkg/infra/api/controller/model"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -40,9 +39,6 @@ type GenerateTokenSuite struct {
 
 	ctx           context.Context
 	generateToken GenerateToken
-
-	mockUser      model.CreateUserRequest
-	mockSavedUser entity.User
 }
 
 func TestGenerateToken(t *testing.T) {
@@ -70,26 +66,6 @@ func (s *GenerateTokenSuite) SetupTest() {
 
 	s.ctx = context.Background()
 	s.generateToken = NewGenerateToken(s.repoFactory, s.jwtToken, DefaultLockoutPolicy, DefaultConfig())
-
-	s.mockUser = model.CreateUserRequest{
-		Username:  "admin",
-		FirstName: "User",
-		LastName:  "Name",
-		Email:     "em@il.com",
-		Document:  "1234",
-		Password:  "4567",
-	}
-	s.mockSavedUser = entity.User{
-		ID:           uuid.New(),
-		Username:     "admin",
-		FirstName:    "User",
-		LastName:     "Name",
-		Email:        "em@il.com",
-		Document:     "1234",
-		Password:     "4567",
-		Enabled:      true,
-		CreationDate: time.Now(),
-	}
 }
 
 func (s *GenerateTokenSuite) TearDownTest() {

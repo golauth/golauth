@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	"github.com/gofiber/fiber/v3"
-	"github.com/golauth/golauth/pkg/infra/keys"
+	"github.com/golauth/golauth/pkg/application/keys"
 )
 
 // JWKSController publishes the public half of the signing keys as a JWKS

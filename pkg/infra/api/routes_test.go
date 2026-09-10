@@ -11,11 +11,12 @@ import (
 
 	"github.com/cristalhq/jwt/v3"
 	"github.com/gofiber/fiber/v3"
+	"github.com/golauth/golauth/pkg/application/keys"
+	"github.com/golauth/golauth/pkg/application/token/claims"
 	"github.com/golauth/golauth/pkg/domain/entity"
 	factorymock "github.com/golauth/golauth/pkg/domain/factory/mock"
 	repomock "github.com/golauth/golauth/pkg/domain/repository/mock"
 	"github.com/golauth/golauth/pkg/infra/api/controller/model"
-	"github.com/golauth/golauth/pkg/infra/keys"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -354,9 +355,9 @@ func (s *RoutesSuite) TestTokenValidatesOnASecondReplica() {
 	defer func() { _ = resp.Body.Close() }()
 	s.Equal(http.StatusOK, resp.StatusCode)
 
-	var claims model.Claims
-	s.NoError(json.NewDecoder(resp.Body).Decode(&claims))
-	s.Equal(s.userID.String(), claims.Subject, "introspection returns the verified subject")
+	var c claims.Claims
+	s.NoError(json.NewDecoder(resp.Body).Decode(&c))
+	s.Equal(s.userID.String(), c.Subject, "introspection returns the verified subject")
 }
 
 // TestMeReturnsTheAuthenticatedIdentity: /auth/me is behind the security
@@ -373,11 +374,11 @@ func (s *RoutesSuite) TestMeReturnsTheAuthenticatedIdentity() {
 	defer func() { _ = resp.Body.Close() }()
 	s.Equal(http.StatusOK, resp.StatusCode)
 
-	var claims model.Claims
-	s.NoError(json.NewDecoder(resp.Body).Decode(&claims))
-	s.Equal(s.userID.String(), claims.Subject)
-	s.Equal("admin", claims.Username)
-	s.Equal([]string{"USER"}, claims.Authorities)
+	var c claims.Claims
+	s.NoError(json.NewDecoder(resp.Body).Decode(&c))
+	s.Equal(s.userID.String(), c.Subject)
+	s.Equal("admin", c.Username)
+	s.Equal([]string{"USER"}, c.Authorities)
 }
 
 // TestJWKSIsPublicAndMatchesMintedTokens checks the endpoint is reachable

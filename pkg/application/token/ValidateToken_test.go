@@ -2,8 +2,8 @@ package token
 
 import (
 	"fmt"
+	"github.com/golauth/golauth/pkg/application/keys"
 	"github.com/golauth/golauth/pkg/domain/entity"
-	"github.com/golauth/golauth/pkg/infra/keys"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
