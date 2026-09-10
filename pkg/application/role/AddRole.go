@@ -18,7 +18,7 @@ type addRole struct {
 	repo repository.RoleRepository
 }
 
-func NewAddRole(repoFactory factory.RepositoryFactory) *addRole {
+func NewAddRole(repoFactory factory.RepositoryFactory) AddRole {
 	return &addRole{repo: repoFactory.NewRoleRepository()}
 }
 

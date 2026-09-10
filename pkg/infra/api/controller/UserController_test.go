@@ -83,7 +83,7 @@ func (s *UserControllerSuite) TestFindByIDOk() {
 
 func (s *UserControllerSuite) TestAddRoleOk() {
 	userId := uuid.New()
-	userRole := entity.UserRole{RoleID: uuid.New(), UserID: userId, CreationDate: time.Now()}
+	userRole := model.UserRoleRequest{RoleID: uuid.New(), UserID: userId}
 	body, _ := json.Marshal(userRole)
 
 	r, _ := http.NewRequest("POST", fmt.Sprintf("/users/%s/add-role", userId), strings.NewReader(string(body)))
@@ -140,7 +140,7 @@ func (s *UserControllerSuite) TestAddRoleErrSvc() {
 	userId := uuid.New()
 	roleId := uuid.New()
 	errMessage := "could not add role to user"
-	userRole := entity.UserRole{RoleID: roleId, UserID: userId, CreationDate: time.Now()}
+	userRole := model.UserRoleRequest{RoleID: roleId, UserID: userId}
 	body, err := json.Marshal(userRole)
 	s.NoError(err)
 
