@@ -1,0 +1,177 @@
+name: DAST
+on:
+  schedule:
+    # Nightly, off the top of the hour. Deliberately not on pull_request: this
+    # needs Postgres, a booted service, a seeded admin and roughly ten minutes.
+    # On every PR it would be a flaky tax on every change; nightly it is signal.
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  zap:
+    name: ZAP API scan (${{ matrix.persona }})
+    runs-on: ubuntu-24.04
+    strategy:
+      # The two personas answer different questions; one failing should not
+      # hide the other's result.
+      fail-fast: false
+      matrix:
+        # Each persona gets its own job, and therefore its own database and its
+        # own rate-limiter state. Sharing one stack would mean the second scan
+        # runs against data the first one mutated, and against a login endpoint
+        # the first one already throttled.
+        persona: [admin, user]
+
+    services:
+      postgres:
+        image: postgres:14-alpine
+        env:
+          POSTGRES_DB: golauth
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      ADMIN_USER: dast-admin
+      ADMIN_PASSWORD: dast-only-not-a-real-secret-9f2
+      USER_USER: dast-user
+      USER_PASSWORD: dast-only-plain-user-pw-4c8
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # Scan the artefact that ships, not `go run`. Whatever the Dockerfile's
+      # default stage is, that is what production gets and what ZAP sees.
+      - name: Build the image
+        run: docker build -t golauth:dast .
+
+      - name: Start golauth
+        # LOGIN_RATE_LIMIT is raised for this run only. The active scan hammers
+        # POST /auth/token; at the shipped limit every probe after the first few
+        # bounces off the limiter with a 429 and the most security-critical
+        # endpoint in the service ends up untested. The limiter itself is not
+        # DAST's job -- routes_test.go covers it, including the forged
+        # X-Forwarded-For bypass.
+        run: |
+          docker run -d --name golauth --network host \
+            -e DB_HOST=localhost -e DB_PORT=5432 -e DB_NAME=golauth \
+            -e DB_USERNAME=postgres -e DB_PASSWORD=postgres \
+            -e BOOTSTRAP_ADMIN_USER="$ADMIN_USER" \
+            -e BOOTSTRAP_ADMIN_PASSWORD="$ADMIN_PASSWORD" \
+            -e LOGIN_RATE_LIMIT=100000 -e APP_ENV=dev \
+            golauth:dast
+
+      - name: Wait for readiness
+        # /health/ready pings Postgres and checks a signing key is loaded, so it
+        # is the real "can this serve traffic" signal. A sleep here would be a
+        # guess that gets flaky the first time CI is slow.
+        run: |
+          for i in $(seq 1 60); do
+            if [ "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/health/ready)" = "200" ]; then
+              echo "ready after ${i}s"; exit 0
+            fi
+            sleep 1
+          done
+          echo "golauth never became ready"; docker logs golauth; exit 1
+
+      - name: Mint the access token
+        # Minted before the scan starts, never during: the scan saturates the
+        # login endpoint, so a token requested afterwards comes back 429.
+        run: |
+          if [ "${{ matrix.persona }}" = "user" ]; then
+            # A plain account with no roles. This is the persona that matters
+            # for authorization: an admin token can legitimately reach every
+            # route, so only this one can trip a broken-object-level
+            # authorization bug on the ADMIN routes.
+            curl -sf -X POST http://localhost:8080/auth/signup \
+              -H 'Content-Type: application/json' \
+              -d "{\"username\":\"$USER_USER\",\"firstName\":\"Dast\",\"lastName\":\"User\",\"email\":\"dast@example.invalid\",\"document\":\"12345678901\",\"password\":\"$USER_PASSWORD\"}" \
+              > /dev/null
+            u="$USER_USER"; p="$USER_PASSWORD"
+          else
+            u="$ADMIN_USER"; p="$ADMIN_PASSWORD"
+          fi
+          token=$(curl -sf -X POST http://localhost:8080/auth/token \
+            -H 'Content-Type: application/json' \
+            -d "{\"username\":\"$u\",\"password\":\"$p\"}" | jq -r .access_token)
+          if [ -z "$token" ] || [ "$token" = "null" ]; then
+            echo "could not obtain a token for ${{ matrix.persona }}"; docker logs golauth; exit 1
+          fi
+          echo "::add-mask::$token"
+          echo "ZAP_TOKEN=$token" >> "$GITHUB_ENV"
+
+      - name: Run the ZAP API scan
+        # The scan is driven by docs/openapi.yaml, which
+        # TestOpenAPISpecMatchesTheRouter holds to the router's own route table
+        # in both directions -- a route missing from the spec is a route no
+        # scanner ever probes.
+        #
+        # ZAP is run directly rather than through the action so the bearer token
+        # can be injected with a replacer rule, and so the image is pinned by
+        # digest like every other third party in this pipeline.
+        #
+        # `|| true`: the gate below reads the report. zap-api-scan's own exit
+        # code conflates warnings with failures.
+        run: |
+          mkdir -p "$PWD/zap-out"
+          cp docs/openapi.yaml "$PWD/zap-out/"
+          cp .zap/rules.tsv "$PWD/zap-out/"
+          chmod -R a+rw "$PWD/zap-out"
+          docker run --rm --network host -v "$PWD/zap-out:/zap/wrk/:rw" \
+            ghcr.io/zaproxy/zaproxy:stable@sha256:781a2bdaea47324e7bab583e2263f21d257b0aee61ed51521a5be45f5f5081ef \
+            zap-api-scan.py \
+              -t /zap/wrk/openapi.yaml -f openapi \
+              -c /zap/wrk/rules.tsv \
+              -J zap-${{ matrix.persona }}.json \
+              -r zap-${{ matrix.persona }}.html \
+              -z "-config replacer.full_list\(0\).description=auth \
+                  -config replacer.full_list\(0\).enabled=true \
+                  -config replacer.full_list\(0\).matchtype=REQ_HEADER \
+                  -config replacer.full_list\(0\).matchstr=Authorization \
+                  -config replacer.full_list\(0\).regex=false \
+                  -config replacer.full_list\(0\).replacement=\"Bearer $ZAP_TOKEN\"" \
+            || true
+
+      - name: Gate on High-risk alerts
+        # Fail on High, record Medium and below. riskcode: 3 High, 2 Medium,
+        # 1 Low, 0 Informational.
+        run: |
+          report="zap-out/zap-${{ matrix.persona }}.json"
+          test -f "$report" || { echo "ZAP produced no report"; exit 1; }
+          python3 - "$report" <<'PY' | tee -a "$GITHUB_STEP_SUMMARY"
+          import json, sys, collections
+          alerts = [a for site in json.load(open(sys.argv[1]))["site"] for a in site["alerts"]]
+          by = collections.Counter(int(a["riskcode"]) for a in alerts)
+          names = {3: "High", 2: "Medium", 1: "Low", 0: "Info"}
+          print("| Risk | Alerts |"); print("| --- | --- |")
+          for code in (3, 2, 1, 0):
+              print(f"| {names[code]} | {by.get(code, 0)} |")
+          high = [a for a in alerts if int(a["riskcode"]) >= 3]
+          for a in high:
+              print(f"\n**HIGH {a['alertRef']}** {a['name']} x{len(a['instances'])}")
+          sys.exit(1 if high else 0)
+          PY
+
+      - name: Show application logs on failure
+        if: failure()
+        run: docker logs golauth
+
+      - name: Upload the ZAP report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: zap-${{ matrix.persona }}
+          path: |
+            zap-out/zap-${{ matrix.persona }}.html
+            zap-out/zap-${{ matrix.persona }}.json
+          if-no-files-found: warn

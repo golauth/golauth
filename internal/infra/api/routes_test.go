@@ -8,6 +8,8 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 
@@ -25,6 +27,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/mock/gomock"
+	"gopkg.in/yaml.v3"
 )
 
 // adminPassword is the plaintext behind adminPasswordHash, matching the seed
@@ -558,4 +561,88 @@ func (s *RoutesSuite) TestForgedForwardedForDoesNotBypassRateLimit() {
 		i++
 	})
 	s.Equal(http.StatusTooManyRequests, status)
+}
+
+// openAPIPath rewrites fiber's `:param` segments into OpenAPI's `{param}`.
+func openAPIPath(p string) string {
+	parts := strings.Split(p, "/")
+	for i, seg := range parts {
+		if strings.HasPrefix(seg, ":") {
+			parts[i] = "{" + strings.TrimPrefix(seg, ":") + "}"
+		}
+	}
+	return strings.Join(parts, "/")
+}
+
+// TestOpenAPISpecMatchesTheRouter holds docs/openapi.yaml to the router's own
+// route table, in both directions.
+//
+// The spec is not just documentation here: it is what drives the nightly DAST
+// scan. A route missing from it is a route no scanner ever probes, and an
+// operation left in it after the route is gone aims the scan at a 404. Both
+// failures produce a clean, green, worthless DAST report -- which is worse than
+// no DAST at all, because it reads like assurance.
+func (s *RoutesSuite) TestOpenAPISpecMatchesTheRouter() {
+	body, err := os.ReadFile("../../../docs/openapi.yaml")
+	s.Require().NoError(err)
+
+	var spec struct {
+		Paths map[string]map[string]any `yaml:"paths"`
+	}
+	s.Require().NoError(yaml.Unmarshal(body, &spec))
+
+	documented := map[string]bool{}
+	for path, item := range spec.Paths {
+		for method := range item {
+			switch m := strings.ToUpper(method); m {
+			case http.MethodGet, http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete:
+				documented[m+" "+path] = true
+			}
+		}
+	}
+
+	registered := map[string]bool{}
+	for _, route := range s.app.GetRoutes(true) {
+		if route.Method == http.MethodHead || route.Method == http.MethodOptions {
+			continue
+		}
+		registered[route.Method+" "+openAPIPath(route.Path)] = true
+	}
+
+	for op := range registered {
+		s.True(documented[op], "%s is registered but missing from docs/openapi.yaml", op)
+	}
+	for op := range documented {
+		s.True(registered[op], "%s is in docs/openapi.yaml but is not a registered route", op)
+	}
+	s.NotEmpty(registered, "no routes were compared; the guard would be vacuous")
+}
+
+// TestSecurityHeadersOnEveryResponse pins the two headers the DAST scan asked
+// for. They are checked on a public 200, an authenticated 200 and an
+// unauthenticated 401 because the middleware sits ahead of recover and the
+// security middleware precisely so a rejection carries them too -- move it
+// below either one and only the happy path stays covered.
+func (s *RoutesSuite) TestSecurityHeadersOnEveryResponse() {
+	cases := []struct {
+		name, method, path, token string
+		wantStatus                int
+	}{
+		{"public probe", http.MethodGet, "/health/live", "", http.StatusOK},
+		{"authenticated", http.MethodGet, "/auth/me", s.login(), http.StatusOK},
+		{"rejected", http.MethodGet, "/auth/me", "", http.StatusUnauthorized},
+	}
+	for _, c := range cases {
+		s.Run(c.name, func() {
+			req := httptest.NewRequest(c.method, c.path, nil)
+			if c.token != "" {
+				req.Header.Set("Authorization", "Bearer "+c.token)
+			}
+			resp, err := s.app.Test(req, fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
+			s.Require().NoError(err)
+			s.Equal(c.wantStatus, resp.StatusCode)
+			s.Equal("nosniff", resp.Header.Get("X-Content-Type-Options"))
+			s.Equal("cross-origin", resp.Header.Get("Cross-Origin-Resource-Policy"))
+		})
+	}
 }
