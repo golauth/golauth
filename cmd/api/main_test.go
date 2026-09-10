@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v3"
-	dbmock "github.com/golauth/golauth/pkg/infra/database/mock"
+	dbmock "github.com/golauth/golauth/internal/infra/database/mock"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 )

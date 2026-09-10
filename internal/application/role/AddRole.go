@@ -1,0 +1,35 @@
+//go:generate mockgen -source AddRole.go -destination mock/AddRole_mock.go -package mock
+package role
+
+import (
+	"context"
+
+	"github.com/golauth/golauth/internal/application/audit"
+	"github.com/golauth/golauth/internal/domain/entity"
+	"github.com/golauth/golauth/internal/domain/factory"
+	"github.com/golauth/golauth/internal/domain/repository"
+)
+
+type AddRole interface {
+	Execute(ctx context.Context, input *entity.Role) (*entity.Role, error)
+}
+
+type addRole struct {
+	repo repository.RoleRepository
+}
+
+func NewAddRole(repoFactory factory.RepositoryFactory) AddRole {
+	return &addRole{repo: repoFactory.NewRoleRepository()}
+}
+
+func (uc addRole) Execute(ctx context.Context, input *entity.Role) (*entity.Role, error) {
+	role, err := uc.repo.Create(ctx, input)
+	if err != nil {
+		return nil, err
+	}
+	audit.Event(ctx, audit.RoleCreated,
+		"role_id", role.ID.String(),
+		"name", role.Name,
+	)
+	return role, nil
+}

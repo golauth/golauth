@@ -3,7 +3,7 @@
 Every route is protected by default. `SecurityMiddleware` runs before any
 handler and rejects an unauthenticated request unless the path is on its public
 allowlist. A route added without a thought is therefore closed, not open — this
-is the invariant the regression test in `pkg/infra/api/routes_test.go`
+is the invariant the regression test in `internal/infra/api/routes_test.go`
 (`TestEveryNonPublicRouteRequiresAuthentication`).
 
 Three levels:
@@ -56,7 +56,7 @@ refuses to boot if it has neither.
 
 ## Keeping this current
 
-The list above mirrors `(*router).Config()` in `pkg/infra/api/routes.go`. The
+The list above mirrors `(*router).Config()` in `internal/infra/api/routes.go`. The
 live route table is `app.GetRoutes(true)`; the route-driven tests in
 `routes_test.go` iterate it, so an unauthenticated route cannot ship silently
 even if this document falls behind.
