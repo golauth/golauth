@@ -43,7 +43,7 @@ func (s *SignupControllerSuite) SetupTest() {
 	s.createUser = userMock.NewMockCreateUser(s.mockCtrl)
 
 	s.ctrl = NewSignupController(s.createUser)
-	s.app = fiber.New()
+	s.app = newErrApp()
 	s.app.Post("/users", s.ctrl.CreateUser)
 }
 
@@ -137,9 +137,13 @@ func (s *SignupControllerSuite) TestCreateUserValidationErrorIsBadRequestWithFie
 	s.Equal(http.StatusBadRequest, resp.StatusCode)
 
 	var body struct {
+		Error struct {
+			Code string `json:"code"`
+		} `json:"error"`
 		Fields []userApp.FieldError `json:"fields"`
 	}
 	s.NoError(json.NewDecoder(resp.Body).Decode(&body))
+	s.Equal("invalid_input", body.Error.Code)
 	s.Len(body.Fields, 2)
 	s.Equal("password", body.Fields[0].Field)
 	s.Equal("must be at least 12 characters", body.Fields[0].Message)
@@ -159,11 +163,14 @@ func (s *SignupControllerSuite) TestCreateUserDuplicateIsConflict() {
 }
 
 func (s *SignupControllerSuite) TestCreateUserErrSvc() {
-	errMessage := "could not create new user"
+	errMessage := "could not create new user: pq: connection refused"
 	s.createUser.EXPECT().Execute(s.ctx, gomock.Any()).Return(nil, errors.New(errMessage)).Times(1)
 
 	resp := s.post(`{"username":"admin","firstName":"User","lastName":"Name","email":"em@il.com","document":"1234","password":"supersecret123"}`)
 	s.Equal(http.StatusInternalServerError, resp.StatusCode)
-	b, _ := io.ReadAll(resp.Body)
-	s.Equal(errMessage, string(b))
+	c, raw := readContract(resp)
+	s.Equal("internal_error", c.Error.Code)
+	s.Equal("internal server error", c.Error.Message)
+	s.NotContains(raw, "pq:")
+	s.NotContains(raw, errMessage)
 }

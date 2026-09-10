@@ -4,6 +4,8 @@ package role
 import (
 	"context"
 	"fmt"
+
+	"github.com/golauth/golauth/pkg/domain/apperr"
 	"github.com/golauth/golauth/pkg/domain/entity"
 	"github.com/golauth/golauth/pkg/domain/repository"
 	"github.com/google/uuid"
@@ -27,10 +29,10 @@ func (uc editRole) Execute(ctx context.Context, id uuid.UUID, input *entity.Role
 		return err
 	}
 	if !exists {
-		return fmt.Errorf("role with id %s does not exists", id)
+		return fmt.Errorf("role %s: %w", id, apperr.ErrNotFound)
 	}
 	if id != input.ID {
-		return fmt.Errorf("path id[%s] and object_id[%s] does not match", id, input.ID)
+		return fmt.Errorf("path id %s and body id %s do not match: %w", id, input.ID, apperr.ErrInvalidInput)
 	}
 	return uc.repo.Edit(ctx, input)
 }

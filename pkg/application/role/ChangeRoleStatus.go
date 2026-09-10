@@ -4,6 +4,8 @@ package role
 import (
 	"context"
 	"fmt"
+
+	"github.com/golauth/golauth/pkg/domain/apperr"
 	"github.com/golauth/golauth/pkg/domain/repository"
 	"github.com/google/uuid"
 )
@@ -26,7 +28,7 @@ func (uc changeRoleStatus) Execute(ctx context.Context, id uuid.UUID, enabled bo
 		return err
 	}
 	if !exists {
-		return fmt.Errorf("role with id %s does not exists", id)
+		return fmt.Errorf("role %s: %w", id, apperr.ErrNotFound)
 	}
 	return uc.repo.ChangeStatus(ctx, id, enabled)
 }

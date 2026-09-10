@@ -272,6 +272,39 @@ Only `/auth/token`, `/auth/token/refresh`, `/auth/check_token`, `/auth/signup` a
 (`/auth/roles*` and `/auth/users/:id/add-role`) additionally require the `ADMIN`
 authority. `GET /auth/users/:id` is available to the user itself or to an admin.
 
+### Error contract
+
+Every failure -- from a handler, a middleware or a panic -- is rendered by a
+single error handler as one JSON shape:
+
+```json
+{ "error": { "code": "not_found", "message": "resource not found", "requestId": "…" } }
+```
+
+`code` is a stable, machine-readable key; `message` is generic prose that never
+contains a driver error, a query fragment or an id. A field-level validation
+failure adds a top-level `fields` array (`[{ "field": "...", "message": "..." }]`).
+
+| Situation | Status | `code` |
+|---|---|---|
+| malformed uuid, unparseable body, mismatched ids | `400` | `invalid_input` |
+| missing / invalid token | `401` | `unauthorized` |
+| authenticated but lacking authority | `403` | `forbidden` |
+| user or role does not exist | `404` | `not_found` |
+| wrong content type on `POST /auth/token` | `405` | `method_not_allowed` |
+| duplicate username, e-mail or role name | `409` | `already_exists` |
+| rate limit exceeded | `429` | `rate_limited` |
+| anything unexpected | `500` | `internal_error` |
+
+A `500` never leaks the cause: the full error is written to the server log,
+keyed by the same `requestId` that is in the body and in the `X-Request-Id`
+response header, so a user reporting a 500 hands over the exact key to find the
+line. An inbound `X-Request-Id` is reused when it is short and non-empty.
+
+> **Upgrading:** error bodies were plain text and several status codes were wrong
+> (a missing resource or a duplicate was `500`). Clients that parsed the text
+> body, or only distinguished `200` from `500`, must move to the shape above.
+
 ### Accessing
 
 Default user is `admin` and password `admin123`. **Change this password before

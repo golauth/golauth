@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"strings"
 	"testing"
@@ -51,7 +50,7 @@ func (s *TokenControllerSuite) SetupTest() {
 	s.logout = mock.NewMockLogout(s.mockCtrl)
 
 	s.ctrl = NewTokenController(s.uRepo, s.uaRepo, s.generateToken, s.refreshAccessToken, s.logout)
-	s.app = fiber.New()
+	s.app = newErrApp()
 	s.app.Post("/token", s.ctrl.Token)
 	s.app.Post("/token/refresh", s.ctrl.Refresh)
 	s.app.Post("/logout", s.ctrl.Logout)
@@ -108,8 +107,9 @@ func (s *TokenControllerSuite) TestTokenJsonNotOk() {
 
 	resp, _ := s.app.Test(r, fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 	s.Equal(http.StatusBadRequest, resp.StatusCode)
-	b, _ := io.ReadAll(resp.Body)
-	s.Contains(string(b), "json decoder error")
+	c, raw := readContract(resp)
+	s.Equal("invalid_input", c.Error.Code)
+	s.NotContains(raw, "json decoder")
 }
 
 func (s *TokenControllerSuite) TestTokenMethodNotAllowed() {
@@ -121,8 +121,9 @@ func (s *TokenControllerSuite) TestTokenMethodNotAllowed() {
 
 	resp, _ := s.app.Test(r, fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 	s.Equal(http.StatusMethodNotAllowed, resp.StatusCode)
-	b, _ := io.ReadAll(resp.Body)
-	s.Equal(ErrContentTypeNotSupported.Error(), string(b))
+	c, _ := readContract(resp)
+	s.Equal("method_not_allowed", c.Error.Code)
+	s.Equal(ErrContentTypeNotSupported.Error(), c.Error.Message)
 }
 
 func (s *TokenControllerSuite) TestTokenErrParseForm() {
@@ -131,8 +132,8 @@ func (s *TokenControllerSuite) TestTokenErrParseForm() {
 
 	resp, _ := s.app.Test(r, fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 	s.Equal(http.StatusBadRequest, resp.StatusCode)
-	b, _ := io.ReadAll(resp.Body)
-	s.Contains(string(b), ErrMissingBodyData.Error())
+	c, _ := readContract(resp)
+	s.Equal("invalid_input", c.Error.Code)
 }
 
 func (s *TokenControllerSuite) TestTokenErrGenerateToken() {
@@ -146,6 +147,9 @@ func (s *TokenControllerSuite) TestTokenErrGenerateToken() {
 
 	resp, _ := s.app.Test(r, fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 	s.Equal(http.StatusUnauthorized, resp.StatusCode)
+	c, raw := readContract(resp)
+	s.Equal("unauthorized", c.Error.Code)
+	s.NotContains(raw, "could not find user")
 }
 
 func (s *TokenControllerSuite) postJSON(path, body string) *http.Response {
@@ -175,8 +179,8 @@ func (s *TokenControllerSuite) TestRefreshOk() {
 func (s *TokenControllerSuite) TestRefreshMissingToken() {
 	resp := s.postJSON("/token/refresh", `{}`)
 	s.Equal(http.StatusBadRequest, resp.StatusCode)
-	b, _ := io.ReadAll(resp.Body)
-	s.Contains(string(b), "missing refresh_token")
+	c, _ := readContract(resp)
+	s.Equal("invalid_input", c.Error.Code)
 }
 
 func (s *TokenControllerSuite) TestRefreshInvalidTokenIsUnauthorized() {
@@ -186,6 +190,9 @@ func (s *TokenControllerSuite) TestRefreshInvalidTokenIsUnauthorized() {
 
 	resp := s.postJSON("/token/refresh", `{"refresh_token":"bad"}`)
 	s.Equal(http.StatusUnauthorized, resp.StatusCode)
+	c, raw := readContract(resp)
+	s.Equal("unauthorized", c.Error.Code)
+	s.NotContains(raw, "invalid refresh token")
 }
 
 func (s *TokenControllerSuite) TestLogoutRevokesPresentedToken() {

@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"context"
+	"github.com/golauth/golauth/pkg/domain/apperr"
 	"github.com/golauth/golauth/pkg/domain/entity"
 	"github.com/golauth/golauth/pkg/domain/repository"
 	"github.com/golauth/golauth/pkg/infra/database"
@@ -71,6 +72,20 @@ func (s *UserRepositorySuite) TestFindUserWithPassword() {
 	s.NotNil(u)
 	s.Equal("admin", u.Username)
 	s.NotEmpty(u.Password)
+}
+
+// A missing row is translated to apperr.ErrNotFound (mapped to HTTP 404), not a
+// raw sql.ErrNoRows.
+func (s *UserRepositorySuite) TestFindByIDMissingIsAppErrNotFound() {
+	s.prepareDatabase(true, "add-users.sql")
+	_, err := s.repo.FindByID(context.Background(), uuid.New())
+	s.ErrorIs(err, apperr.ErrNotFound)
+}
+
+func (s *UserRepositorySuite) TestFindByUsernameMissingIsAppErrNotFound() {
+	s.prepareDatabase(true, "add-users.sql")
+	_, err := s.repo.FindByUsername(context.Background(), "nobody")
+	s.ErrorIs(err, apperr.ErrNotFound)
 }
 
 func (s *UserRepositorySuite) TestFindUserByIdWithoutPassword() {

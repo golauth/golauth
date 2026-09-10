@@ -7,17 +7,16 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/golauth/golauth/pkg/application/token"
+	"github.com/golauth/golauth/pkg/domain/apperr"
 	"github.com/golauth/golauth/pkg/domain/repository"
 	"github.com/golauth/golauth/pkg/infra/api/apictx"
 	"github.com/golauth/golauth/pkg/infra/api/controller/model"
 	"github.com/google/uuid"
 )
 
-var (
-	ErrContentTypeNotSupported = errors.New("content-type not supported")
-	ErrMissingBodyData         = errors.New("missing body data")
-	ErrMissingRefreshToken     = errors.New("missing refresh_token")
-)
+// ErrContentTypeNotSupported is the fixed message for a login attempt with an
+// unusable content type. It is a 405.
+var ErrContentTypeNotSupported = errors.New("content-type not supported")
 
 type TokenController interface {
 	Token(ctx fiber.Ctx) error
@@ -58,24 +57,26 @@ func (s tokenController) Token(ctx fiber.Ctx) error {
 	}
 
 	if err := ctx.Bind().Body(&userLogin); err != nil {
-		return fiber.NewError(http.StatusBadRequest, fmt.Sprintf("json decoder error: %v", err))
+		return fmt.Errorf("invalid request body: %w", apperr.ErrInvalidInput)
 	}
 
 	if userLogin == (model.UserLoginRequest{}) {
-		return fiber.NewError(http.StatusBadRequest, ErrMissingBodyData.Error())
+		return fmt.Errorf("missing credentials: %w", apperr.ErrInvalidInput)
 	}
 
 	clientIP, userAgent := ctx.IP(), ctx.Get("User-Agent")
 	output, err := s.generateToken.Execute(ctx.Context(), userLogin.Username, userLogin.Password, clientIP, userAgent)
 	if err != nil {
-		return fiber.NewError(http.StatusUnauthorized)
+		// Deliberately vague: an unknown user and a wrong password are
+		// indistinguishable in the response.
+		return fmt.Errorf("invalid credentials: %w", apperr.ErrUnauthorized)
 	}
 
 	return ctx.Status(http.StatusOK).JSON(model.NewTokenResponseFromEntity(output))
 }
 
 // Refresh is public: it takes an opaque refresh token, rotates it and returns a
-// new pair. Every failure is a flat 401 with no body.
+// new pair. Every failure is a flat 401.
 func (s tokenController) Refresh(ctx fiber.Ctx) error {
 	req, err := bindRefreshToken(ctx)
 	if err != nil {
@@ -83,7 +84,7 @@ func (s tokenController) Refresh(ctx fiber.Ctx) error {
 	}
 	output, err := s.refreshAccessToken.Execute(ctx.Context(), req.RefreshToken, ctx.IP(), ctx.Get("User-Agent"))
 	if err != nil {
-		return fiber.NewError(http.StatusUnauthorized)
+		return fmt.Errorf("invalid refresh token: %w", apperr.ErrUnauthorized)
 	}
 	return ctx.Status(http.StatusOK).JSON(model.NewTokenResponseFromEntity(output))
 }
@@ -97,7 +98,7 @@ func (s tokenController) Logout(ctx fiber.Ctx) error {
 		return err
 	}
 	if err := s.logout.Session(ctx.Context(), req.RefreshToken); err != nil {
-		return fiber.NewError(http.StatusInternalServerError, "could not revoke refresh token")
+		return err
 	}
 	return ctx.SendStatus(http.StatusNoContent)
 }
@@ -107,14 +108,14 @@ func (s tokenController) Logout(ctx fiber.Ctx) error {
 func (s tokenController) LogoutAll(ctx fiber.Ctx) error {
 	claims, ok := apictx.ClaimsFromContext(ctx)
 	if !ok {
-		return fiber.NewError(http.StatusUnauthorized)
+		return fmt.Errorf("no authenticated principal: %w", apperr.ErrUnauthorized)
 	}
 	userID, err := uuid.Parse(claims.Subject)
 	if err != nil {
-		return fiber.NewError(http.StatusUnauthorized)
+		return fmt.Errorf("token subject is not a uuid: %w", apperr.ErrUnauthorized)
 	}
 	if err := s.logout.AllSessions(ctx.Context(), userID); err != nil {
-		return fiber.NewError(http.StatusInternalServerError, "could not revoke refresh tokens")
+		return err
 	}
 	return ctx.SendStatus(http.StatusNoContent)
 }
@@ -122,10 +123,10 @@ func (s tokenController) LogoutAll(ctx fiber.Ctx) error {
 func bindRefreshToken(ctx fiber.Ctx) (model.RefreshTokenRequest, error) {
 	var req model.RefreshTokenRequest
 	if err := ctx.Bind().Body(&req); err != nil {
-		return req, fiber.NewError(http.StatusBadRequest, fmt.Sprintf("json decoder error: %v", err))
+		return req, fmt.Errorf("invalid request body: %w", apperr.ErrInvalidInput)
 	}
 	if req.RefreshToken == "" {
-		return req, fiber.NewError(http.StatusBadRequest, ErrMissingRefreshToken.Error())
+		return req, fmt.Errorf("missing refresh_token: %w", apperr.ErrInvalidInput)
 	}
 	return req, nil
 }

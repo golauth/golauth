@@ -14,6 +14,7 @@ import (
 	"github.com/golauth/golauth/pkg/application/user"
 	"github.com/golauth/golauth/pkg/domain/factory"
 	"github.com/golauth/golauth/pkg/infra/api/controller"
+	"github.com/golauth/golauth/pkg/infra/api/httperr"
 	"github.com/golauth/golauth/pkg/infra/api/middleware"
 	"github.com/golauth/golauth/pkg/infra/keys"
 	"github.com/sirupsen/logrus"
@@ -73,6 +74,9 @@ func (r *router) Config() *fiber.App {
 	proxies := csvEnv("TRUSTED_PROXIES")
 	app := fiber.New(fiber.Config{
 		AppName: os.Getenv("APP_NAME"),
+		// One error contract for the whole API: every handler and middleware
+		// returns a plain error and this decides the status and the body.
+		ErrorHandler: httperr.Handler,
 		// X-Forwarded-For is honoured only when the peer is one of these; without
 		// this the header is attacker controlled and the login limiter, which
 		// keys on client IP, is bypassed by simply sending a new value each time.
@@ -86,6 +90,10 @@ func (r *router) Config() *fiber.App {
 	// Registering them first also makes a newly added route protected by
 	// default: SecurityMiddleware opts paths out through its public allowlist,
 	// never the other way around.
+	//
+	// RequestID is first so even a panic or an auth rejection carries a
+	// correlation id into the error body and the log.
+	app.Use(middleware.RequestID())
 	app.Use(recover.New())
 	app.Use(cors.New(cors.Config{
 		AllowOrigins: allowedOrigins(),

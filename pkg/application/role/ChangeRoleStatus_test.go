@@ -3,7 +3,7 @@ package role
 import (
 	"context"
 	"errors"
-	"fmt"
+	"github.com/golauth/golauth/pkg/domain/apperr"
 	"github.com/golauth/golauth/pkg/domain/repository/mock"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
@@ -47,11 +47,9 @@ func (s *ChangeRoleStatusSuite) TestChangeStatusOk() {
 
 func (s *ChangeRoleStatusSuite) TestChangeStatusIdNotExists() {
 	roleId := uuid.New()
-	errMessage := fmt.Sprintf("role with id %s does not exists", roleId)
 	s.repo.EXPECT().ExistsById(s.ctx, roleId).Return(false, nil).Times(1)
 	err := s.changeRoleStatus.Execute(s.ctx, roleId, false)
-	s.Error(err)
-	s.EqualError(err, errMessage)
+	s.ErrorIs(err, apperr.ErrNotFound)
 }
 
 func (s *ChangeRoleStatusSuite) TestChangeStatusExistsErr() {

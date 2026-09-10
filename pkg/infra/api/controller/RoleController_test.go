@@ -4,13 +4,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/gofiber/fiber/v3"
+	"github.com/golauth/golauth/pkg/domain/apperr"
 	"github.com/golauth/golauth/pkg/domain/entity"
 	factoryMock "github.com/golauth/golauth/pkg/domain/factory/mock"
 	repoMock "github.com/golauth/golauth/pkg/domain/repository/mock"
@@ -43,7 +43,7 @@ func (s *RoleControllerSuite) SetupTest() {
 	s.repoFactory.EXPECT().NewRoleRepository().AnyTimes().Return(s.roleRepo)
 
 	s.rc = NewRoleController(s.repoFactory)
-	s.app = fiber.New()
+	s.app = newErrApp()
 	s.app.Post("/roles", s.rc.Create)
 	s.app.Put("/roles/:id", s.rc.Edit)
 	s.app.Patch("/roles/:id/change-status", s.rc.ChangeStatus)
@@ -68,6 +68,17 @@ func (s *RoleControllerSuite) TestCreateRoleOk() {
 	var result model.RoleResponse
 	_ = json.NewDecoder(resp.Body).Decode(&result)
 	s.NotZero(result.ID)
+}
+
+// An unparseable body is 400 invalid_input, not the old 500.
+func (s *RoleControllerSuite) TestCreateRoleBadBody() {
+	r, _ := http.NewRequest("POST", "/roles", strings.NewReader("{not json"))
+	r.Header.Set("Content-Type", "application/json")
+
+	resp, _ := s.app.Test(r, fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
+	s.Equal(http.StatusBadRequest, resp.StatusCode)
+	c, _ := readContract(resp)
+	s.Equal("invalid_input", c.Error.Code)
 }
 
 func (s *RoleControllerSuite) TestEditRoleOk() {
@@ -107,9 +118,10 @@ func (s *RoleControllerSuite) TestEditRoleErrParseUUID() {
 	r.Header.Set("Content-Type", "application/json")
 
 	resp, _ := s.app.Test(r, fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
-	s.Equal(http.StatusInternalServerError, resp.StatusCode)
-	b, _ := io.ReadAll(resp.Body)
-	s.Contains(string(b), "invalid UUID length")
+	s.Equal(http.StatusBadRequest, resp.StatusCode)
+	c, raw := readContract(resp)
+	s.Equal("invalid_input", c.Error.Code)
+	s.NotContains(raw, "invalid UUID length")
 }
 
 func (s *RoleControllerSuite) TestEditRoleNotOk() {
@@ -130,8 +142,25 @@ func (s *RoleControllerSuite) TestEditRoleNotOk() {
 
 	resp, _ := s.app.Test(r, fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 	s.Equal(http.StatusInternalServerError, resp.StatusCode)
-	b, _ := io.ReadAll(resp.Body)
-	s.Contains(string(b), errMessage)
+	c, raw := readContract(resp)
+	s.Equal("internal_error", c.Error.Code)
+	s.NotContains(raw, errMessage)
+}
+
+// A missing role (apperr.ErrNotFound from the use case) is 404, not 500.
+func (s *RoleControllerSuite) TestEditRoleNotFound() {
+	roleId := uuid.New()
+	role := model.RoleRequest{ID: roleId, Name: "X", Description: "Y"}
+	body, _ := json.Marshal(role)
+	r, _ := http.NewRequest("PUT", fmt.Sprintf("/roles/%s", roleId), strings.NewReader(string(body)))
+	r.Header.Set("Content-Type", "application/json")
+
+	s.roleRepo.EXPECT().ExistsById(r.Context(), roleId).Return(false, nil).Times(1)
+
+	resp, _ := s.app.Test(r, fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
+	s.Equal(http.StatusNotFound, resp.StatusCode)
+	c, _ := readContract(resp)
+	s.Equal("not_found", c.Error.Code)
 }
 
 func (s *RoleControllerSuite) TestChangeStatusOk() {
@@ -158,6 +187,8 @@ func (s *RoleControllerSuite) TestChangeStatusErrParseUUID() {
 
 	resp, _ := s.app.Test(r, fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 	s.Equal(http.StatusBadRequest, resp.StatusCode)
+	c, _ := readContract(resp)
+	s.Equal("invalid_input", c.Error.Code)
 }
 
 func (s *RoleControllerSuite) TestChangeStatusErrSvc() {
@@ -174,8 +205,9 @@ func (s *RoleControllerSuite) TestChangeStatusErrSvc() {
 
 	resp, _ := s.app.Test(r, fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 	s.Equal(http.StatusInternalServerError, resp.StatusCode)
-	b, _ := io.ReadAll(resp.Body)
-	s.Contains(string(b), errMessage)
+	c, raw := readContract(resp)
+	s.Equal("internal_error", c.Error.Code)
+	s.NotContains(raw, errMessage)
 }
 
 func (s *RoleControllerSuite) TestFindByNameOk() {
@@ -205,7 +237,7 @@ func (s *RoleControllerSuite) TestFindByNameOk() {
 
 func (s *RoleControllerSuite) TestFindByNameErrSvc() {
 	roleName := "ROLE_NAME"
-	errMessage := "could not find role by name"
+	errMessage := "could not find role by name: pq: timeout"
 
 	r, _ := http.NewRequest("GET", fmt.Sprintf("/roles/%s", roleName), nil)
 	r.Header.Set("Content-Type", "application/json")
@@ -215,6 +247,23 @@ func (s *RoleControllerSuite) TestFindByNameErrSvc() {
 	resp, _ := s.app.Test(r, fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 
 	s.Equal(http.StatusInternalServerError, resp.StatusCode)
-	b, _ := io.ReadAll(resp.Body)
-	s.Contains(string(b), errMessage)
+	c, raw := readContract(resp)
+	s.Equal("internal_error", c.Error.Code)
+	s.NotContains(raw, "pq:")
+	s.NotContains(raw, errMessage)
+}
+
+// A role the repository does not have (apperr.ErrNotFound) is 404.
+func (s *RoleControllerSuite) TestFindByNameNotFound() {
+	roleName := "GHOST"
+	r, _ := http.NewRequest("GET", fmt.Sprintf("/roles/%s", roleName), nil)
+	r.Header.Set("Content-Type", "application/json")
+
+	s.roleRepo.EXPECT().FindByName(r.Context(), roleName).
+		Return(nil, fmt.Errorf("role %q: %w", roleName, apperr.ErrNotFound)).Times(1)
+
+	resp, _ := s.app.Test(r, fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
+	s.Equal(http.StatusNotFound, resp.StatusCode)
+	c, _ := readContract(resp)
+	s.Equal("not_found", c.Error.Code)
 }

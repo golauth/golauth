@@ -2,7 +2,7 @@ package postgres
 
 import (
 	"context"
-	"errors"
+	"github.com/golauth/golauth/pkg/domain/apperr"
 	"github.com/golauth/golauth/pkg/domain/entity"
 	"github.com/golauth/golauth/pkg/domain/repository"
 	"github.com/golauth/golauth/pkg/infra/database"
@@ -105,18 +105,14 @@ func (s *RoleRepositorySuite) TestRoleRepositoryEditIdNotFound() {
 		CreationDate: time.Now(),
 	}
 	err := s.repo.Edit(context.Background(), r)
-	s.Error(err)
-	expectedErr := errors.New("no rows affected")
-	s.ErrorAs(err, &expectedErr)
+	s.ErrorIs(err, apperr.ErrNotFound)
 }
 
 func (s *RoleRepositorySuite) TestRoleRepositoryFindByNameNotFound() {
 	s.prepareDatabase(true)
 	role, err := s.repo.FindByName(context.Background(), "USER")
 	s.Empty(role)
-	s.NotNil(err)
-	expectedErr := errors.New("could not find role USER")
-	s.ErrorAs(err, &expectedErr)
+	s.ErrorIs(err, apperr.ErrNotFound)
 }
 
 func (s *RoleRepositorySuite) TestRoleRepositoryCreateDuplicatedRole() {
@@ -129,9 +125,7 @@ func (s *RoleRepositorySuite) TestRoleRepositoryCreateDuplicatedRole() {
 	}
 	role, err := s.repo.Create(context.Background(), r)
 	s.Empty(role)
-	s.NotNil(err)
-	expectedErr := errors.New("could not create role USER")
-	s.ErrorAs(err, &expectedErr)
+	s.ErrorIs(err, apperr.ErrAlreadyExists)
 }
 
 func (s *RoleRepositorySuite) TestRoleRepositoryChangeStatusOk() {

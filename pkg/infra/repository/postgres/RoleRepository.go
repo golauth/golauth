@@ -2,11 +2,15 @@ package postgres
 
 import (
 	"context"
+	"errors"
 	"fmt"
+
+	"github.com/golauth/golauth/pkg/domain/apperr"
 	"github.com/golauth/golauth/pkg/domain/entity"
 	"github.com/golauth/golauth/pkg/domain/repository"
 	"github.com/golauth/golauth/pkg/infra/database"
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 )
 
 type RoleRepositoryPostgres struct {
@@ -21,6 +25,9 @@ func (r RoleRepositoryPostgres) FindByName(ctx context.Context, name string) (*e
 	role := entity.Role{}
 	row := r.db.One(ctx, "SELECT * FROM golauth_role WHERE name = $1", name)
 	err := row.Scan(&role.ID, &role.Name, &role.Description, &role.Enabled, &role.CreationDate)
+	if errors.Is(err, database.ErrNoRows) {
+		return nil, fmt.Errorf("role %q: %w", name, apperr.ErrNotFound)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("could not find role %s: %w", name, err)
 	}
@@ -31,6 +38,10 @@ func (r RoleRepositoryPostgres) Create(ctx context.Context, role *entity.Role) (
 	err := r.db.One(ctx, "INSERT INTO golauth_role (name,description,enabled) VALUES ($1, $2, $3) RETURNING id, creation_date;",
 		role.Name, role.Description, role.Enabled).Scan(&role.ID, &role.CreationDate)
 	if err != nil {
+		var pqErr *pq.Error
+		if errors.As(err, &pqErr) && string(pqErr.Code) == pgUniqueViolation {
+			return nil, fmt.Errorf("role %q: %w", role.Name, apperr.ErrAlreadyExists)
+		}
 		return nil, fmt.Errorf("could not create role %s: %w", role.Name, err)
 	}
 	return role, nil
@@ -48,8 +59,11 @@ func (r RoleRepositoryPostgres) Edit(ctx context.Context, role *entity.Role) err
 	}
 
 	rows, err := res.RowsAffected()
-	if err != nil || rows == 0 {
-		return fmt.Errorf("no rows affected: %w", err)
+	if err != nil {
+		return fmt.Errorf("could not read affected rows: %w", err)
+	}
+	if rows == 0 {
+		return fmt.Errorf("role not found: %w", apperr.ErrNotFound)
 	}
 	return nil
 }
@@ -66,8 +80,11 @@ func (r RoleRepositoryPostgres) ChangeStatus(ctx context.Context, id uuid.UUID, 
 	}
 
 	rows, err := res.RowsAffected()
-	if err != nil || rows == 0 {
-		return fmt.Errorf("no rows affected: %w", err)
+	if err != nil {
+		return fmt.Errorf("could not read affected rows: %w", err)
+	}
+	if rows == 0 {
+		return fmt.Errorf("role not found: %w", apperr.ErrNotFound)
 	}
 	return nil
 }

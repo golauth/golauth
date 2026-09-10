@@ -3,7 +3,7 @@ package role
 import (
 	"context"
 	"errors"
-	"fmt"
+	"github.com/golauth/golauth/pkg/domain/apperr"
 	"github.com/golauth/golauth/pkg/domain/entity"
 	"github.com/golauth/golauth/pkg/domain/repository/mock"
 	"github.com/google/uuid"
@@ -53,7 +53,6 @@ func (s *EditRoleSuite) TestEditOk() {
 
 func (s *EditRoleSuite) TestEditIDNotExists() {
 	roleId := uuid.New()
-	errMessage := fmt.Sprintf("role with id %s does not exists", roleId)
 	input := &entity.Role{
 		ID:          roleId,
 		Name:        "NEW_ROLE",
@@ -61,8 +60,7 @@ func (s *EditRoleSuite) TestEditIDNotExists() {
 	}
 	s.repo.EXPECT().ExistsById(s.ctx, roleId).Return(false, nil).Times(1)
 	err := s.editRole.Execute(s.ctx, roleId, input)
-	s.Error(err)
-	s.EqualError(err, errMessage)
+	s.ErrorIs(err, apperr.ErrNotFound)
 }
 
 func (s *EditRoleSuite) TestEditExistsErr() {
@@ -82,7 +80,6 @@ func (s *EditRoleSuite) TestEditExistsErr() {
 func (s *EditRoleSuite) TestEditErrIdNotMatch() {
 	roleId := uuid.New()
 	pathId := uuid.New()
-	errMessage := fmt.Sprintf("path id[%s] and object_id[%s] does not match", pathId, roleId)
 	input := &entity.Role{
 		ID:          roleId,
 		Name:        "NEW_ROLE",
@@ -90,6 +87,5 @@ func (s *EditRoleSuite) TestEditErrIdNotMatch() {
 	}
 	s.repo.EXPECT().ExistsById(s.ctx, pathId).Return(true, nil).Times(1)
 	err := s.editRole.Execute(s.ctx, pathId, input)
-	s.Error(err)
-	s.EqualError(err, errMessage)
+	s.ErrorIs(err, apperr.ErrInvalidInput)
 }
