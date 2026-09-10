@@ -10,7 +10,10 @@ RUN apk add --no-cache git make \
 FROM alpine:3.24 AS dist
 ENV MIGRATION_SOURCE_URL=./migrations
 
-RUN mkdir /app && addgroup -S golauth && adduser -S golauth -G golauth \
+# ca-certificates so DB_SSLMODE=require / verify-full can validate a server cert
+# signed by a public CA (e.g. RDS, Cloud SQL) without a bundled DB_SSLROOTCERT.
+RUN apk add --no-cache ca-certificates \
+    && mkdir /app && addgroup -S golauth && adduser -S golauth -G golauth \
     && chown -R golauth:golauth  /app
 
 USER golauth

@@ -65,7 +65,15 @@ networks:
 | DB_PORT                  | Database port                                                                                                                   |
 | DB_NAME                  | Database name                                                                                                                   |
 | DB_USERNAME              | Database username                                                                                                               |
-| DB_PASSWORD              | Database password                                                                                                               |
+| DB_PASSWORD              | Database password (spaces, quotes and backslashes are handled)                                                                  |
+| DB_SSLMODE               | TLS mode to Postgres: `disable` (current default), `require`, `verify-ca`, `verify-full`. **The default becomes `require` in a following release** — set it explicitly now. |
+| DB_SSLROOTCERT           | PEM bundle to verify the server certificate for `verify-ca` / `verify-full`.                                                     |
+| DB_MAX_OPEN_CONNS        | Max open connections in the pool (default 25).                                                                                   |
+| DB_MAX_IDLE_CONNS        | Max idle connections kept in the pool (default 25).                                                                              |
+| DB_CONN_MAX_LIFETIME     | Max lifetime of a connection, a Go duration (default `30m`).                                                                     |
+| DB_CONN_MAX_IDLE_TIME    | Max idle time before a connection is closed, a Go duration (default `5m`).                                                       |
+| DB_PING_TIMEOUT          | How long the boot waits for the first connection before failing, a Go duration (default `5s`).                                   |
+| RUN_MIGRATIONS           | Run schema migrations at boot (default `true`). Set `false` to run them as a separate job.                                       |
 | PORT                     | Application port (default 8080)                                                                                                 |
 | CORS_ALLOWED_ORIGINS     | Comma separated browser origins allowed to call the API (default `http://localhost:3000`)                                       |
 | APP_ENV                  | When `production`, the process refuses to start without a signing key. Unset or `dev` allows an ephemeral key.                  |
@@ -86,6 +94,26 @@ networks:
 `CORS_ALLOWED_ORIGINS` no longer defaults to `*`. Set it to the origins of your
 front-ends; a wildcard combined with the `authorization` header would let any
 site drive the API with a token it obtained from a user.
+
+### Database connection
+
+The connection string is assembled from quoted key/value pairs, so a
+`DB_PASSWORD` containing a space, a quote or a backslash works.
+
+TLS is controlled by `DB_SSLMODE`, currently defaulting to `disable`.
+**A following release flips the default to `require`**; set `DB_SSLMODE`
+explicitly now if your database does not accept TLS, or point `DB_SSLROOTCERT`
+at a CA bundle for `verify-full`. The runtime image now ships `ca-certificates`,
+so a server certificate from a public CA validates without a bundled root.
+
+The pool is bounded (`DB_MAX_OPEN_CONNS`, default 25) rather than unbounded, so a
+traffic spike no longer opens connections until Postgres refuses them. Idle is
+kept equal to open by default to avoid reconnect churn under steady load.
+
+Boot pings the database under `DB_PING_TIMEOUT` (default `5s`): an unreachable
+database fails the start instead of hanging it. Migrations run at boot unless
+`RUN_MIGRATIONS=false`, in which case run them as a separate job before rolling
+out the new binary.
 
 ### Signing keys and JWKS
 
