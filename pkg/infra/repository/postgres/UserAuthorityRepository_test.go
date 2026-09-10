@@ -95,3 +95,25 @@ func (s *UserAuthorityRepositorySuite) TestFindAuthoritiesExcludesDisabledRoleAn
 	s.NoError(err)
 	s.Empty(a)
 }
+
+// A disabled row in golauth_user_role grants nothing, even when the role and
+// the authority are both enabled. This is the enabled column added in the
+// referential-integrity migration feeding the same WHERE clause.
+func (s *UserAuthorityRepositorySuite) TestFindAuthoritiesExcludesDisabledMembership() {
+	s.prepareDatabase(true, "add-users.sql")
+	ctx := context.Background()
+
+	a, err := s.repo.FindAuthoritiesByUserID(ctx, s.userAdminId)
+	s.NoError(err)
+	s.ElementsMatch([]string{"ADMIN", "USER"}, a)
+
+	_, err = s.db.Exec(ctx,
+		`UPDATE golauth_user_role SET enabled = false
+		 WHERE user_id = $1 AND role_id = (SELECT id FROM golauth_role WHERE name = 'USER')`,
+		s.userAdminId)
+	s.NoError(err)
+
+	a, err = s.repo.FindAuthoritiesByUserID(ctx, s.userAdminId)
+	s.NoError(err)
+	s.Equal([]string{"ADMIN"}, a)
+}
