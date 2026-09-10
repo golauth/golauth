@@ -300,6 +300,18 @@ func (s *RoutesSuite) TestPublicRoutesRemainReachable() {
 		s.Equal(http.StatusCreated, resp.StatusCode)
 	})
 
+	s.Run("signup rejects GET", func() {
+		// The GET variant was removed (Plan 14): credentials must not travel on
+		// a safe, retriable, prefetchable verb. POST still exists on the path,
+		// so fiber answers 405 with an Allow header rather than 404.
+		req, _ := http.NewRequest(http.MethodGet, "/auth/signup", nil)
+		resp, err := s.app.Test(req, fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
+		s.Require().NoError(err)
+		defer func() { _ = resp.Body.Close() }()
+		s.Equal(http.StatusMethodNotAllowed, resp.StatusCode)
+		s.Contains(resp.Header.Get("Allow"), http.MethodPost)
+	})
+
 	s.Run("token", func() {
 		s.NotEmpty(s.login("USER")) // login asserts 200 on the public token route
 	})

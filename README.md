@@ -278,6 +278,12 @@ is an administrative operation. Sending `enabled` is silently ignored.
 A `username` or `email` that already exists returns `409 Conflict`. The response
 never contains the password or its hash.
 
+> **Upgrading:** the `GET /auth/signup` variant has been removed. It accepted
+> credentials through a verb defined as safe, retriable and prefetchable, and
+> leaked them into access logs, browser history and proxies. Use `POST
+> /auth/signup` with a JSON or form-encoded body. `GET` now returns `405 Method
+> Not Allowed` with `Allow: POST`.
+
 ### Token lifecycle and revocation
 
 Login (`POST /auth/token`) returns an OAuth-shaped body:

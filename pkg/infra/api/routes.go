@@ -145,11 +145,10 @@ func (r *router) Config() *fiber.App {
 
 	auth := app.Group(pathPrefix)
 
-	// Public.
+	// Public. Signup is POST only: it creates a persistent account, so a safe,
+	// retriable, prefetchable verb is the wrong shape, and credentials in a GET
+	// (body or query string) leak into logs, history and proxies.
 	auth.Post("/signup", r.signupController.CreateUser).Name("signup")
-	// Deprecated: signup over GET carries the credentials in a request body
-	// that proxies and access logs may retain. Removed in the next minor.
-	auth.Get("/signup", r.signupController.CreateUser).Name("signupDeprecated")
 	// The token route is the credential-stuffing surface, so it -- and only it
 	// -- is rate limited per client IP. A busy authenticated API is untouched.
 	auth.Post("/token", loginRateLimiter(), r.tokenController.Token).Name("token")
