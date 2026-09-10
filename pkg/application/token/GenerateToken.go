@@ -93,7 +93,7 @@ func (uc generateToken) Execute(ctx context.Context, username, password, clientI
 	// A deactivated account must not be able to log in. Same error as a wrong
 	// password on purpose, so the endpoint cannot be used to probe account
 	// state; the real reason is only in the log.
-	if !user.Enabled {
+	if !user.IsActive() {
 		logFailedLogin(ctx, username, clientIP, "disabled")
 		return nil, ErrInvalidUsernameOrPassword
 	}

@@ -80,7 +80,7 @@ func (uc refreshAccessToken) Execute(ctx context.Context, presented, clientIP, u
 
 	// Re-check account state: this is what turns deactivation from a login-time
 	// check into a real one, bounded by the access-token TTL.
-	if !user.Enabled {
+	if !user.IsActive() {
 		if rerr := uc.refreshTokenRepository.Revoke(ctx, stored.ID); rerr != nil {
 			slog.WarnContext(ctx, "could not revoke refresh token for disabled user",
 				"user_id", user.ID.String(), "err", rerr.Error())

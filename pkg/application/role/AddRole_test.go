@@ -20,7 +20,7 @@ type AddRoleSuite struct {
 	mockCtrl *gomock.Controller
 	rf       *factoryMock.MockRepositoryFactory
 	repo     *mock.MockRoleRepository
-	addRole  *addRole
+	addRole  AddRole
 }
 
 func TestAddRole(t *testing.T) {

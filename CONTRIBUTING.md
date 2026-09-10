@@ -1,129 +1,88 @@
+# Contributing to golauth
 
-# Contributor Covenant Code of Conduct
+Thanks for helping. This is an authentication server, so correctness and a
+reviewable history matter more than speed.
 
-## Our Pledge
+The community guidelines live in [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md).
+Security issues go through the process in [`SECURITY.md`](SECURITY.md), never a
+public issue or PR.
 
-We as members, contributors, and leaders pledge to make participation in our
-community a harassment-free experience for everyone, regardless of age, body
-size, visible or invisible disability, ethnicity, sex characteristics, gender
-identity and expression, level of experience, education, socio-economic status,
-nationality, personal appearance, race, religion, or sexual identity
-and orientation.
+## Getting set up
 
-We pledge to act and interact in ways that contribute to an open, welcoming,
-diverse, inclusive, and healthy community.
+```sh
+make prepare     # installs mockgen + golangci-lint, downloads modules
+make start-db    # local Postgres via docker compose
+```
 
-## Our Standards
+## Before you open a PR
 
-Examples of behavior that contributes to a positive environment for our
-community include:
+```sh
+make mock        # regenerate mocks (they are gitignored, never committed)
+make fmt
+make lint        # golangci-lint, must be clean
+make test        # go test ./... with the coverage profile
+```
 
-* Demonstrating empathy and kindness toward other people
-* Being respectful of differing opinions, viewpoints, and experiences
-* Giving and gracefully accepting constructive feedback
-* Accepting responsibility and apologizing to those affected by our mistakes,
-  and learning from the experience
-* Focusing on what is best not just for us as individuals, but for the
-  overall community
+The integration tests under `pkg/infra/repository/postgres` and `tests/` start
+throwaway Postgres containers with testcontainers, so Docker must be running.
 
-Examples of unacceptable behavior include:
+CI also runs `govulncheck ./...` and enforces a coverage floor; keep both green.
 
-* The use of sexualized language or imagery, and sexual attention or
-  advances of any kind
-* Trolling, insulting or derogatory comments, and personal or political attacks
-* Public or private harassment
-* Publishing others' private information, such as a physical or email
-  address, without their explicit permission
-* Other conduct which could reasonably be considered inappropriate in a
-  professional setting
+## House rules
 
-## Enforcement Responsibilities
+### Layering
 
-Community leaders are responsible for clarifying and enforcing our standards of
-acceptable behavior and will take appropriate and fair corrective action in
-response to any behavior that they deem inappropriate, threatening, offensive,
-or harmful.
+The dependency rule is `domain → application → infra`; an inner layer must not
+import an outer one. `pkg/application` must not import `pkg/infra` at all — this
+is enforced by `TestApplicationDoesNotImportInfra` in
+`pkg/application/layering_test.go`. The route-level authorization model is in
+[`docs/authorization-model.md`](docs/authorization-model.md).
 
-Community leaders have the right and responsibility to remove, edit, or reject
-comments, commits, code, wiki edits, issues, and other contributions that are
-not aligned to this Code of Conduct, and will communicate reasons for moderation
-decisions when appropriate.
+### Constructors
 
-## Scope
+A `NewX` constructor returns the interface `X`, not the unexported concrete
+type. Callers depend on the interface; the struct stays private.
 
-This Code of Conduct applies within all community spaces, and also applies when
-an individual is officially representing the community in public spaces.
-Examples of representing our community include using an official e-mail address,
-posting via an official social media account, or acting as an appointed
-representative at an online or offline event.
+### File names
 
-## Enforcement
+One file per principal type or use case, named after it. Two conventions are in
+use and each package must pick one and stay uniform:
 
-Instances of abusive, harassing, or otherwise unacceptable behavior may be
-reported to the community leaders responsible for enforcement at
-[INSERT CONTACT METHOD].
-All complaints will be reviewed and investigated promptly and fairly.
+- `pkg/domain/entity` uses **lowerCamelCase** after the type: `refreshToken.go`,
+  `loginAttempt.go`, `user.go`.
+- Everywhere else uses **PascalCase** matching the type or use case:
+  `RefreshAccessToken.go`, `UserRepository.go`, `HealthController.go`.
 
-All community leaders are obligated to respect the privacy and security of the
-reporter of any incident.
+Do not mix them within a package. When in doubt, match the files already there.
 
-## Enforcement Guidelines
+### The domain layer
 
-Community leaders will follow these Community Impact Guidelines in determining
-the consequences for any action they deem in violation of this Code of Conduct:
+Entities may carry small, pure behaviours that name an invariant
+(`func (u *User) IsActive() bool`). Request/response shapes and transport
+concerns belong in `pkg/infra/api/controller/model`, not in `entity`.
 
-### 1. Correction
+## `pkg/` versus `internal/`
 
-**Community Impact**: Use of inappropriate language or other behavior deemed
-unprofessional or unwelcome in the community.
+**Decision: the tree stays under `pkg/` for now.**
 
-**Consequence**: A private, written warning from community leaders, providing
-clarity around the nature of the violation and an explanation of why the
-behavior was inappropriate. A public apology may be requested.
+golauth is a deployable service (`cmd/api`), not a library, and nothing outside
+this module imports it. Go's `internal/` would compiler-enforce that and make
+exposing a public API a deliberate act rather than an accident, which is the
+better end state. It is not done yet only because the rename touches every
+import in ~80 files and would swamp any change it rides along with; it should
+land as its own isolated PR:
 
-### 2. Warning
+```sh
+git mv pkg internal
+grep -rl 'golauth/golauth/pkg/' --include='*.go' . \
+  | xargs sed -i 's#golauth/golauth/pkg/#golauth/golauth/internal/#g'
+# update the two prefixes in pkg/application/layering_test.go
+make mock && make test
+```
 
-**Community Impact**: A violation through a single incident or series
-of actions.
+Until then, treat everything under `pkg/` as private to this module. There is no
+stable public API.
 
-**Consequence**: A warning with consequences for continued behavior. No
-interaction with the people involved, including unsolicited interaction with
-those enforcing the Code of Conduct, for a specified period of time. This
-includes avoiding interactions in community spaces as well as external channels
-like social media. Violating these terms may lead to a temporary or
-permanent ban.
-
-### 3. Temporary Ban
-
-**Community Impact**: A serious violation of community standards, including
-sustained inappropriate behavior.
-
-**Consequence**: A temporary ban from any sort of interaction or public
-communication with the community for a specified period of time. No public or
-private interaction with the people involved, including unsolicited interaction
-with those enforcing the Code of Conduct, is allowed during this period.
-Violating these terms may lead to a permanent ban.
-
-### 4. Permanent Ban
-
-**Community Impact**: Demonstrating a pattern of violation of community
-standards, including sustained inappropriate behavior,  harassment of an
-individual, or aggression toward or disparagement of classes of individuals.
-
-**Consequence**: A permanent ban from any sort of public interaction within
-the community.
-
-## Attribution
-
-This Code of Conduct is adapted from the [Contributor Covenant][homepage],
-version 2.0, available at
-https://www.contributor-covenant.org/version/2/0/code_of_conduct.html.
-
-Community Impact Guidelines were inspired by [Mozilla's code of conduct
-enforcement ladder](https://github.com/mozilla/diversity).
-
-[homepage]: https://www.contributor-covenant.org
-
-For answers to common questions about this code of conduct, see the FAQ at
-https://www.contributor-covenant.org/faq. Translations are available at
-https://www.contributor-covenant.org/translations.
+`tests/postgrescontainer.go` is a non-test helper package sitting next to the
+root integration tests. When the move above happens it should become
+`internal/testsupport` so a consumer of the module cannot import it.
