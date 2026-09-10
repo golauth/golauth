@@ -133,6 +133,9 @@ func clearDataScript(basePath string, fileName string) (string, error) {
 
 func loadScript(basePath string, fileName string) (string, error) {
 	filePath := fmt.Sprintf("%s/tests/scripts/%s", basePath, fileName)
+	// #nosec G304 -- basePath and fileName are literals written by the test that
+	// calls this; nothing here is reachable from a request. This package is test
+	// wiring and is under internal/ so no consumer can reach it either.
 	c, err := os.ReadFile(filePath)
 	if err != nil {
 		return "", err

@@ -27,7 +27,8 @@ The integration tests under `internal/infra/repository/postgres` and `tests/`
 start throwaway Postgres containers with testcontainers, so Docker must be
 running.
 
-CI also runs `govulncheck ./...` and enforces a coverage floor; keep both green.
+CI also runs `govulncheck ./...`, two static analysers and a coverage floor; keep
+them green. See [Security scanning](#security-scanning) for what blocks a merge.
 
 ## House rules
 
@@ -55,6 +56,32 @@ use and each package must pick one and stay uniform:
   `RefreshAccessToken.go`, `UserRepository.go`, `HealthController.go`.
 
 Do not mix them within a package. When in doubt, match the files already there.
+
+### Security scanning
+
+Four tools run, and they answer different questions. Knowing which one spoke
+saves you guessing at the fix:
+
+| Tool | Question it answers | Blocks a merge? |
+| --- | --- | --- |
+| `golangci-lint` (incl. gosec) | Is this code shaped badly or unsafely? | **Yes** |
+| CodeQL (`security-extended`) | Does tainted input reach a dangerous sink? | **Yes**, on `error` severity |
+| `govulncheck` | Does a dependency have a CVE my code can reach? | **Yes** |
+| gosec SARIF job | (the same as gosec above, reported to the Security tab) | No |
+| Trivy | Does the shipped image carry a vulnerable package? | **Yes**, on HIGH/CRITICAL with a fix |
+
+CodeQL `warning` and `note` alerts are recorded but do not block; triage them,
+do not ignore them. The gosec SARIF job runs with `-no-fail` on purpose —
+`golangci-lint` is already the hard gate on that analyser, and the second run
+exists for finding history, per-line PR annotations and dismissal with a reason.
+
+Nothing may be suppressed silently. A `#nosec` needs a `--` reason on the same
+line saying why the finding does not apply, in the style of the two already in
+the tree; a Security-tab dismissal needs the same sentence in its comment.
+
+> The blocking behaviour of CodeQL depends on a branch protection rule requiring
+> the `Code scanning results / CodeQL` check on `main`. The workflow cannot
+> enforce that by itself — a repository admin has to enable it once.
 
 ### The domain layer
 

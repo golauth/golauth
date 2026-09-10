@@ -1,0 +1,109 @@
+name: SAST
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    types: [opened, synchronize, reopened]
+  schedule:
+    # Weekly, off the top of the hour so the run is not queued behind everyone
+    # else's midnight cron. This is not redundant with the pull_request trigger:
+    # CodeQL ships new queries continuously, and a scheduled run finds last
+    # month's bug with this month's query without anyone touching the code.
+    - cron: '27 4 * * 1'
+
+# Default read-only. Each job raises only what it needs to publish its findings.
+permissions:
+  contents: read
+
+jobs:
+  codeql:
+    name: CodeQL
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      actions: read # CodeQL reads workflow run metadata to attribute results
+      security-events: write # upload the SARIF to the Security tab
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: '1.27'
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@b96794f015dfd88f77b49b1c93e0fa7110f94c63 # v4.38.0
+        with:
+          languages: go
+          # Manual, not autobuild: see the Build step.
+          build-mode: manual
+          # security-extended over the default security suite -- the extra
+          # queries are worth their triage cost on an auth server. Deliberately
+          # not security-and-quality, which mixes maintainability findings into
+          # the Security tab until the signal drowns.
+          queries: security-extended
+
+      # autobuild would "succeed" here while analysing almost nothing: the mocks
+      # are gitignored (**/mock/*_mock.go) and only exist after `go generate`, so
+      # a clean checkout does not build. That failure mode is silent, which is
+      # worse than a red run. The steps below mirror quality.yaml exactly.
+      - name: Build
+        run: |
+          go install go.uber.org/mock/mockgen@latest
+          go mod download
+          go generate -v ./...
+          go build ./...
+
+      - name: Analyze
+        uses: github/codeql-action/analyze@b96794f015dfd88f77b49b1c93e0fa7110f94c63 # v4.38.0
+        with:
+          category: /language:go
+
+  gosec:
+    name: gosec
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: '1.27'
+
+      - name: Generate mocks
+        run: |
+          go install go.uber.org/mock/mockgen@latest
+          go mod download
+          go generate -v ./...
+
+      # -no-fail is deliberate. golangci-lint already runs gosec as a hard gate
+      # on production code (.golangci.yml), and that is what blocks a merge.
+      # This second run exists for what a red lint step cannot give you: finding
+      # history, dismissal with a recorded reason, and an annotation on the
+      # offending line of the diff. Two invocations of one analyser is a division
+      # of labour, not an oversight -- do not "clean it up" into one.
+      #
+      # It also sees more than the linter does: golangci-lint's
+      # common-false-positives preset silently drops G304, so a real path
+      # traversal would never reach the gate. Here it surfaces, and is either
+      # fixed or annotated with #nosec and a reason in the source.
+      - name: Run gosec
+        run: |
+          go install github.com/securego/gosec/v2/cmd/gosec@v2.29.0
+          gosec -no-fail -fmt sarif -out gosec.sarif -exclude-dir=vendor ./...
+
+      # A pull request from a fork gets a read-only token, so the upload would
+      # fail the job on an outside contribution. The findings are still in the
+      # step log above; only the Security tab entry is skipped.
+      - name: Upload SARIF
+        if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
+        uses: github/codeql-action/upload-sarif@b96794f015dfd88f77b49b1c93e0fa7110f94c63 # v4.38.0
+        with:
+          sarif_file: gosec.sarif
+          category: gosec
