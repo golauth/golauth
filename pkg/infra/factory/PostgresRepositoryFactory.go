@@ -34,3 +34,7 @@ func (p PostgresRepositoryFactory) NewUserRoleRepository() repository.UserRoleRe
 func (p PostgresRepositoryFactory) NewLoginAttemptRepository() repository.LoginAttemptRepository {
 	return postgres.NewLoginAttemptRepository(p.db)
 }
+
+func (p PostgresRepositoryFactory) NewRefreshTokenRepository() repository.RefreshTokenRepository {
+	return postgres.NewRefreshTokenRepository(p.db)
+}

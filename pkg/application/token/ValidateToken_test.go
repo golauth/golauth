@@ -17,6 +17,7 @@ type ValidateTokenSuite struct {
 	*require.Assertions
 	mockCtrl *gomock.Controller
 
+	ks            *keys.KeySet
 	jwtToken      GenerateJwtToken
 	validateToken ValidateToken
 	user          *entity.User
@@ -29,9 +30,9 @@ func TestValidateToken(t *testing.T) {
 func (s *ValidateTokenSuite) SetupTest() {
 	s.Assertions = require.New(s.T())
 	s.mockCtrl = gomock.NewController(s.T())
-	ks := keys.Generate()
-	s.jwtToken = NewGenerateJwtToken(ks.Current)
-	s.validateToken = NewValidateToken(ks)
+	s.ks = keys.Generate()
+	s.jwtToken = NewGenerateJwtToken(s.ks.Current, 30*time.Minute)
+	s.validateToken = NewValidateToken(s.ks)
 
 	s.user = &entity.User{
 		ID:           uuid.New(),
@@ -47,7 +48,6 @@ func (s *ValidateTokenSuite) SetupTest() {
 }
 
 func (s *ValidateTokenSuite) TearDownTest() {
-	TokenExpirationTime = 30
 	s.mockCtrl.Finish()
 }
 
@@ -69,8 +69,11 @@ func (s *ValidateTokenSuite) TestValidateTokenInvalidFormat() {
 }
 
 func (s *ValidateTokenSuite) TestValidateTokenErrExpiredToken() {
-	TokenExpirationTime = -1
-	expiredToken, err := s.jwtToken.Execute(s.user, []string{"ADMIN"})
+	// Sign with the suite's current key (so verification reaches the expiry
+	// check) but with a TTL that has already lapsed by the time we validate.
+	expired := NewGenerateJwtToken(s.ks.Current, time.Nanosecond)
+	time.Sleep(time.Millisecond)
+	expiredToken, err := expired.Execute(s.user, []string{"ADMIN"})
 	s.NoError(err)
 	claims, err := s.validateToken.Execute(expiredToken)
 	s.Error(err)
@@ -86,13 +89,13 @@ func (s *ValidateTokenSuite) TestValidateTokenSignedWithPreviousKey() {
 	current := keys.Generate().Current
 	ks := &keys.KeySet{Current: current, Previous: []*keys.SigningKey{previous}}
 
-	oldToken, err := NewGenerateJwtToken(previous).Execute(s.user, []string{"ADMIN"})
+	oldToken, err := NewGenerateJwtToken(previous, 30*time.Minute).Execute(s.user, []string{"ADMIN"})
 	s.NoError(err)
 	claims, err := NewValidateToken(ks).Execute(oldToken)
 	s.NoError(err)
 	s.Equal(s.user.Username, claims.Username)
 
-	newToken, err := NewGenerateJwtToken(current).Execute(s.user, []string{"ADMIN"})
+	newToken, err := NewGenerateJwtToken(current, 30*time.Minute).Execute(s.user, []string{"ADMIN"})
 	s.NoError(err)
 	_, err = NewValidateToken(ks).Execute(newToken)
 	s.NoError(err)
@@ -100,7 +103,7 @@ func (s *ValidateTokenSuite) TestValidateTokenSignedWithPreviousKey() {
 
 // TestValidateTokenUnknownKeyID rejects a token whose kid names no key we hold.
 func (s *ValidateTokenSuite) TestValidateTokenUnknownKeyID() {
-	strayToken, err := NewGenerateJwtToken(keys.Generate().Current).Execute(s.user, []string{"ADMIN"})
+	strayToken, err := NewGenerateJwtToken(keys.Generate().Current, 30*time.Minute).Execute(s.user, []string{"ADMIN"})
 	s.NoError(err)
 
 	claims, err := s.validateToken.Execute(strayToken)

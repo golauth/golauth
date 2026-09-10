@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -31,6 +32,7 @@ const (
 // publicPaths are the only paths the API is meant to serve without a token.
 var publicPaths = map[string]bool{
 	"/auth/token":                 true,
+	"/auth/token/refresh":         true,
 	"/auth/check_token":           true,
 	"/auth/signup":                true,
 	"/auth/.well-known/jwks.json": true,
@@ -51,6 +53,7 @@ type RoutesSuite struct {
 	userRoleRepository      *repomock.MockUserRoleRepository
 	userAuthorityRepository *repomock.MockUserAuthorityRepository
 	loginAttemptRepository  *repomock.MockLoginAttemptRepository
+	refreshTokenRepository  *repomock.MockRefreshTokenRepository
 
 	repoFactory *factorymock.MockRepositoryFactory
 	keySet      *keys.KeySet
@@ -72,6 +75,7 @@ func (s *RoutesSuite) SetupTest() {
 	s.userRoleRepository = repomock.NewMockUserRoleRepository(s.ctrl)
 	s.userAuthorityRepository = repomock.NewMockUserAuthorityRepository(s.ctrl)
 	s.loginAttemptRepository = repomock.NewMockLoginAttemptRepository(s.ctrl)
+	s.refreshTokenRepository = repomock.NewMockRefreshTokenRepository(s.ctrl)
 
 	repoFactory := factorymock.NewMockRepositoryFactory(s.ctrl)
 	s.repoFactory = repoFactory
@@ -80,6 +84,7 @@ func (s *RoutesSuite) SetupTest() {
 	repoFactory.EXPECT().NewUserRoleRepository().Return(s.userRoleRepository).AnyTimes()
 	repoFactory.EXPECT().NewUserAuthorityRepository().Return(s.userAuthorityRepository).AnyTimes()
 	repoFactory.EXPECT().NewLoginAttemptRepository().Return(s.loginAttemptRepository).AnyTimes()
+	repoFactory.EXPECT().NewRefreshTokenRepository().Return(s.refreshTokenRepository).AnyTimes()
 
 	s.userID = uuid.New()
 	s.keySet = keys.Generate()
@@ -88,6 +93,14 @@ func (s *RoutesSuite) SetupTest() {
 
 func (s *RoutesSuite) TearDownTest() {
 	s.ctrl.Finish()
+}
+
+// passthroughRefreshCreate stands in for the refresh-token repository at login:
+// it stamps an id and echoes the row back, so the real GenerateToken use case
+// completes without a database.
+func passthroughRefreshCreate(_ context.Context, rt *entity.RefreshToken) (*entity.RefreshToken, error) {
+	rt.ID = uuid.New()
+	return rt, nil
 }
 
 // login drives the real public token endpoint, so the tokens under test are
@@ -102,6 +115,8 @@ func (s *RoutesSuite) login(authorities ...string) string {
 		Return(authorities, nil).
 		Times(1)
 	s.loginAttemptRepository.EXPECT().Get(gomock.Any(), s.userID).Return(nil, nil).Times(1)
+	s.refreshTokenRepository.EXPECT().Create(gomock.Any(), gomock.Any()).
+		DoAndReturn(passthroughRefreshCreate).Times(1)
 
 	body := fmt.Sprintf(`{"username":"admin","password":%q}`, adminPassword)
 	req, _ := http.NewRequest(http.MethodPost, "/auth/token", strings.NewReader(body))
@@ -193,6 +208,29 @@ func (s *RoutesSuite) TestPublicRoutesRemainReachable() {
 		// route -- the failure mode of a half-applied fix.
 		s.Equal(http.StatusBadRequest, s.do(http.MethodGet, "/auth/check_token", ""))
 	})
+
+	s.Run("token/refresh", func() {
+		// Public: an empty body reaches the handler's own 400. A 401 would mean
+		// the security middleware intercepted it.
+		s.Equal(http.StatusBadRequest, s.do(http.MethodPost, "/auth/token/refresh", ""))
+	})
+}
+
+// TestLogoutRoutesAreAuthenticated: /auth/logout and /auth/logout/all sit
+// behind the security middleware (401 without a token) but, with a valid token,
+// reach their own handlers.
+func (s *RoutesSuite) TestLogoutRoutesAreAuthenticated() {
+	s.Equal(http.StatusUnauthorized, s.do(http.MethodPost, "/auth/logout", ""))
+	s.Equal(http.StatusUnauthorized, s.do(http.MethodPost, "/auth/logout/all", ""))
+
+	token := s.login("USER")
+
+	// Empty body -> the logout handler's own 400, proving it ran.
+	s.Equal(http.StatusBadRequest, s.do(http.MethodPost, "/auth/logout", token))
+
+	// logout/all revokes by subject; the real use case calls the repo.
+	s.refreshTokenRepository.EXPECT().RevokeAllForUser(gomock.Any(), s.userID).Return(int64(1), nil).Times(1)
+	s.Equal(http.StatusNoContent, s.do(http.MethodPost, "/auth/logout/all", token))
 }
 
 // TestAdvisoryExploitChain replays the published PoC. Authentication alone
@@ -357,6 +395,8 @@ func (s *RoutesSuite) TestTokenEndpointIsRateLimited() {
 	s.userAuthorityRepository.EXPECT().FindAuthoritiesByUserID(gomock.Any(), s.userID).
 		Return([]string{"USER"}, nil).Times(10)
 	s.loginAttemptRepository.EXPECT().Get(gomock.Any(), s.userID).Return(nil, nil).Times(10)
+	s.refreshTokenRepository.EXPECT().Create(gomock.Any(), gomock.Any()).
+		DoAndReturn(passthroughRefreshCreate).Times(10)
 
 	s.Equal(http.StatusTooManyRequests, s.burstLogin(11, nil))
 }
@@ -370,6 +410,8 @@ func (s *RoutesSuite) TestForgedForwardedForDoesNotBypassRateLimit() {
 	s.userAuthorityRepository.EXPECT().FindAuthoritiesByUserID(gomock.Any(), s.userID).
 		Return([]string{"USER"}, nil).Times(10)
 	s.loginAttemptRepository.EXPECT().Get(gomock.Any(), s.userID).Return(nil, nil).Times(10)
+	s.refreshTokenRepository.EXPECT().Create(gomock.Any(), gomock.Any()).
+		DoAndReturn(passthroughRefreshCreate).Times(10)
 
 	i := 0
 	status := s.burstLogin(11, func(req *http.Request) {

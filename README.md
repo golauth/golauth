@@ -79,6 +79,9 @@ networks:
 | LOGIN_LOCKOUT_BASE_DELAY | Lock duration at the threshold; doubles per further failure (default `1m`).                                                     |
 | LOGIN_LOCKOUT_MAX_DELAY  | Upper bound on the doubling lock duration (default `15m`).                                                                      |
 | PASSWORD_DENYLIST        | `off` (default) disables it; `on` enforces a small embedded common-password list; any other value is a path to a newline-delimited file of forbidden passwords. An unreadable path logs a warning and disables the check. |
+| ACCESS_TOKEN_TTL         | Access-token lifetime, a Go duration (default `15m`).                                                                            |
+| REFRESH_TOKEN_TTL        | Refresh-token lifetime, a Go duration (default `168h`, i.e. 7 days).                                                             |
+| REFRESH_TOKEN_CLEANUP_INTERVAL | How often expired refresh-token rows are purged, a Go duration (default `1h`).                                              |
 
 `CORS_ALLOWED_ORIGINS` no longer defaults to `*`. Set it to the origins of your
 front-ends; a wildcard combined with the `authorization` header would let any
@@ -168,9 +171,52 @@ is an administrative operation. Sending `enabled` is silently ignored.
 A `username` or `email` that already exists returns `409 Conflict`. The response
 never contains the password or its hash.
 
+### Token lifecycle and revocation
+
+Login (`POST /auth/token`) returns an OAuth-shaped body:
+
+```json
+{ "access_token": "<jwt>", "refresh_token": "<opaque>", "token_type": "Bearer", "expires_in": 900 }
+```
+
+- The **access token** is a short-lived JWT (`ACCESS_TOKEN_TTL`, default 15 minutes). It is
+  self-contained and is *not* checked against a denylist, so it stays valid until it expires.
+- The **refresh token** is a 32-byte opaque string. Only its SHA-256 is stored, in
+  `golauth_refresh_token`, so a database dump does not hand over live sessions
+  (`REFRESH_TOKEN_TTL`, default 7 days).
+
+Endpoints:
+
+| Endpoint | Auth | Effect |
+|---|---|---|
+| `POST /auth/token/refresh` | public | Exchange a refresh token for a **new** access + refresh pair. The presented refresh token is rotated: revoked and chained to its successor. Body: `{"refresh_token": "..."}`. |
+| `POST /auth/logout` | bearer | Revoke the presented refresh token. Body: `{"refresh_token": "..."}`. Idempotent. |
+| `POST /auth/logout/all` | bearer | Revoke every refresh token of the token subject. |
+
+**Rotation and reuse detection.** Every refresh rotates the token. If a refresh token that has
+already been rotated away is presented again, that is the signature of a stolen token: golauth
+revokes **every** refresh token of that user and logs a `refresh_token_reuse` event. The old
+token then buys nothing.
+
+**Deactivation now bites.** Refresh re-checks the user: a disabled account cannot obtain a new
+access token, so deactivating a user takes effect within one `ACCESS_TOKEN_TTL` rather than
+lasting until the JWT would have expired.
+
+**Logout trade-off.** Logout revokes the refresh token but the current access token keeps working
+until it expires. Instant access-token revocation would need a denylist checked on every request;
+that is deliberately out of scope. Keep `ACCESS_TOKEN_TTL` short.
+
+**Cleanup.** Expired rows are deleted on start-up and every `REFRESH_TOKEN_CLEANUP_INTERVAL`. A
+deployment that prefers an external cron can set the interval very long and run
+`DELETE FROM golauth_refresh_token WHERE expires_at < now()` itself.
+
+> **Upgrading:** the access token was 60 minutes and is now 15. Clients that assumed an hour must
+> adopt the refresh flow. To migrate gradually, set `ACCESS_TOKEN_TTL=60m` in the deployment,
+> ship the refresh support in clients, then drop back to the default.
+
 ### Authorization
 
-Only `/auth/token`, `/auth/check_token`, `/auth/signup` and
+Only `/auth/token`, `/auth/token/refresh`, `/auth/check_token`, `/auth/signup` and
 `/auth/.well-known/jwks.json` are public. Every other endpoint requires a
 `Bearer` token, and the role-management endpoints
 (`/auth/roles*` and `/auth/users/:id/add-role`) additionally require the `ADMIN`
