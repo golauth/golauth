@@ -5,6 +5,7 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/golauth/golauth/pkg/infra/api/apictx"
+	"github.com/golauth/golauth/pkg/infra/logging"
 	"github.com/google/uuid"
 )
 
@@ -26,6 +27,10 @@ func RequestID() fiber.Handler {
 			id = uuid.NewString()
 		}
 		apictx.SetRequestID(ctx, id)
+		// Also carry it on the request context.Context, so an audit event or a
+		// stray warning logged from deep in a use case -- which only sees the
+		// context, not fiber Locals -- is still tied to this request.
+		ctx.SetContext(logging.ContextWithRequestID(ctx.Context(), id))
 		ctx.Set(apictx.RequestIDHeader, id)
 		return ctx.Next()
 	}

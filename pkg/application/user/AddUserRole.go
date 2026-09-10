@@ -3,6 +3,8 @@ package user
 
 import (
 	"context"
+
+	"github.com/golauth/golauth/pkg/application/audit"
 	"github.com/golauth/golauth/pkg/domain/repository"
 	"github.com/google/uuid"
 )
@@ -20,5 +22,12 @@ type addUserRole struct {
 }
 
 func (uc addUserRole) Execute(ctx context.Context, userID uuid.UUID, roleID uuid.UUID) error {
-	return uc.repo.AddUserRole(ctx, userID, roleID)
+	if err := uc.repo.AddUserRole(ctx, userID, roleID); err != nil {
+		return err
+	}
+	audit.Event(ctx, audit.RoleGranted,
+		"user_id", userID.String(),
+		"role_id", roleID.String(),
+	)
+	return nil
 }

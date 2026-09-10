@@ -3,10 +3,9 @@ package user
 import (
 	"bufio"
 	_ "embed"
+	"log/slog"
 	"os"
 	"strings"
-
-	"github.com/sirupsen/logrus"
 )
 
 // PasswordDenylist rejects a candidate password that appears verbatim in a set
@@ -61,7 +60,8 @@ func LoadPasswordDenylist() PasswordDenylist {
 	// #nosec G304 G703 -- v is the operator-supplied PASSWORD_DENYLIST path
 	data, err := os.ReadFile(v)
 	if err != nil {
-		logrus.Warnf("PASSWORD_DENYLIST=%q could not be read (%v); password denylist disabled", v, err)
+		slog.Warn("PASSWORD_DENYLIST file could not be read; password denylist disabled",
+			"path", v, "err", err.Error())
 		return nil
 	}
 	return newSetDenylist(string(data))

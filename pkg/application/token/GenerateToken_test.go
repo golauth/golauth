@@ -1,11 +1,16 @@
 package token
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
+	"log/slog"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/golauth/golauth/pkg/application/audit"
 	tokenMock "github.com/golauth/golauth/pkg/application/token/mock"
 	"github.com/golauth/golauth/pkg/domain/entity"
 	factoryMock "github.com/golauth/golauth/pkg/domain/factory/mock"
@@ -119,6 +124,73 @@ func (s *GenerateTokenSuite) expectRefreshTokenCreated(userID uuid.UUID) {
 			rt.ID = uuid.New()
 			return rt, nil
 		}).Times(1)
+}
+
+// captureAudit swaps the audit sink for one writing JSON into a buffer and
+// restores it when the test ends.
+func (s *GenerateTokenSuite) captureAudit() *bytes.Buffer {
+	buf := &bytes.Buffer{}
+	logger := slog.New(slog.NewJSONHandler(buf, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	prev := audit.Logger
+	audit.Logger = func() *slog.Logger { return logger }
+	s.T().Cleanup(func() { audit.Logger = prev })
+	return buf
+}
+
+// auditEvents parses the audit records ("event" present) out of buf.
+func (s *GenerateTokenSuite) auditEvents(buf *bytes.Buffer) []map[string]any {
+	var out []map[string]any
+	for _, raw := range strings.Split(strings.TrimSpace(buf.String()), "\n") {
+		if raw == "" {
+			continue
+		}
+		var m map[string]any
+		s.NoError(json.Unmarshal([]byte(raw), &m))
+		if _, ok := m["event"]; ok {
+			out = append(out, m)
+		}
+	}
+	return out
+}
+
+// A rejected login emits exactly one audit event, carrying the real reason that
+// the HTTP response is forbidden from disclosing.
+func (s *GenerateTokenSuite) TestGenerateTokenFailureEmitsOneAuditEvent() {
+	buf := s.captureAudit()
+
+	s.userRepository.EXPECT().FindByUsername(s.ctx, "admin").
+		Return(nil, fmt.Errorf("no such user")).Times(1)
+
+	_, err := s.generateToken.Execute(s.ctx, "admin", "guess", testClientIP, testUserAgent)
+	s.ErrorIs(err, ErrInvalidUsernameOrPassword)
+
+	events := s.auditEvents(buf)
+	s.Require().Len(events, 1)
+	s.Equal(audit.LoginFailed, events[0]["event"])
+	s.Equal("unknown_user", events[0]["outcome"])
+	s.Equal("admin", events[0]["username"])
+	s.Equal(testClientIP, events[0]["client_ip"])
+}
+
+// A successful login emits exactly one login_succeeded event and no failure.
+func (s *GenerateTokenSuite) TestGenerateTokenSuccessEmitsLoginSucceeded() {
+	buf := s.captureAudit()
+
+	user := userWithPassword("123456")
+	authorities := []string{"USER"}
+	s.userRepository.EXPECT().FindByUsername(s.ctx, "admin").Return(user, nil).Times(1)
+	s.loginAttemptRepository.EXPECT().Get(s.ctx, user.ID).Return(nil, nil).Times(1)
+	s.userAuthorityRepository.EXPECT().FindAuthoritiesByUserID(s.ctx, user.ID).Return(authorities, nil).Times(1)
+	s.jwtToken.EXPECT().Execute(user, authorities).Return("a.b.c", nil).Times(1)
+	s.expectRefreshTokenCreated(user.ID)
+
+	_, err := s.generateToken.Execute(s.ctx, "admin", "123456", testClientIP, testUserAgent)
+	s.NoError(err)
+
+	events := s.auditEvents(buf)
+	s.Require().Len(events, 1)
+	s.Equal(audit.LoginSucceeded, events[0]["event"])
+	s.Equal(user.ID.String(), events[0]["user_id"])
 }
 
 func (s *GenerateTokenSuite) TestGenerateTokenUserNotFound() {

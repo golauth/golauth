@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/golauth/golauth/pkg/application/audit"
 	"github.com/golauth/golauth/pkg/domain/factory"
 	"github.com/golauth/golauth/pkg/domain/repository"
 	"github.com/google/uuid"
@@ -34,12 +35,17 @@ func (uc logout) Session(ctx context.Context, refreshToken string) error {
 	if stored == nil {
 		return nil
 	}
-	return uc.refreshTokenRepository.Revoke(ctx, stored.ID)
+	if err := uc.refreshTokenRepository.Revoke(ctx, stored.ID); err != nil {
+		return err
+	}
+	audit.Event(ctx, audit.Logout, "user_id", stored.UserID.String())
+	return nil
 }
 
 func (uc logout) AllSessions(ctx context.Context, userID uuid.UUID) error {
 	if _, err := uc.refreshTokenRepository.RevokeAllForUser(ctx, userID); err != nil {
 		return err
 	}
+	audit.Event(ctx, audit.LogoutAll, "user_id", userID.String())
 	return nil
 }

@@ -13,10 +13,9 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"strings"
-
-	"github.com/sirupsen/logrus"
 )
 
 // Environment variables consulted by Load.
@@ -129,9 +128,10 @@ func loadCurrent() (*SigningKey, error) {
 		return nil, ErrNoSigningKey
 	}
 
-	logrus.Warnf("keys: neither %s nor %s is set; signing tokens with an ephemeral key. "+
+	slog.Warn("keys: no signing key configured; using an ephemeral key. "+
 		"Every restart invalidates all outstanding tokens and a second replica cannot verify them. "+
-		"Set one of these variables before deploying.", EnvPrivateKey, EnvPrivateKeyFile)
+		"Set one of these variables before deploying.",
+		"vars", EnvPrivateKey+", "+EnvPrivateKeyFile)
 	return Generate().Current, nil
 }
 

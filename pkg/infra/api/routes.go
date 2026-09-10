@@ -1,6 +1,7 @@
 package api
 
 import (
+	"log/slog"
 	"os"
 	"strconv"
 	"strings"
@@ -17,7 +18,6 @@ import (
 	"github.com/golauth/golauth/pkg/infra/api/controller"
 	"github.com/golauth/golauth/pkg/infra/api/httperr"
 	"github.com/golauth/golauth/pkg/infra/api/middleware"
-	"github.com/sirupsen/logrus"
 )
 
 const pathPrefix = "/auth"
@@ -92,8 +92,12 @@ func (r *router) Config() *fiber.App {
 	// never the other way around.
 	//
 	// RequestID is first so even a panic or an auth rejection carries a
-	// correlation id into the error body and the log.
+	// correlation id into the error body and the log. AccessLog is next, ahead
+	// of recover and the security middleware, so every request -- including a
+	// 401 from SecurityMiddleware and a 500 from a recovered panic -- produces
+	// exactly one structured line with that id.
 	app.Use(middleware.RequestID())
+	app.Use(middleware.AccessLog())
 	app.Use(recover.New())
 	app.Use(cors.New(cors.Config{
 		AllowOrigins: allowedOrigins(),
@@ -225,7 +229,7 @@ func intEnv(key string, def int) int {
 		if n, err := strconv.Atoi(v); err == nil && n > 0 {
 			return n
 		}
-		logrus.Warnf("invalid %s=%q, using default %d", key, v, def)
+		slog.Warn("invalid env var, using default", "key", key, "value", v, "default", def)
 	}
 	return def
 }
@@ -236,7 +240,8 @@ func durationEnv(key string, def time.Duration) time.Duration {
 		if d, err := time.ParseDuration(v); err == nil && d > 0 {
 			return d
 		}
-		logrus.Warnf("invalid %s=%q (want a Go duration like \"1m\"), using default %s", key, v, def)
+		slog.Warn("invalid duration env var, using default",
+			"key", key, "value", v, "want", "a Go duration like \"1m\"", "default", def.String())
 	}
 	return def
 }

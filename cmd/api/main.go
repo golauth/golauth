@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"os"
 	"time"
 
@@ -13,7 +13,7 @@ import (
 	"github.com/golauth/golauth/pkg/infra/api"
 	"github.com/golauth/golauth/pkg/infra/database"
 	"github.com/golauth/golauth/pkg/infra/factory"
-	"github.com/sirupsen/logrus"
+	"github.com/golauth/golauth/pkg/infra/logging"
 
 	"github.com/subosito/gotenv"
 )
@@ -33,19 +33,24 @@ func cleanupInterval() time.Duration {
 		if d, err := time.ParseDuration(v); err == nil && d > 0 {
 			return d
 		}
-		logrus.Warnf("invalid REFRESH_TOKEN_CLEANUP_INTERVAL=%q, using default %s", v, token.DefaultCleanupInterval)
+		slog.Warn("invalid REFRESH_TOKEN_CLEANUP_INTERVAL, using default",
+			"value", v, "default", token.DefaultCleanupInterval.String())
 	}
 	return token.DefaultCleanupInterval
 }
 
 func main() {
 	_ = gotenv.Load()
+	// Configure the process-wide logger before anything else logs.
+	logging.Setup()
+
 	port := getPortEnv()
 	addr := fmt.Sprint(":", port)
 
 	keySet, err := keys.Load()
 	if err != nil {
-		logrus.Fatalf("loading jwt signing key: %v", err)
+		slog.Error("loading jwt signing key", "err", err.Error())
+		os.Exit(1)
 	}
 
 	db := database.NewPGDatabase()
@@ -58,6 +63,9 @@ func main() {
 	token.StartRefreshTokenCleanup(context.Background(), rf.NewRefreshTokenRepository(), cleanupInterval())
 
 	app := api.NewRouter(rf, keySet)
-	fmt.Println("Server listening on port: ", port)
-	log.Fatal(app.Config().Listen(addr, fiber.ListenConfig{DisableStartupMessage: true}))
+	slog.Info("server listening", "port", port)
+	if err := app.Config().Listen(addr, fiber.ListenConfig{DisableStartupMessage: true}); err != nil {
+		slog.Error("server stopped", "err", err.Error())
+		os.Exit(1)
+	}
 }

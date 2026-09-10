@@ -1,10 +1,12 @@
 package api
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"strings"
 	"testing"
@@ -17,6 +19,7 @@ import (
 	factorymock "github.com/golauth/golauth/pkg/domain/factory/mock"
 	repomock "github.com/golauth/golauth/pkg/domain/repository/mock"
 	"github.com/golauth/golauth/pkg/infra/api/controller/model"
+	"github.com/golauth/golauth/pkg/infra/logging"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -214,6 +217,43 @@ func (s *RoutesSuite) TestErrorContractOnEveryProtectedRoute() {
 		checked++
 	}
 	s.Greater(checked, 0)
+}
+
+// TestFailedLoginIsAuditedUnderTheRequestID proves the id threads end to end:
+// the middleware assigns it, it reaches the GenerateToken use case through the
+// request context, and the login_failed audit event carries the same value the
+// caller got back in X-Request-Id.
+func (s *RoutesSuite) TestFailedLoginIsAuditedUnderTheRequestID() {
+	buf := &bytes.Buffer{}
+	prev := slog.Default()
+	slog.SetDefault(slog.New(logging.WithContext(slog.NewJSONHandler(buf, nil))))
+	defer slog.SetDefault(prev)
+
+	s.userRepository.EXPECT().FindByUsername(gomock.Any(), "admin").
+		Return(nil, fmt.Errorf("no such user")).Times(1)
+
+	body := `{"username":"admin","password":"wrong"}`
+	req, _ := http.NewRequest(http.MethodPost, "/auth/token", strings.NewReader(body))
+	req.Header.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSON)
+	resp, err := s.app.Test(req, fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
+	s.Require().NoError(err)
+	_ = resp.Body.Close()
+	s.Equal(http.StatusUnauthorized, resp.StatusCode)
+
+	reqID := resp.Header.Get("X-Request-Id")
+	s.Require().NotEmpty(reqID)
+
+	var found map[string]any
+	for _, raw := range strings.Split(strings.TrimSpace(buf.String()), "\n") {
+		var m map[string]any
+		s.Require().NoError(json.Unmarshal([]byte(raw), &m))
+		if m["event"] == "login_failed" {
+			found = m
+		}
+	}
+	s.Require().NotNil(found, "no login_failed audit event was emitted")
+	s.Equal("unknown_user", found["outcome"])
+	s.Equal(reqID, found["request_id"], "audit event not tied to the request id")
 }
 
 // TestPublicRoutesRemainReachable guards the other direction: fixing the path

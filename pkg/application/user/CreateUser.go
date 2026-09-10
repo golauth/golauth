@@ -4,6 +4,8 @@ package user
 import (
 	"context"
 	"fmt"
+
+	"github.com/golauth/golauth/pkg/application/audit"
 	"github.com/golauth/golauth/pkg/domain/entity"
 	"github.com/golauth/golauth/pkg/domain/factory"
 	"github.com/golauth/golauth/pkg/domain/repository"
@@ -63,5 +65,9 @@ func (uc createUser) Execute(ctx context.Context, input *entity.User) (*entity.U
 		return nil, fmt.Errorf("could not add default role to user: %w", err)
 	}
 
+	audit.Event(ctx, audit.UserCreated,
+		"user_id", savedUser.ID.String(),
+		"username", savedUser.Username,
+	)
 	return savedUser, nil
 }
