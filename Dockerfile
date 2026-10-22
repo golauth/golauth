@@ -98,7 +98,7 @@ ENTRYPOINT ["./golauth"]
 # no package manager, so unlike the two stages above it cannot patch itself at
 # build time: a new digest is the *only* way this variant gets a security fix.
 # The tag is kept alongside so Dependabot's docker ecosystem can track and bump it.
-FROM gcr.io/distroless/static-debian13:nonroot@sha256:e2e927ec666bae08560abb3c55d0659eceabb657f56b6782ab500a9fc7f555e3 AS dist-distroless
+FROM gcr.io/distroless/static-debian13:nonroot@sha256:d62067879de890a1def9da0e7766b7d20810a5e5555cef8506b752437d7a3e88 AS dist-distroless
 ENV MIGRATION_SOURCE_URL=./migrations
 
 # No RUN block: the base already provides ca-certificates, tzdata, and the
